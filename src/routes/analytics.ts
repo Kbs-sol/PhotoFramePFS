@@ -5,31 +5,36 @@ import { getSupabase } from '../lib/supabase';
 const analytics = new Hono<{ Bindings: Bindings }>();
 
 analytics.post('/funnel', async (c) => {
+  // CRITICAL: Always return 200 for analytics — never crash the frontend
   try {
-    const supabase = getSupabase(c.env);
-    const { event_type, product_id, order_id, metadata } = await c.req.json();
-    
-    // Get UTMs and Session from headers/cookies if available (optional for now)
-    
-    const { error } = await supabase
-      .from('sales_funnel_events')
-      .insert({
-        event_type,
-        product_id: product_id || null,
-        order_id: order_id || null,
-        utm_source: metadata?.utm_source || null,
-        utm_medium: metadata?.utm_medium || null,
-        utm_campaign: metadata?.utm_campaign || null,
-        metadata: metadata || {},
-        created_at: new Date().toISOString()
-      });
+    if (!c.env?.SUPABASE_URL) return c.json({ success: true }); // Silently skip if DB not configured
 
-    if (error) throw error;
-    
+    const body = await c.req.json().catch(() => ({}));
+    const { event_type, product_id, order_id, metadata } = body;
+
+    // Validate event_type to prevent junk data
+    const validEvents = ['page_view', 'view_product', 'add_to_cart', 'initiate_checkout', 'purchase', 'view_home'];
+    if (!event_type || !validEvents.includes(event_type)) {
+      return c.json({ success: true }); // Silently ignore invalid events
+    }
+
+    const supabase = getSupabase(c.env);
+    await supabase.from('sales_funnel_events').insert({
+      event_type,
+      product_id: product_id || null,
+      order_id: order_id || null,
+      utm_source: typeof metadata?.utm_source === 'string' ? metadata.utm_source.slice(0, 100) : null,
+      utm_medium: typeof metadata?.utm_medium === 'string' ? metadata.utm_medium.slice(0, 100) : null,
+      utm_campaign: typeof metadata?.utm_campaign === 'string' ? metadata.utm_campaign.slice(0, 200) : null,
+      metadata: metadata || {},
+      created_at: new Date().toISOString()
+    });
+
     return c.json({ success: true });
   } catch (error: any) {
-    console.error('Analytics Error:', error.message);
-    return c.json({ success: false, error: error.message }, 500);
+    // NEVER return 500 for analytics — silent fail is correct
+    console.error('Analytics Error (non-critical):', error.message);
+    return c.json({ success: true });
   }
 });
 
