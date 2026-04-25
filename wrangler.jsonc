@@ -1,34 +1,30 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "webapp",
-  "compatibility_date": "2026-04-13",
+  "name": "photoframein",
+  "compatibility_date": "2026-03-28",
   "pages_build_output_dir": "./dist",
   "compatibility_flags": [
     "nodejs_compat"
   ]
-  // "vars": {
-  //   "MY_VAR": "my-variable"
-  // },
-  // "kv_namespaces": [
-  //   {
-  //     "binding": "MY_KV_NAMESPACE",
-  //     "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-  //   }
-  // ],
-  // "r2_buckets": [
-  //   {
-  //     "binding": "MY_BUCKET",
-  //     "bucket_name": "my-bucket"
-  //   }
-  // ],
-  // "d1_databases": [
-  //   {
-  //     "binding": "MY_DB",
-  //     "database_name": "my-database",
-  //     "database_id": ""
-  //   }
-  // ],
-  // "ai": {
-  //   "binding": "AI"
-  // }
+  // ─────────────────────────────────────────────────────────────────
+  // SECRETS (set via Cloudflare Dashboard or wrangler CLI):
+  // wrangler pages secret put SUPABASE_URL --project-name photoframein
+  // wrangler pages secret put SUPABASE_ANON_KEY --project-name photoframein
+  // wrangler pages secret put SUPABASE_SERVICE_KEY --project-name photoframein
+  // wrangler pages secret put RAZORPAY_KEY_ID --project-name photoframein
+  // wrangler pages secret put RAZORPAY_KEY_SECRET --project-name photoframein
+  // wrangler pages secret put ADMIN_TOKEN --project-name photoframein
+  // wrangler pages secret put ADMIN_PASSWORD --project-name photoframein
+  // wrangler pages secret put OWNER_EMAIL --project-name photoframein
+  // wrangler pages secret put ALERT_EMAIL --project-name photoframein
+  // wrangler pages secret put SHIPROCKET_EMAIL --project-name photoframein
+  // wrangler pages secret put SHIPROCKET_PASSWORD --project-name photoframein
+  // wrangler pages secret put BREVO_API_KEY --project-name photoframein
+  // wrangler pages secret put RESEND_API_KEY --project-name photoframein
+  // wrangler pages secret put WHATSAPP_NUMBER --project-name photoframein
+  // wrangler pages secret put GTM_CONTAINER_ID --project-name photoframein
+  // wrangler pages secret put GA4_MEASUREMENT_ID --project-name photoframein
+  // wrangler pages secret put MICROSOFT_CLARITY_ID --project-name photoframein
+  // ─────────────────────────────────────────────────────────────────
+  // R2, KV, D1 bindings configured via Cloudflare dashboard if needed
 }
