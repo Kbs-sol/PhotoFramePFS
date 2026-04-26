@@ -106,6 +106,8 @@
     { id: 'coupons', icon: 'fa-tag', label: 'Coupons' },
     { id: 'reviews', icon: 'fa-star', label: 'Reviews' },
     { id: 'content', icon: 'fa-file-alt', label: 'Content' },
+    { id: 'combos', icon: 'fa-layer-group', label: 'Combos & Bundles' },
+    { id: 'ad_performance', icon: 'fa-chart-bar', label: 'Ad Performance' },
     { id: 'settings', icon: 'fa-cog', label: 'Settings' }
   ];
 
@@ -166,6 +168,8 @@
         case 'reviews': await renderReviews(content); break;
         case 'content': await renderContent(content); break;
         case 'settings': await renderSettings(content); break;
+        case 'combos': await renderCombos(content); break;
+        case 'ad_performance': await renderAdPerformance(content); break;
       }
     } catch (e) {
       content.innerHTML = `<div class="text-center py-12"><p class="text-red-400">Error loading ${id}</p><p class="text-sm text-gray-500 mt-2">${e.message}</p><button onclick="admin.go('${id}')" class="admin-btn admin-btn-ghost mt-4">Retry</button></div>`;
@@ -661,34 +665,48 @@
     </table>`;
   }
 
-  // ========== REVIEWS ==========
+  // ========== REVIEWS (upgraded: feature, reply, bulk import, hidden tab) ==========
   async function renderReviews(el) {
-    const data = await api('GET', '/reviews?status=pending');
-    const approved = await api('GET', '/reviews?status=approved');
-    el.innerHTML = `
-    <h2 class="text-2xl font-bold mb-6">Reviews</h2>
-    <div class="flex gap-2 mb-6">
-      <button class="tab-btn active" onclick="admin.showReviewTab('pending',this)">Pending (${data.reviews?.length || 0})</button>
-      <button class="tab-btn" onclick="admin.showReviewTab('approved',this)">Approved (${approved.reviews?.length || 0})</button>
-    </div>
-    <div id="reviews-content">
-      ${(data.reviews || []).map(r => `
-        <div class="stat-card mb-4">
-          <div class="flex justify-between items-start mb-2">
-            <div>
-              <strong>${escapeHTML(r.customer_name)}</strong> <span class="text-yellow-400">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
-              <div class="text-xs text-gray-500">${escapeHTML(r.product?.name) || ''} · ${new Date(r.created_at).toLocaleDateString('en-IN')}</div>
-            </div>
-            <div class="flex gap-2">
-              <button onclick="admin.approveReview('${r.id}')" class="admin-btn admin-btn-green text-xs">Approve</button>
-              <button onclick="admin.hideReview('${r.id}')" class="admin-btn admin-btn-danger text-xs">Hide</button>
-            </div>
+    el.innerHTML = '<div class="text-center py-10"><div class="admin-spinner"></div></div>';
+    const [pending, approved] = await Promise.all([
+      api('GET', '/reviews?status=pending'),
+      api('GET', '/reviews?status=approved')
+    ]);
+    const hidden = await api('GET', '/reviews?status=hidden').catch(() => ({ reviews: [] }));
+    const reviewCard = (r, tab) => `
+      <div class="stat-card mb-4">
+        <div class="flex justify-between items-start mb-2">
+          <div>
+            <strong>${escapeHTML(r.customer_name || 'Anonymous')}</strong>
+            <span class="text-yellow-400 ml-2">${'★'.repeat(r.rating||0)}${'☆'.repeat(5-(r.rating||0))}</span>
+            ${r.verified_purchase ? '<span class="badge-green text-xs ml-2">✓ Verified</span>' : ''}
+            ${r.is_featured ? '<span style="background:#CA8A04;color:#fff;padding:1px 6px;border-radius:4px;font-size:10px;" class="ml-2">⭐ Featured</span>' : ''}
+            <div class="text-xs text-gray-500 mt-1">${escapeHTML(r.product ? r.product.name : '')} · ${new Date(r.created_at).toLocaleDateString('en-IN')}</div>
           </div>
-          ${r.title ? `<p class="font-bold text-sm">${escapeHTML(r.title)}</p>` : ''}
-          <p class="text-sm text-gray-400">${escapeHTML(r.body) || ''}</p>
+          <div class="flex gap-1 flex-wrap justify-end">
+            ${tab === 'pending' ? '<button onclick="admin.approveReview(\''+r.id+'\')" class="admin-btn admin-btn-green text-xs">Approve</button>' : ''}
+            <button onclick="admin.featureReview('${r.id}')" class="admin-btn admin-btn-ghost text-xs">⭐</button>
+            <button onclick="admin.replyReview('${r.id}')" class="admin-btn admin-btn-ghost text-xs">Reply</button>
+            <button onclick="admin.hideReview('${r.id}')" class="admin-btn admin-btn-danger text-xs">Hide</button>
+          </div>
         </div>
-      `).join('') || '<p class="text-gray-500">No pending reviews</p>'}
-    </div>`;
+        ${r.title ? '<p class="font-bold text-sm mb-1">'+escapeHTML(r.title)+'</p>' : ''}
+        <p class="text-sm text-gray-400">${escapeHTML(r.body || '')}</p>
+        ${r.admin_reply ? '<div class="mt-2 p-2 bg-blue-900/20 border border-blue-800 rounded text-xs text-blue-300"><strong>Admin Reply:</strong> '+escapeHTML(r.admin_reply)+'</div>' : ''}
+      </div>`;
+    el.innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-bold">Reviews &amp; Ratings</h2>
+      <button onclick="admin.bulkImportReviews()" class="admin-btn admin-btn-ghost text-xs"><i class="fas fa-file-import mr-1"></i>Bulk Import</button>
+    </div>
+    <div class="flex gap-2 mb-6">
+      <button class="tab-btn active" onclick="admin.showReviewTab('pending',this)">Pending (${(pending.reviews||[]).length})</button>
+      <button class="tab-btn" onclick="admin.showReviewTab('approved',this)">Approved (${(approved.reviews||[]).length})</button>
+      <button class="tab-btn" onclick="admin.showReviewTab('hidden',this)">Hidden (${(hidden.reviews||[]).length})</button>
+    </div>
+    <div id="reviews-pending">${(pending.reviews||[]).map(r=>reviewCard(r,'pending')).join('')||'<p class="text-gray-500 py-8 text-center">No pending reviews</p>'}</div>
+    <div id="reviews-approved" style="display:none">${(approved.reviews||[]).map(r=>reviewCard(r,'approved')).join('')||'<p class="text-gray-500 py-8 text-center">No approved reviews</p>'}</div>
+    <div id="reviews-hidden" style="display:none">${(hidden.reviews||[]).map(r=>reviewCard(r,'hidden')).join('')||'<p class="text-gray-500 py-8 text-center">No hidden reviews</p>'}</div>`;
   }
 
   // ========== CONTENT ==========
@@ -757,7 +775,10 @@
       { key: 'gtm_container_id', label: 'GTM Container ID', type: 'text' },
       { key: 'seo_title', label: 'SEO Title', type: 'text' },
       { key: 'seo_description', label: 'SEO Description', type: 'text' },
-      { key: 'instagram_link', label: 'Instagram Link', type: 'text' },
+      { key: 'instagram_link', label: 'Instagram Link (URL)', type: 'text' },
+      { key: 'facebook_link', label: 'Facebook Link (URL)', type: 'text' },
+      { key: 'whatsapp_link', label: 'WhatsApp Link (URL, optional)', type: 'text' },
+      { key: 'twitter_link', label: 'Twitter/X Link (URL)', type: 'text' },
       { key: 'contact_email', label: 'Contact Email', type: 'text' },
       { key: 'contact_phone', label: 'Contact Phone', type: 'text' },
       { key: 'contact_address', label: 'Contact Address', type: 'text' }
@@ -783,6 +804,7 @@
       `).join('')}
       <div class="flex gap-4 pt-4">
         <button type="submit" class="admin-btn admin-btn-primary">Save Settings</button>
+        <button type="button" onclick="admin.showSocialSettings()" class="admin-btn admin-btn-ghost"><i class="fas fa-share-alt mr-1"></i>Quick Social Links</button>
         <button type="button" onclick="admin.backupDB()" class="admin-btn admin-btn-ghost"><i class="fas fa-database mr-1"></i>Export Backup</button>
         <button type="button" onclick="admin.viewErrors()" class="admin-btn admin-btn-ghost"><i class="fas fa-bug mr-1"></i>Error Log</button>
       </div>
@@ -972,6 +994,10 @@
       btn?.classList.add('active');
     },
     showReviewTab(tab, btn) {
+      ['pending','approved','hidden'].forEach(t => {
+        const el = $(`#reviews-${t}`);
+        if (el) el.style.display = t === tab ? 'block' : 'none';
+      });
       $$('.tab-btn').forEach(b => b.classList.remove('active'));
       btn?.classList.add('active');
     },
@@ -1222,6 +1248,139 @@
     editProduct(id) { admin.showProductForm(id); },
     editCategory(id) { admin.showCategoryForm(id); },
     editPage(slug) { toast('Page editor coming soon', 'info'); },
+
+    filterAdTab(tab, btn) {
+      $$('#ad-table tbody tr').forEach(tr => {
+        tr.style.display = (tab === 'all' || tr.dataset.category === tab) ? '' : 'none';
+      });
+      $$('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn?.classList.add('active');
+    },
+    async showComboForm(id = null) {
+      let c = { name: '', description: '', badge_text: '', savings_percent: '', category: 'all', display_order: 10, is_featured: false };
+      if (id) {
+        const data = await api('GET', '/combos');
+        c = (data.combos || []).find(x => x.id === id) || c;
+      }
+      const content = `
+        <form id="combo-form" class="space-y-4">
+          <input type="hidden" name="id" value="${id || ''}">
+          <div><label class="block text-xs text-gray-400 mb-1">Combo Name</label><input type="text" name="name" value="${c.name}" class="admin-input" placeholder="Divine Trio Pack" required></div>
+          <div><label class="block text-xs text-gray-400 mb-1">Description</label><textarea name="description" class="admin-input" rows="2">${c.description || ''}</textarea></div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="block text-xs text-gray-400 mb-1">Badge Text</label><input type="text" name="badge_text" value="${c.badge_text || ''}" class="admin-input" placeholder="Best Value"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Savings %</label><input type="number" name="savings_percent" value="${c.savings_percent || ''}" class="admin-input" placeholder="10"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="block text-xs text-gray-400 mb-1">Category Filter</label><select name="category" class="admin-input"><option value="all" ${c.category==='all'?'selected':''}>All Categories</option><option value="divine" ${c.category==='divine'?'selected':''}>Divine</option><option value="automotive" ${c.category==='automotive'?'selected':''}>Automotive</option></select></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Display Order</label><input type="number" name="display_order" value="${c.display_order || 10}" class="admin-input"></div>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="is_featured" ${c.is_featured?'checked':''}> <span class="text-sm">Featured (shown prominently)</span></label>
+        </form>
+      `;
+      admin.modal(id ? 'Edit Combo' : 'Create Combo', content, `<button onclick="admin.saveCombo()" class="admin-btn admin-btn-primary">Save Combo</button>`);
+    },
+    async saveCombo() {
+      const fd = new FormData($('#combo-form'));
+      const id = fd.get('id');
+      const payload = Object.fromEntries(fd.entries());
+      payload.is_featured = fd.has('is_featured');
+      try {
+        if (id) await api('PUT', `/combos/${id}`, payload);
+        else await api('POST', '/combos', payload);
+        toast('Combo saved!', 'success');
+        $('.modal-overlay')?.remove();
+        loadSection('combos');
+      } catch (e) { toast('Error saving combo', 'error'); }
+    },
+    async toggleCombo(id, active) {
+      await api('PUT', `/combos/${id}`, { is_active: active });
+      toast(active ? 'Combo enabled' : 'Combo disabled', 'success');
+    },
+    async deleteCombo(id) {
+      if (!confirm('Delete this combo?')) return;
+      await api('DELETE', `/combos/${id}`);
+      toast('Combo deleted', 'success');
+      loadSection('combos');
+    },
+    async showAdForm() {
+      const content = `
+        <form id="ad-form" class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="block text-xs text-gray-400 mb-1">Date</label><input type="date" name="date" value="${new Date().toISOString().slice(0,10)}" class="admin-input" required></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Platform</label><select name="platform" class="admin-input"><option>Meta</option><option>Google</option><option>Instagram</option><option>WhatsApp</option><option>Organic</option></select></div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="block text-xs text-gray-400 mb-1">Category</label><select name="category" class="admin-input"><option value="all">All / General</option><option value="divine">Divine</option><option value="automotive">Automotive</option></select></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Spend (₹)</label><input type="number" name="spend" class="admin-input" placeholder="500" required></div>
+          </div>
+          <div class="grid grid-cols-3 gap-4">
+            <div><label class="block text-xs text-gray-400 mb-1">Impressions</label><input type="number" name="impressions" class="admin-input" placeholder="10000"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Clicks</label><input type="number" name="clicks" class="admin-input" placeholder="300"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Orders</label><input type="number" name="orders" class="admin-input" placeholder="5"></div>
+          </div>
+          <div><label class="block text-xs text-gray-400 mb-1">Revenue (₹)</label><input type="number" name="revenue" class="admin-input" placeholder="4500"></div>
+          <div><label class="block text-xs text-gray-400 mb-1">Notes</label><input type="text" name="notes" class="admin-input" placeholder="Festival campaign, Ganesha Chaturthi"></div>
+        </form>
+      `;
+      admin.modal('Log Ad Spend', content, `<button onclick="admin.saveAdLog()" class="admin-btn admin-btn-primary">Save</button>`);
+    },
+    async saveAdLog() {
+      const payload = Object.fromEntries(new FormData($('#ad-form')).entries());
+      try {
+        await api('POST', '/analytics/ads-performance', payload);
+        toast('Ad spend logged!', 'success');
+        $('.modal-overlay')?.remove();
+        loadSection('ad_performance');
+      } catch (e) { toast('Error logging spend', 'error'); }
+    },
+    async featureReview(id) {
+      await api('PUT', `/reviews/${id}`, { is_featured: true, is_approved: true });
+      toast('Review featured!', 'success');
+      loadSection('reviews');
+    },
+    async replyReview(id) {
+      const reply = prompt('Admin reply to this review:');
+      if (!reply) return;
+      await api('PUT', `/reviews/${id}`, { admin_reply: reply });
+      toast('Reply added!', 'success');
+      loadSection('reviews');
+    },
+    async bulkImportReviews() {
+      const json = prompt('Paste JSON array of reviews: [{customer_name, rating, title, body, product_id}]');
+      if (!json) return;
+      try {
+        const reviews = JSON.parse(json);
+        await api('POST', '/reviews/bulk-import', { reviews });
+        toast(`Imported ${reviews.length} reviews!`, 'success');
+        loadSection('reviews');
+      } catch (e) { toast('Invalid JSON or import failed', 'error'); }
+    },
+    async updateTrackingUrl(orderId, url) {
+      await api('PUT', `/orders/${orderId}/tracking`, { carrier_tracking_url: url });
+      toast('Tracking URL saved!', 'success');
+    },
+    async showSocialSettings() {
+      const data = await api('GET', '/settings');
+      const s = data.settings || {};
+      const content = `
+        <form id="social-form" class="space-y-4">
+          <div><label class="block text-xs text-gray-400 mb-1">Instagram Link (full URL)</label><input type="url" name="instagram_link" value="${s.instagram_link || ''}" class="admin-input" placeholder="https://instagram.com/photoframein"></div>
+          <div><label class="block text-xs text-gray-400 mb-1">Facebook Link (full URL)</label><input type="url" name="facebook_link" value="${s.facebook_link || ''}" class="admin-input" placeholder="https://facebook.com/photoframein"></div>
+          <div><label class="block text-xs text-gray-400 mb-1">WhatsApp Number (with country code)</label><input type="text" name="whatsapp_number" value="${s.whatsapp_number || ''}" class="admin-input" placeholder="917989531818"></div>
+          <div><label class="block text-xs text-gray-400 mb-1">WhatsApp Link (optional, overrides number)</label><input type="url" name="whatsapp_link" value="${s.whatsapp_link || ''}" class="admin-input" placeholder="https://wa.me/917989531818"></div>
+          <div><label class="block text-xs text-gray-400 mb-1">Twitter/X Link</label><input type="url" name="twitter_link" value="${s.twitter_link || ''}" class="admin-input" placeholder="https://twitter.com/photoframein"></div>
+        </form>
+      `;
+      admin.modal('Social Media Links', content, `<button onclick="admin.saveSocialSettings()" class="admin-btn admin-btn-primary">Save Links</button>`);
+    },
+    async saveSocialSettings() {
+      const fd = new FormData($('#social-form'));
+      const updates = Object.fromEntries(fd.entries());
+      await api('PUT', '/settings', updates);
+      toast('Social links saved!', 'success');
+      $('.modal-overlay')?.remove();
+    },
     logout() {
       adminToken = '';
       localStorage.removeItem('pfi_admin_token');
@@ -1243,6 +1402,135 @@
       }
     }
   };
+
+
+  // ========== COMBOS & BUNDLES ==========
+  async function renderCombos(el) {
+    const data = await api('GET', '/combos');
+    const combos = data.combos || [];
+    el.innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-bold">Combos &amp; Bundles</h2>
+      <button onclick="admin.showComboForm()" class="admin-btn admin-btn-primary"><i class="fas fa-plus mr-1"></i>Add Combo</button>
+    </div>
+    <p class="text-sm text-gray-400 mb-6">Combos appear on product pages &amp; cart as upsell suggestions. Pricing is auto-calculated from constituent products — no combo causes a loss.</p>
+    <div class="space-y-4">
+      ${combos.map(c => `
+        <div class="stat-card flex items-center justify-between gap-4">
+          <div class="flex-1">
+            <div class="flex items-center gap-3 mb-1">
+              <strong class="text-white">${escapeHTML(c.name)}</strong>
+              ${c.badge_text ? `<span class="badge-green text-xs">${escapeHTML(c.badge_text)}</span>` : ''}
+              ${c.is_featured ? '<span class="badge-gold text-xs">⭐ Featured</span>' : ''}
+            </div>
+            <p class="text-sm text-gray-400">${escapeHTML(c.description || '')}</p>
+            <div class="flex gap-4 text-xs text-gray-500 mt-1">
+              <span>Savings: ${c.savings_percent ? c.savings_percent + '%' : '—'}</span>
+              <span>Category: ${escapeHTML(c.category || 'All')}</span>
+              <span>Order: ${c.display_order || 0}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" ${c.is_active ? 'checked' : ''} onchange="admin.toggleCombo('${c.id}', this.checked)" class="sr-only peer">
+              <div class="w-9 h-5 bg-gray-700 rounded-full peer peer-checked:bg-yellow-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+            </label>
+            <button onclick="admin.showComboForm('${c.id}')" class="admin-btn admin-btn-ghost text-xs"><i class="fas fa-edit"></i></button>
+            <button onclick="admin.deleteCombo('${c.id}')" class="admin-btn admin-btn-danger text-xs"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+      `).join('') || '<div class="stat-card text-center text-gray-400 py-10">No combos yet. Create your first bundle to boost average order value.</div>'}
+    </div>`;
+  }
+
+  // ========== AD PERFORMANCE ==========
+  async function renderAdPerformance(el) {
+    el.innerHTML = `<h2 class="text-2xl font-bold mb-6">Ad Performance & CAC Tracker</h2><div class="text-center py-10"><div class="admin-spinner"></div></div>`;
+    try {
+      const data = await api('GET', '/analytics/ads-performance');
+      const ads = data.ads || [];
+      const totalSpend = ads.reduce((s, a) => s + (Number(a.spend) || 0), 0);
+      const totalOrders = ads.reduce((s, a) => s + (Number(a.orders) || 0), 0);
+      const totalRevenue = ads.reduce((s, a) => s + (Number(a.revenue) || 0), 0);
+      const blendedCAC = totalOrders > 0 ? (totalSpend / totalOrders).toFixed(0) : '—';
+      const blendedROAS = totalSpend > 0 ? (totalRevenue / totalSpend).toFixed(2) : '—';
+      el.innerHTML = `
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold">Ad Performance &amp; CAC Tracker</h2>
+        <button onclick="admin.showAdForm()" class="admin-btn admin-btn-primary"><i class="fas fa-plus mr-1"></i>Log Ad Spend</button>
+      </div>
+      <!-- Blended KPIs -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="stat-card text-center"><div class="text-2xl font-bold text-brand-gold">₹${Number(totalSpend).toLocaleString('en-IN')}</div><div class="text-xs text-gray-400 mt-1">Total Ad Spend</div></div>
+        <div class="stat-card text-center"><div class="text-2xl font-bold text-green-400">${totalOrders}</div><div class="text-xs text-gray-400 mt-1">Orders from Ads</div></div>
+        <div class="stat-card text-center"><div class="text-2xl font-bold text-blue-400">₹${blendedCAC}</div><div class="text-xs text-gray-400 mt-1">Blended CAC</div></div>
+        <div class="stat-card text-center"><div class="text-2xl font-bold text-purple-400">${blendedROAS}x</div><div class="text-xs text-gray-400 mt-1">Blended ROAS</div></div>
+      </div>
+      <!-- Tabs: Divine vs Automotive -->
+      <div class="flex gap-2 mb-6">
+        <button class="tab-btn active" onclick="admin.filterAdTab('all',this)">All</button>
+        <button class="tab-btn" onclick="admin.filterAdTab('divine',this)">🕉️ Divine</button>
+        <button class="tab-btn" onclick="admin.filterAdTab('automotive',this)">🏎️ Automotive</button>
+      </div>
+      <!-- Ad Performance Table -->
+      <div class="stat-card">
+        <table class="data-table" id="ad-table">
+          <thead><tr><th>Date</th><th>Category</th><th>Platform</th><th>Spend (₹)</th><th>Impressions</th><th>Clicks</th><th>Orders</th><th>Revenue</th><th>CAC</th><th>ROAS</th><th>Conv%</th></tr></thead>
+          <tbody>
+            ${ads.map(a => {
+              const cac = Number(a.orders) > 0 ? Math.round(Number(a.spend) / Number(a.orders)) : '—';
+              const roas = Number(a.spend) > 0 ? (Number(a.revenue) / Number(a.spend)).toFixed(2) : '—';
+              const conv = Number(a.clicks) > 0 ? ((Number(a.orders) / Number(a.clicks)) * 100).toFixed(1) : '—';
+              return `<tr data-category="${a.category || 'all'}">
+                <td>${new Date(a.date).toLocaleDateString('en-IN')}</td>
+                <td><span class="badge-${a.category === 'divine' ? 'orange' : a.category === 'automotive' ? 'red' : 'gray'} text-xs">${escapeHTML(a.category || 'General')}</span></td>
+                <td>${escapeHTML(a.platform || 'Meta')}</td>
+                <td>₹${Number(a.spend || 0).toLocaleString('en-IN')}</td>
+                <td>${Number(a.impressions || 0).toLocaleString('en-IN')}</td>
+                <td>${Number(a.clicks || 0).toLocaleString('en-IN')}</td>
+                <td>${a.orders || 0}</td>
+                <td>₹${Number(a.revenue || 0).toLocaleString('en-IN')}</td>
+                <td class="font-bold ${Number(cac) < 300 ? 'text-green-400' : Number(cac) < 600 ? 'text-yellow-400' : 'text-red-400'}">₹${cac}</td>
+                <td class="${Number(roas) >= 3 ? 'text-green-400' : 'text-yellow-400'}">${roas}x</td>
+                <td>${conv}%</td>
+              </tr>`;
+            }).join('') || '<tr><td colspan="11" class="text-center text-gray-400 py-8">No ad data yet. Start logging your spend.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+      <!-- Organic Traffic Plan Card -->
+      <div class="stat-card mt-6">
+        <h3 class="font-bold text-lg mb-4">📱 Low-Budget Organic Traffic Plan</h3>
+        <div class="grid md:grid-cols-2 gap-6">
+          <div>
+            <h4 class="font-bold text-brand-saffron mb-2">🕉️ Divine Category</h4>
+            <ul class="space-y-2 text-sm text-gray-300">
+              <li>• <strong>Reels:</strong> Frame unboxing + pooja room setup (Ganesha, Shiva, Krishna)</li>
+              <li>• <strong>Hashtags:</strong> #GaneshaChaturthi #HomeMandir #DivineArt #PoojaRoom</li>
+              <li>• <strong>Timing:</strong> Post 6-8 AM (morning puja time) for max reach</li>
+              <li>• <strong>Collab:</strong> Reach out to spiritual lifestyle creators (5k-50k followers)</li>
+              <li>• <strong>SEO:</strong> "Ganesha wall art for home" — low competition, high intent</li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-bold text-brand-red mb-2">🏎️ Automotive Category</h4>
+            <ul class="space-y-2 text-sm text-gray-300">
+              <li>• <strong>Reels:</strong> Frame reveal in man-cave/garage setup (Porsche, Ferrari)</li>
+              <li>• <strong>Hashtags:</strong> #CarLovers #Porsche #ManCave #GarageGoals #FerrariLife</li>
+              <li>• <strong>Timing:</strong> Post 8-10 PM (evening scrolling window)</li>
+              <li>• <strong>Collab:</strong> DM car enthusiast pages — offer 2 free frames for tag</li>
+              <li>• <strong>SEO:</strong> "Porsche poster frame India" — very low competition</li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-4 p-4 bg-black/30 border border-gray-800 rounded-xl">
+          <p class="text-xs text-gray-400"><strong class="text-brand-gold">Budget Guideline:</strong> ₹5,000/month — ₹3,000 Meta ads (₹1,500 divine + ₹1,500 auto) + ₹2,000 influencer gifting. Target CAC &lt; ₹300, ROAS &gt; 3x for profitability at current AOV ₹900.</p>
+        </div>
+      </div>`;
+    } catch (e) {
+      el.innerHTML += `<div class="stat-card text-center text-red-400">Failed to load ad data: ${e.message}</div>`;
+    }
+  }
 
   async function renderMedia(el) {
     el.innerHTML = `

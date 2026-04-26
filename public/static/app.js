@@ -123,21 +123,36 @@
     } catch (e) {}
   }
 
-  // ─── Volume Discount Logic (validated, no NaN/negative) ─────────────────
+  // ─── Volume Discount Logic (validated, no NaN/negative, no combo loss) ──
   function getVolumeDiscount(subtotal, itemCount) {
-    // Tiered discounts: fixed savings
     if (!isFinite(subtotal) || subtotal <= 0) return { discount: 0, label: '' };
+    // Safety: discount never exceeds 40% of subtotal (no combo causes a loss)
+    const maxDiscount = Math.floor(subtotal * 0.40);
     if (itemCount >= 5) {
-      const d = Math.floor(subtotal * 0.20); // 20% off
-      return { discount: Math.max(0, d), label: 'Buy 5+ — 20% OFF Applied!' };
+      const d = Math.min(maxDiscount, Math.floor(subtotal * 0.20));
+      return { discount: Math.max(0, d), label: '🎉 Buy 5+ — 20% OFF Applied!' };
     }
     if (itemCount >= 3) {
-      return { discount: 250, label: 'Buy 3 Deal — ₹250 Saved!' };
+      return { discount: Math.min(maxDiscount, 250), label: '🎉 Buy 3 Deal — ₹250 Saved!' };
     }
     if (itemCount >= 2) {
-      return { discount: 100, label: 'Buy 2 Deal — ₹100 Saved!' };
+      return { discount: Math.min(maxDiscount, 100), label: '🎉 Buy 2 Deal — ₹100 Saved!' };
     }
     return { discount: 0, label: '' };
+  }
+
+  // ─── Volumetric Weight Estimate for shipping display ──────────────────────
+  // Frame dimensions (cm): Small=21×30, Medium=30×45, Large=46×61, XL=61×91
+  const SIZE_VOL = { Small: { l:24, w:34, h:5 }, Medium: { l:34, w:50, h:6 }, Large: { l:50, w:66, h:7 }, XL: { l:66, w:97, h:8 }, A4: { l:24, w:34, h:5 } };
+  function getVolumetricWeight(size) {
+    const d = SIZE_VOL[size] || SIZE_VOL.Medium;
+    return Math.max(0.5, Math.ceil((d.l * d.w * d.h) / 5000 * 10) / 10); // kg, rounded up to 1dp
+  }
+  function getCartVolumetricWeight() {
+    return state.cart.reduce((sum, i) => {
+      const w = getVolumetricWeight(i.size || 'Medium');
+      return sum + w * Math.max(1, i.quantity || 1);
+    }, 0);
   }
 
   function getCartTotals() {
@@ -149,9 +164,13 @@
     const itemCount = state.cart.reduce((s, i) => s + (i.quantity || 1), 0);
     const { discount, label } = getVolumeDiscount(subtotal, itemCount);
     const freeThreshold = parseInt(state.config.free_shipping_threshold || '799');
-    const shipping = (subtotal - discount) >= freeThreshold ? 0 : 99;
+    const afterDiscount = subtotal - discount;
+    // Volumetric weight influences shipping tier display (backend validates actual)
+    const volWeight = getCartVolumetricWeight();
+    const baseShipping = afterDiscount >= freeThreshold ? 0 : (volWeight > 2 ? 149 : 99);
+    const shipping = Math.max(0, baseShipping);
     const total = Math.max(0, subtotal - discount + shipping);
-    return { subtotal, discount, label, shipping, total, itemCount, freeThreshold };
+    return { subtotal, discount, label, shipping, total, itemCount, freeThreshold, volWeight };
   }
 
   // ─── Router ──────────────────────────────────────────────────────────────
@@ -220,10 +239,10 @@
             </div>
           </a>
           <nav class="hidden md:flex items-center gap-5" aria-label="Main navigation">
-            <a href="/category/dive" onclick="window.pfi.nav('/category/dive');return false;" class="nav-link">Dive Art</a>
-            <a href="/category/automotive" onclick="window.pfi.nav('/category/automotive');return false;" class="nav-link text-brand-saffron">Automotive</a>
-            <a href="/shop" onclick="window.pfi.nav('/shop');return false;" class="nav-link">All Art</a>
-            <a href="/customize" onclick="window.pfi.nav('/customize');return false;" class="nav-link text-brand-gold border-b border-brand-gold pb-0.5">Custom</a>
+            <a href="/category/divine" onclick="window.pfi.nav('/category/divine');return false;" class="nav-link">🕉️ Divine</a>
+            <a href="/category/automotive" onclick="window.pfi.nav('/category/automotive');return false;" class="nav-link text-brand-saffron">🏎️ Automotive</a>
+            <a href="/shop" onclick="window.pfi.nav('/shop');return false;" class="nav-link">All Frames</a>
+            <a href="/customize" onclick="window.pfi.nav('/customize');return false;" class="nav-link text-brand-gold border-b border-brand-gold pb-0.5">✨ Custom</a>
           </nav>
         </div>
         <div class="flex items-center gap-3">
@@ -247,8 +266,10 @@
     const contactPhone = escapeHTML(c.contact_phone || '+91 79895 31818');
     const instaLink = /^https?:\/\//.test(c.instagram_link || '') ? escapeAttr(c.instagram_link) : '#';
     const fbLink = /^https?:\/\//.test(c.facebook_link || '') ? escapeAttr(c.facebook_link) : '#';
-    const waNumber = /^\d{10,15}$/.test((c.whatsapp_number || '').replace(/\D/g,'')) ?
-      (c.whatsapp_number || '').replace(/\D/g,'') : '917989531818';
+    // Support both whatsapp_link (full URL) and whatsapp_number
+    const waRaw = (c.whatsapp_number || '').replace(/\D/g,'');
+    const waNumber = /^\d{10,15}$/.test(waRaw) ? waRaw : '917989531818';
+    const waLink = /^https?:\/\//.test(c.whatsapp_link || '') ? escapeAttr(c.whatsapp_link) : `https://wa.me/${waNumber}`;
 
     return `
     <footer class="site-footer mt-20" role="contentinfo">
@@ -263,16 +284,16 @@
             <div class="flex gap-3" aria-label="Social media links">
               <a href="${instaLink}" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Instagram"><i class="fab fa-instagram" aria-hidden="true"></i></a>
               <a href="${fbLink}" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Facebook"><i class="fab fa-facebook-f" aria-hidden="true"></i></a>
-              <a href="https://wa.me/${waNumber}" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="WhatsApp"><i class="fab fa-whatsapp" aria-hidden="true"></i></a>
+              <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="WhatsApp"><i class="fab fa-whatsapp" aria-hidden="true"></i></a>
             </div>
           </div>
           <div>
             <h3 class="footer-heading">Shop</h3>
             <ul class="footer-links" role="list">
-              <li><a href="/category/dive" onclick="window.pfi.nav('/category/dive');return false;">Dive Art Frames</a></li>
-              <li><a href="/category/automotive" onclick="window.pfi.nav('/category/automotive');return false;">Automotive Frames</a></li>
+              <li><a href="/category/divine" onclick="window.pfi.nav('/category/divine');return false;">🕉️ Divine Art Frames</a></li>
+              <li><a href="/category/automotive" onclick="window.pfi.nav('/category/automotive');return false;">🏎️ Automotive Frames</a></li>
               <li><a href="/shop" onclick="window.pfi.nav('/shop');return false;">All Products</a></li>
-              <li><a href="/customize" onclick="window.pfi.nav('/customize');return false;">Custom Photo Frame</a></li>
+              <li><a href="/customize" onclick="window.pfi.nav('/customize');return false;">✨ Custom Photo Frame</a></li>
             </ul>
           </div>
           <div>
@@ -327,7 +348,7 @@
         <i class="fas fa-truck" aria-hidden="true"></i><span>Track</span>
       </a>
     </nav>
-    <a href="https://wa.me/${waNumber}" target="_blank" rel="noopener noreferrer" class="whatsapp-widget" aria-label="Chat on WhatsApp">
+    <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="whatsapp-widget" aria-label="Chat on WhatsApp">
       <i class="fab fa-whatsapp" aria-hidden="true"></i>
     </a>`;
   }
@@ -388,16 +409,26 @@
           </div>
 
           <!-- Quick Category Spotlights -->
-          <div class="grid grid-cols-2 gap-3 max-w-sm mx-auto">
-            <div class="spotlight-card" onclick="window.pfi.nav('/category/dive')" role="button" tabindex="0" aria-label="Shop Dive Art frames">
-              <div class="text-2xl mb-1" aria-hidden="true">🤿</div>
-              <div class="text-xs font-bold text-brand-gold uppercase tracking-widest">Dive Art</div>
-              <div class="text-[10px] text-gray-400">Ocean &amp; Marine Frames</div>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto">
+            <div class="spotlight-card" onclick="window.pfi.nav('/category/divine')" role="button" tabindex="0" aria-label="Shop Divine Art frames">
+              <div class="text-2xl mb-1" aria-hidden="true">🕉️</div>
+              <div class="text-xs font-bold text-brand-saffron uppercase tracking-widest">Divine</div>
+              <div class="text-[10px] text-gray-400">Ganesha, Shiva &amp; More</div>
             </div>
             <div class="spotlight-card" onclick="window.pfi.nav('/category/automotive')" role="button" tabindex="0" aria-label="Shop Automotive art frames">
               <div class="text-2xl mb-1" aria-hidden="true">🏎️</div>
               <div class="text-xs font-bold text-brand-saffron uppercase tracking-widest">Automotive</div>
-              <div class="text-[10px] text-gray-400">Sports Cars &amp; Bikes</div>
+              <div class="text-[10px] text-gray-400">Porsche, Ferrari &amp; More</div>
+            </div>
+            <div class="spotlight-card" onclick="window.pfi.nav('/category/motivation')" role="button" tabindex="0" aria-label="Shop Motivation frames">
+              <div class="text-2xl mb-1" aria-hidden="true">💪</div>
+              <div class="text-xs font-bold text-brand-gold uppercase tracking-widest">Motivation</div>
+              <div class="text-[10px] text-gray-400">Hustle &amp; Mindset</div>
+            </div>
+            <div class="spotlight-card" onclick="window.pfi.nav('/customize')" role="button" tabindex="0" aria-label="Create custom photo frame">
+              <div class="text-2xl mb-1" aria-hidden="true">✨</div>
+              <div class="text-xs font-bold text-white uppercase tracking-widest">Custom</div>
+              <div class="text-[10px] text-gray-400">Upload Your Photo</div>
             </div>
           </div>
         </div>
@@ -438,23 +469,23 @@
         </div>
       </section>
 
-      <!-- Bundle / Combo Section (from photoprty2) -->
+      <!-- Bundle / Combo Section -->
       <section class="max-w-7xl mx-auto px-4 py-12" aria-labelledby="bundles-heading">
         <h2 id="bundles-heading" class="section-header text-center"><i class="fas fa-gift text-brand-gold mr-2" aria-hidden="true"></i>Best Value Bundles</h2>
         <div id="bundles-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-          <article class="bundle-card" onclick="window.pfi.nav('/category/dive')" role="button" tabindex="0" aria-label="Dive Art Bundle">
-            <div class="bundle-tag">🤿 DIVE BUNDLE</div>
-            <h3 class="bundle-title">Dive Art Collection Pack</h3>
-            <p class="bundle-desc text-gray-400 text-sm">3 premium ocean/marine frames. Perfect for dive enthusiasts &amp; beach lovers.</p>
+          <article class="bundle-card" onclick="window.pfi.nav('/category/divine')" role="button" tabindex="0" aria-label="Divine Art Bundle">
+            <div class="bundle-tag" style="color:#E8670A;border-color:#E8670A33">🕉️ DIVINE BUNDLE</div>
+            <h3 class="bundle-title">Sacred Art Collection Pack</h3>
+            <p class="bundle-desc text-gray-400 text-sm">3 divine frames (Ganesha, Shiva, Krishna). Perfect for home mandir, living room or gifting.</p>
             <div class="flex items-center gap-4 mt-4">
               <span class="bundle-price">Buy 3 → Save ₹250</span>
-              <span class="badge-express text-xs">Most Popular</span>
+              <span class="badge-express text-xs">🎁 Gift Favourite</span>
             </div>
           </article>
           <article class="bundle-card" onclick="window.pfi.nav('/category/automotive')" role="button" tabindex="0" aria-label="Automotive Bundle">
             <div class="bundle-tag saffron">🏎️ AUTO BUNDLE</div>
             <h3 class="bundle-title">Automotive Dream Pack</h3>
-            <p class="bundle-desc text-gray-400 text-sm">2 cinematic car/bike frames. Upgrade any man-cave, office or garage wall.</p>
+            <p class="bundle-desc text-gray-400 text-sm">2 cinematic Porsche/Ferrari frames. Upgrade any man-cave, office or garage wall.</p>
             <div class="flex items-center gap-4 mt-4">
               <span class="bundle-price">Buy 2 → Save ₹100</span>
               <span class="badge-dispatch text-xs">Office Bestseller</span>
@@ -492,12 +523,12 @@
       <section class="max-w-7xl mx-auto px-4 py-12" aria-labelledby="insta-cta-heading">
         <div class="bg-gradient-to-r from-brand-purple/20 to-brand-card border border-brand-purple/30 rounded-2xl p-8 text-center">
           <h2 id="insta-cta-heading" class="text-2xl font-bold mb-3">Seen Us on Instagram? 📸</h2>
-          <p class="text-gray-400 mb-6">Our frames look even better in real life. See exactly what you'll get — premium art on your wall.</p>
+          <p class="text-gray-400 mb-6">Our frames look even better in real life. Premium art — divine or automotive — delivered to your door.</p>
           <div class="flex flex-wrap justify-center gap-3 mb-6">
-            <button onclick="window.pfi.nav('/category/dive')" class="btn-buy max-w-xs" aria-label="Shop dive art frames">🤿 Shop Dive Art</button>
+            <button onclick="window.pfi.nav('/category/divine')" class="btn-buy max-w-xs" aria-label="Shop divine art frames">🕉️ Shop Divine Art</button>
             <button onclick="window.pfi.nav('/category/automotive')" class="btn-cart max-w-xs" aria-label="Shop automotive art frames">🏎️ Shop Automotive</button>
           </div>
-          <p class="text-xs text-gray-500">Use code <strong class="text-brand-gold">INSTA10</strong> for ₹100 off your first order</p>
+          <p class="text-xs text-gray-500">First order? Use code <strong class="text-brand-gold">WELCOME15</strong> for 15% off</p>
         </div>
       </section>
     </main>` + renderFooter();
@@ -595,14 +626,14 @@
     <main id="main-content" class="max-w-7xl mx-auto px-4 py-8">
       <!-- Filter Bar -->
       <div class="flex flex-wrap gap-2 mb-6 overflow-x-auto" role="navigation" aria-label="Category filter">
-        <button onclick="window.pfi.loadShopProducts('newest','')" class="filter-btn active" data-filter="all" aria-pressed="true">All Art</button>
-        <button onclick="window.pfi.loadShopProducts('newest','dive')" class="filter-btn" data-filter="dive" aria-pressed="false">🤿 Dive Art</button>
+        <button onclick="window.pfi.loadShopProducts('newest','')" class="filter-btn active" data-filter="all" aria-pressed="true">All Frames</button>
+        <button onclick="window.pfi.loadShopProducts('newest','divine')" class="filter-btn" data-filter="divine" aria-pressed="false">🕉️ Divine</button>
         <button onclick="window.pfi.loadShopProducts('newest','automotive')" class="filter-btn" data-filter="automotive" aria-pressed="false">🏎️ Automotive</button>
         <button onclick="window.pfi.loadShopProducts('price_low','')" class="filter-btn" data-filter="budget" aria-pressed="false">Budget ₹499+</button>
         <button onclick="window.pfi.loadShopProducts('popular','')" class="filter-btn" data-filter="popular" aria-pressed="false">🔥 Popular</button>
       </div>
       <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold font-display">Photo Frames &amp; Wall Art Online</h1>
+        <h1 class="text-2xl font-bold font-display">Premium Photo Frames Online</h1>
         <label for="sort-select" class="sr-only">Sort by</label>
         <select id="sort-select" onchange="window.pfi.sortProducts(this.value)" class="bg-brand-card border border-gray-700 text-gray-200 px-3 py-2 rounded-lg text-sm" aria-label="Sort products">
           <option value="newest" ${initSort==='newest'?'selected':''}>Newest</option>
@@ -802,15 +833,8 @@
                 }).join('')}
               </div>
 
-              <!-- Premium Mount Options (shown only for Premium) -->
-              <div id="mount-customization" class="${dv?.frame_type==='Premium'?'':'hidden'} mt-4 p-4 bg-black/40 border border-gray-800 rounded-xl animate-fade-in">
-                <label for="mount-select" class="text-[10px] uppercase tracking-widest font-bold text-gray-500 mb-2 block">Mount Style (Pure White Mount — #FFFFFF)</label>
-                <select id="mount-select" onchange="window.pfi.setMountType(this.value)" class="w-full bg-brand-card border border-gray-800 text-white px-3 py-2 rounded-lg text-sm" aria-label="Select mount type">
-                  <option value="classic">Classic Off-White Single Mount</option>
-                  <option value="dual">Dual Layer Mount (+ ₹149)</option>
-                  <option value="floating">Floating / Box Frame (+ ₹249)</option>
-                </select>
-              </div>
+              <!-- Premium Frame Info (mount is always pure white #FFFFFF) -->
+              ${dv?.frame_type==='Premium' ? `<div class="mt-3 p-3 bg-black/30 border border-gray-800 rounded-xl text-xs text-gray-400"><i class="fas fa-check-circle text-brand-gold mr-1"></i>Includes <strong class="text-white">pure white (#FFFFFF) archival mount</strong> — gallery presentation style.</div>` : ''}
             </div>
 
             <!-- CTA Buttons -->
@@ -1062,7 +1086,10 @@
       <div class="bg-brand-card border border-gray-900 rounded-2xl p-6 space-y-3 mb-6">
         <div class="flex justify-between text-sm text-gray-400"><span>Subtotal (${itemCount} item${itemCount!==1?'s':''})</span><span class="text-white">${formatPrice(subtotal)}</span></div>
         ${discount > 0 ? `<div class="flex justify-between text-sm text-brand-green font-bold"><span>Volume Discount</span><span>-${formatPrice(discount)}</span></div>` : ''}
-        <div class="flex justify-between text-sm text-gray-400"><span>Shipping</span><span class="${shipping===0?'text-brand-green font-bold':''}">${shipping===0?'FREE':formatPrice(shipping)}</span></div>
+        <div class="flex justify-between text-sm text-gray-400">
+          <span>Shipping <span class="text-[10px] text-gray-600">(~${getCartVolumetricWeight().toFixed(1)} kg vol.)</span></span>
+          <span class="${shipping===0?'text-brand-green font-bold':''}">${shipping===0?'FREE':formatPrice(shipping)}</span>
+        </div>
         <div class="pt-3 border-t border-gray-800 flex justify-between items-center">
           <span class="font-bold text-base">Total</span>
           <div class="text-right">
@@ -1087,18 +1114,140 @@
   }
 
   // ─── CATEGORY PAGE ────────────────────────────────────────────────────────
+  const CATEGORY_META = {
+    divine: {
+      title: 'Divine Art Frames',
+      subtitle: 'Sacred art for sacred spaces — Ganesha, Shiva, Hanuman, Krishna & Rama',
+      emoji: '🕉️',
+      color: '#E8670A',
+      gradient: 'from-orange-950/60 via-brand-card to-brand-card',
+      border: 'border-orange-900/40',
+      tags: ['Ganesha', 'Shiva', 'Hanuman', 'Krishna', 'Rama'],
+      desc: 'Premium framed divine art — perfect for home mandir, living room blessings or gifting.',
+      seoTitle: 'Divine Art Frames | Ganesha, Shiva, Hanuman, Krishna, Rama — PhotoFrameIn',
+      badge: '🙏 Pooja Room Essential',
+      cta: 'Gift a Blessing',
+      trustMsg: '📦 Special occasion gift packaging available'
+    },
+    automotive: {
+      title: 'Automotive Art Frames',
+      subtitle: 'Cinematic car art — Porsche, Ferrari, hypercars & legends',
+      emoji: '🏎️',
+      color: '#CC0000',
+      gradient: 'from-red-950/60 via-brand-card to-brand-card',
+      border: 'border-red-900/40',
+      tags: ['Porsche', 'Ferrari', 'Lamborghini', 'Hypercars', 'McLaren'],
+      desc: 'High-detail automotive prints for man-caves, offices and garages. Cars that belong on your wall.',
+      seoTitle: 'Automotive Art Frames | Porsche, Ferrari, Hypercars — PhotoFrameIn',
+      badge: '🏆 Office & Man-Cave Bestseller',
+      cta: 'Build Your Gallery Wall',
+      trustMsg: '🚀 12-hour dispatch · Premium frames from ₹749'
+    },
+    motivation: {
+      title: 'Motivation & Mindset Frames',
+      subtitle: 'Words that fuel your daily drive',
+      emoji: '💪',
+      color: '#C5A059',
+      gradient: 'from-yellow-950/50 via-brand-card to-brand-card',
+      border: 'border-yellow-900/30',
+      tags: ['Hustle', 'Success', 'Mindset', 'Quotes', 'Minimal'],
+      desc: 'Motivational art for study rooms, home offices and gym walls.',
+      seoTitle: 'Motivation Frames | Hustle & Mindset Wall Art — PhotoFrameIn',
+      badge: '🔥 Study Room Favourite',
+      cta: 'Fuel Your Ambition',
+      trustMsg: '⚡ Free delivery on orders above ₹799'
+    },
+    sports: {
+      title: 'Sports Art Frames',
+      subtitle: 'Iconic moments, legendary athletes — framed forever',
+      emoji: '⚽',
+      color: '#22C55E',
+      gradient: 'from-green-950/50 via-brand-card to-brand-card',
+      border: 'border-green-900/30',
+      tags: ['Cricket', 'Football', 'F1', 'Basketball', 'Champions'],
+      desc: 'Sports wall art for fans, locker rooms and gaming setups.',
+      seoTitle: 'Sports Art Frames | Cricket, Football, F1 — PhotoFrameIn',
+      badge: '🏅 Fan Room Must-Have',
+      cta: 'Celebrate Your Sport',
+      trustMsg: '🎁 Perfect birthday gift for sports fans'
+    }
+  };
+
   async function renderCategoryPage(app, slug) {
     if (!slug || !/^[a-z0-9\-]{1,80}$/.test(slug)) { navigate('/shop'); return; }
-    const safeSlug = escapeHTML(slug.replace(/-/g,' '));
+    const meta = CATEGORY_META[slug] || {
+      title: escapeHTML(slug.replace(/-/g,' ')) + ' Frames',
+      subtitle: 'Handcrafted photo frames — designed for your space',
+      emoji: '🖼️',
+      color: '#C5A059',
+      gradient: 'from-gray-900 via-brand-card to-brand-card',
+      border: 'border-gray-800',
+      tags: [],
+      desc: 'Premium framed art delivered across India.',
+      seoTitle: slug + ' Frames — PhotoFrameIn',
+      badge: '✅ In Stock',
+      cta: 'Shop Now',
+      trustMsg: '📦 Free delivery above ₹799'
+    };
+
+    // Update page meta
+    document.title = meta.seoTitle;
 
     app.innerHTML = renderHeader() + `
-    <main id="main-content" class="max-w-7xl mx-auto px-4 py-10">
-      <h1 class="text-3xl md:text-4xl font-bold font-display capitalize mb-2">${safeSlug} Frames</h1>
-      <p class="text-gray-400 mb-8">Handcrafted photo frames — designed for your space</p>
-      <div id="shop-grid" class="product-grid" aria-live="polite">
-        ${[1,2,3,4].map(() => `<div class="product-card"><div class="skeleton h-64" aria-hidden="true"></div></div>`).join('')}
-      </div>
+    <main id="main-content">
+
+      <!-- Category Hero -->
+      <section class="bg-gradient-to-b ${meta.gradient} border-b ${meta.border} py-12 md:py-16" aria-labelledby="cat-hero-heading">
+        <div class="max-w-5xl mx-auto px-4 text-center">
+          <div class="inline-flex items-center gap-2 bg-black/30 border border-white/10 rounded-full px-4 py-1.5 mb-4 text-xs font-bold uppercase tracking-widest" style="color:${meta.color}">
+            ${meta.badge}
+          </div>
+          <h1 id="cat-hero-heading" class="text-4xl md:text-5xl font-bold font-display mb-4" style="color:${meta.color}">
+            ${meta.emoji} ${meta.title}
+          </h1>
+          <p class="text-lg text-gray-300 mb-5 max-w-2xl mx-auto">${meta.subtitle}</p>
+          <p class="text-sm text-gray-400 mb-7 max-w-xl mx-auto">${meta.desc}</p>
+
+          ${meta.tags.length ? `
+          <div class="flex flex-wrap justify-center gap-2 mb-7" role="list" aria-label="${meta.title} styles">
+            ${meta.tags.map(t => `<span class="px-3 py-1.5 bg-black/40 border border-white/10 rounded-full text-xs font-bold text-gray-300" role="listitem">${t}</span>`).join('')}
+          </div>` : ''}
+
+          <!-- Volume discount CTA for category -->
+          <div class="inline-flex flex-wrap items-center justify-center gap-4 bg-black/30 border border-white/10 rounded-2xl px-6 py-3 text-sm">
+            <span class="text-gray-400 font-bold uppercase tracking-widest text-xs">Buy More Save More:</span>
+            <span class="text-white">2 → <strong class="text-green-400">₹100 OFF</strong></span>
+            <span class="text-white">3 → <strong class="text-green-400">₹250 OFF</strong></span>
+            <span class="text-white">5+ → <strong class="text-green-400">20% OFF</strong></span>
+          </div>
+          <p class="text-xs text-gray-500 mt-4">${meta.trustMsg}</p>
+        </div>
+      </section>
+
+      <!-- Products Grid -->
+      <section class="max-w-7xl mx-auto px-4 py-10" aria-labelledby="cat-products-heading">
+        <div class="flex items-center justify-between mb-6">
+          <h2 id="cat-products-heading" class="text-xl font-bold">${meta.title}</h2>
+          <button onclick="window.pfi.nav('/customize')" class="text-brand-gold text-sm font-bold hover:underline" aria-label="Create custom frame">✨ Custom Frame →</button>
+        </div>
+        <div id="shop-grid" class="product-grid" aria-live="polite">
+          ${[1,2,3,4,5,6,7,8].map(() => `<div class="product-card"><div class="skeleton h-64" aria-hidden="true"></div></div>`).join('')}
+        </div>
+      </section>
+
+      <!-- Cross-sell CTA -->
+      <section class="max-w-5xl mx-auto px-4 pb-16">
+        <div class="bg-gradient-to-r from-brand-card via-brand-card/80 to-brand-card border border-gray-800 rounded-2xl p-8 text-center">
+          <h3 class="text-xl font-bold mb-2">Can't find your perfect design?</h3>
+          <p class="text-gray-400 text-sm mb-5">Upload any image — we'll frame it in 12 hours.</p>
+          <div class="flex flex-wrap justify-center gap-3">
+            <button onclick="window.pfi.nav('/customize')" class="btn-buy max-w-xs" aria-label="Create custom frame">Upload Custom Photo</button>
+            <button onclick="window.pfi.nav('/shop')" class="btn-cart max-w-xs" aria-label="Browse all frames">Browse All Frames</button>
+          </div>
+        </div>
+      </section>
     </main>` + renderFooter();
+
     updateCartBadge();
 
     try {
@@ -1109,7 +1258,12 @@
       if (data.products?.length > 0) {
         grid.innerHTML = data.products.map(p => renderProductCard(p)).join('');
       } else {
-        grid.innerHTML = `<div class="col-span-full py-20 text-center"><p class="text-gray-500 mb-6">No products in this collection yet.</p><button onclick="window.pfi.nav('/shop')" class="btn-buy max-w-xs mx-auto">Browse All Products</button></div>`;
+        grid.innerHTML = `<div class="col-span-full py-20 text-center">
+          <div class="text-5xl mb-4">${meta.emoji}</div>
+          <p class="text-gray-400 mb-2 text-lg font-bold">Coming Soon!</p>
+          <p class="text-gray-500 text-sm mb-6">New ${meta.title} arriving soon. Browse our full collection in the meantime.</p>
+          <button onclick="window.pfi.nav('/shop')" class="btn-buy max-w-xs mx-auto">${meta.cta}</button>
+        </div>`;
       }
     } catch (e) { console.error('Category load error:', e); }
   }
@@ -1613,13 +1767,8 @@
                 </div>
               </label>
             </div>
-            <div id="custom-mount-extra" class="mt-3 hidden p-4 bg-black/40 border border-gray-800 rounded-xl">
-              <label for="custom-mount-select" class="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-2 block">Mount Style (Pure White — #FFFFFF)</label>
-              <select id="custom-mount-select" class="form-input w-full text-sm" aria-label="Select mount style">
-                <option value="classic">Classic Single Mount</option>
-                <option value="dual">Dual Layer (+₹149)</option>
-                <option value="floating">Floating Frame (+₹249)</option>
-              </select>
+            <div id="custom-mount-extra" class="mt-3 hidden p-3 bg-black/30 border border-gray-800 rounded-xl text-xs text-gray-400">
+              <i class="fas fa-check-circle text-brand-gold mr-1"></i>Premium includes <strong class="text-white">pure white (#FFFFFF) archival mount</strong> — gallery-style white border between frame and photo.
             </div>
           </div>
           <div class="pt-6 border-t border-gray-800">
@@ -1684,8 +1833,8 @@
     const s = window._customState || {};
     const base = Number(s.basePrice) || 799;
     const frame = Number(s.framePrice) || 0;
-    const mountExtra = s.mountType === 'dual' ? 149 : s.mountType === 'floating' ? 249 : 0;
-    const total = Math.max(0, base + frame + mountExtra);
+    // No mount dropdown — premium always uses pure white mount #FFFFFF, no extra charge
+    const total = Math.max(0, base + frame);
     const el = $('#custom-total-display');
     if (el) el.textContent = formatPrice(total);
     window._customState.totalPrice = total;
@@ -1982,8 +2131,8 @@
         // Validate returned URL is from Cloudinary
         if (!/^https:\/\/res\.cloudinary\.com\//.test(imageUrl)) throw new Error('Invalid upload response');
 
-        const mountExtra = s.mountType === 'dual' ? 149 : s.mountType === 'floating' ? 249 : 0;
-        const totalPrice = Math.max(0, (Number(s.basePrice)||799) + (Number(s.framePrice)||0) + mountExtra);
+        // Premium frame adds ₹250 surcharge (no mount dropdown — always pure white #FFFFFF)
+        const totalPrice = Math.max(0, (Number(s.basePrice)||799) + (Number(s.framePrice)||0));
 
         state.cart.push({
           productId: 'custom-frame',
@@ -1991,7 +2140,7 @@
           name: `Custom Frame (${s.size})`,
           slug: 'custom-photo-frame',
           size: s.size || 'Medium',
-          frame: `${s.frame || 'Standard'}${s.frame === 'Premium' ? ' (With Mount)' : ''}`,
+          frame: `${s.frame || 'Standard'}${s.frame === 'Premium' ? ' (Pure White Mount)' : ''}`,
           price: totalPrice,
           imageUrl: imageUrl,
           original_filename: file.name.replace(/[^a-zA-Z0-9._\-]/g, '_').slice(0, 100),

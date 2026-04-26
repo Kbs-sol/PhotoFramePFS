@@ -1161,3 +1161,199 @@ admin.post('/test-alert', async (c) => {
 // --- End of Logistics ---
 
 export default admin;
+
+// ==========================================
+// COMBOS – FULL CRUD + TOGGLE
+// ==========================================
+admin.delete('/combos/:id', async (c) => {
+  const id = c.req.param('id');
+  const sb = getSupabase(c.env);
+  await sb.from('combos').delete().eq('id', id);
+  return c.json({ success: true });
+});
+
+admin.patch('/combos/:id/toggle', async (c) => {
+  const id = c.req.param('id');
+  const sb = getSupabase(c.env);
+  const { data: cur } = await sb.from('combos').select('is_active').eq('id', id).single();
+  const { data } = await sb.from('combos').update({ is_active: !cur?.is_active, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  return c.json({ combo: data });
+});
+
+// ==========================================
+// REVIEWS – APPROVE / HIDE / FEATURE / REPLY
+// ==========================================
+admin.post('/reviews/:id/approve', async (c) => {
+  const id = c.req.param('id');
+  const sb = getSupabase(c.env);
+  const { data } = await sb.from('reviews').update({ is_approved: true, is_hidden: false, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  // Update product average rating
+  if (data?.product_id) {
+    const { data: prodReviews } = await sb.from('reviews').select('rating').eq('product_id', data.product_id).eq('is_approved', true);
+    if (prodReviews && prodReviews.length > 0) {
+      const avg = prodReviews.reduce((s: number, r: any) => s + (r.rating || 0), 0) / prodReviews.length;
+      await sb.from('products').update({ average_rating: avg.toFixed(1), review_count: prodReviews.length, updated_at: new Date().toISOString() }).eq('id', data.product_id);
+    }
+  }
+  return c.json({ success: true, review: data });
+});
+
+admin.post('/reviews/:id/hide', async (c) => {
+  const id = c.req.param('id');
+  const sb = getSupabase(c.env);
+  const { data } = await sb.from('reviews').update({ is_hidden: true, is_approved: false, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  return c.json({ success: true, review: data });
+});
+
+admin.post('/reviews/:id/feature', async (c) => {
+  const id = c.req.param('id');
+  const sb = getSupabase(c.env);
+  const { data: cur } = await sb.from('reviews').select('is_featured').eq('id', id).single();
+  const { data } = await sb.from('reviews').update({ is_featured: !cur?.is_featured, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  return c.json({ success: true, review: data });
+});
+
+admin.post('/reviews/:id/reply', async (c) => {
+  const id = c.req.param('id');
+  const { reply } = await c.req.json();
+  const sb = getSupabase(c.env);
+  const { data } = await sb.from('reviews').update({ admin_reply: reply || null, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  return c.json({ success: true, review: data });
+});
+
+// Bulk import reviews (from Google/Instagram)
+admin.post('/reviews/import', async (c) => {
+  const { reviews } = await c.req.json();
+  if (!Array.isArray(reviews)) return c.json({ error: 'reviews array required' }, 400);
+  const sb = getSupabase(c.env);
+  const rows = reviews.map((r: any) => ({
+    product_id: r.product_id,
+    customer_name: r.name || r.customer_name || 'Anonymous',
+    rating: Math.min(5, Math.max(1, parseInt(r.rating) || 5)),
+    title: r.title || '',
+    body: r.body || r.review || '',
+    is_approved: true,
+    verified_purchase: r.verified_purchase || false,
+    source: r.source || 'imported',
+    created_at: r.created_at || new Date().toISOString()
+  }));
+  const { data, error } = await sb.from('reviews').insert(rows).select();
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ success: true, imported: data?.length || 0 });
+});
+
+// ==========================================
+// AD PERFORMANCE TRACKING
+// ==========================================
+admin.get('/analytics/ads-performance', async (c) => {
+  if (!c.env.SUPABASE_URL) return c.json({ records: [] });
+  const sb = getSupabase(c.env);
+  const days = parseInt(c.req.query('days') || '30');
+  const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const { data } = await sb.from('ad_performance').select('*').gte('date', since).order('date', { ascending: false });
+  
+  // Compute totals
+  const totals = (data || []).reduce((acc: any, row: any) => {
+    acc.spend += row.ad_spend || 0;
+    acc.orders += row.orders || 0;
+    acc.revenue += row.revenue || 0;
+    acc.clicks += row.clicks || 0;
+    return acc;
+  }, { spend: 0, orders: 0, revenue: 0, clicks: 0 });
+  totals.cac = totals.orders > 0 ? Math.round(totals.spend / totals.orders) : 0;
+  totals.roas = totals.spend > 0 ? (totals.revenue / totals.spend).toFixed(2) : '0';
+  
+  return c.json({ records: data || [], totals });
+});
+
+admin.post('/analytics/ads-performance', async (c) => {
+  const body = await c.req.json();
+  const sb = getSupabase(c.env);
+  const { data, error } = await sb.from('ad_performance').upsert(body, { onConflict: 'date,platform,campaign' }).select().single();
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ record: data });
+});
+
+// ==========================================
+// ORDER TRACKING URL REDIRECT
+// ==========================================
+admin.put('/orders/:orderId/tracking', async (c) => {
+  const orderId = c.req.param('orderId');
+  const { carrier, awb, carrier_tracking_url } = await c.req.json();
+  const sb = getSupabase(c.env);
+  const update: any = { updated_at: new Date().toISOString() };
+  if (carrier) update.carrier = carrier;
+  if (awb) update.awb_number = awb;
+  if (carrier_tracking_url) update.carrier_tracking_url = carrier_tracking_url;
+  const { data, error } = await sb.from('orders').update(update).eq('order_id', orderId).select().single();
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ success: true, order: data });
+});
+
+// ==========================================
+// ADMIN USERS MANAGEMENT
+// ==========================================
+admin.get('/admin-users', async (c) => {
+  if (!c.env.SUPABASE_URL) return c.json({ users: [] });
+  const sb = getSupabase(c.env);
+  const { data } = await sb.from('admin_users').select('*').order('created_at');
+  return c.json({ users: data || [] });
+});
+
+admin.post('/admin-users', async (c) => {
+  const { email, role } = await c.req.json();
+  if (!email || !role) return c.json({ error: 'email and role required' }, 400);
+  const sb = getSupabase(c.env);
+  const { data, error } = await sb.from('admin_users').insert({ email: email.toLowerCase().trim(), role }).select().single();
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ user: data });
+});
+
+admin.delete('/admin-users/:id', async (c) => {
+  const id = c.req.param('id');
+  const sb = getSupabase(c.env);
+  await sb.from('admin_users').delete().eq('id', id);
+  return c.json({ success: true });
+});
+
+// ==========================================
+// EMAIL FAILURES MANAGEMENT
+// ==========================================
+admin.get('/email-failures', async (c) => {
+  if (!c.env.SUPABASE_URL) return c.json({ failures: [] });
+  const sb = getSupabase(c.env);
+  const { data } = await sb.from('email_failures').select('*').eq('resolved', false).order('created_at', { ascending: false }).limit(50);
+  return c.json({ failures: data || [] });
+});
+
+admin.post('/email-failures/:id/resolve', async (c) => {
+  const id = c.req.param('id');
+  const sb = getSupabase(c.env);
+  await sb.from('email_failures').update({ resolved: true }).eq('id', id);
+  return c.json({ success: true });
+});
+
+// Retry failed email
+admin.post('/email-failures/:id/retry', async (c) => {
+  const id = c.req.param('id');
+  const sb = getSupabase(c.env);
+  const { data: failure } = await sb.from('email_failures').select('*').eq('id', id).single();
+  if (!failure) return c.json({ error: 'Not found' }, 404);
+  // Re-fetch order and send
+  const { data: order } = await sb.from('orders').select('*').eq('order_id', failure.order_id).single();
+  if (!order) return c.json({ error: 'Order not found' }, 404);
+  const { sendEmail } = await import('../lib/email');
+  const sent = await sendEmail(c.env, {
+    to: order.customer_email,
+    subject: failure.subject || `Order Update | ${failure.order_id}`,
+    html: `<p>Order ${failure.order_id} update. Please contact support if you need help.</p>`,
+    orderId: failure.order_id,
+    type: 'retry'
+  });
+  if (sent) {
+    await sb.from('email_failures').update({ resolved: true }).eq('id', id);
+    return c.json({ success: true });
+  }
+  return c.json({ success: false, error: 'Retry failed again' }, 500);
+});
+

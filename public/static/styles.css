@@ -693,24 +693,50 @@ select.form-input { appearance: none; cursor: pointer; }
 }
 .frame-border-gold { border-color: #A68444 !important; }
 .frame-border-black { border-color: #111 !important; }
-/* AUDIT FIX: Mount color is strictly #FFFFFF (Pure White) as required */
+/* Pure White mount border — always #FFFFFF */
 .frame-border-white { border-color: #FFFFFF !important; box-shadow: 0 24px 72px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1); }
 
-/* Premium Frame Mount — strictly Pure White (#FFFFFF) */
+/* ─── Premium Frame Mount Visualizer ───────────────────────────────────────
+   Visual: outer frame (black/dark) → white mount space → artwork image
+   The has-mount class renders the white gallery mat between frame and image.
+   ─────────────────────────────────────────────────────────────────────────── */
 .has-mount {
-  border-width: 48px !important;
-  background-color: #FFFFFF !important; /* CRITICAL: Pure White mount — do not change */
-  box-shadow: inset 0 0 12px rgba(0,0,0,0.04), 0 20px 56px rgba(0,0,0,0.25) !important;
+  /* Thick pure white border simulates the archival mount paper */
+  border-width: 40px !important;
+  border-color: #FFFFFF !important;
+  background-color: #FFFFFF !important; /* CRITICAL: Pure White (#FFFFFF) — do not change */
+  box-shadow:
+    0 0 0 8px #1A1A1A,          /* outer dark frame ring */
+    0 0 0 10px rgba(0,0,0,0.6), /* subtle frame shadow */
+    0 24px 64px rgba(0,0,0,0.5) !important; /* ambient shadow */
   position: relative;
+  outline: 8px solid #1A1A1A; /* extra frame border outside the white mount */
+  outline-offset: 0;
 }
+/* Inner shadow on white mount for depth — simulates mat bevel */
 .has-mount::before {
   content: '';
   position: absolute;
-  inset: -1px;
-  border: 1px solid rgba(0,0,0,0.08);
+  inset: 0;
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.12), inset 0 0 2px rgba(0,0,0,0.08);
   pointer-events: none;
+  z-index: 3;
 }
-@media (max-width: 640px) { .has-mount { border-width: 20px !important; } }
+/* Frame edge line between outer frame and white mount */
+.has-mount::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 1.5px solid rgba(0,0,0,0.15);
+  pointer-events: none;
+  z-index: 3;
+}
+@media (max-width: 640px) {
+  .has-mount {
+    border-width: 20px !important;
+    outline-width: 5px;
+  }
+}
 
 /* Glass Overlay */
 .glass-overlay {
