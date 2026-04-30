@@ -175,8 +175,24 @@ products.get('/:slug', async (c) => {
     ymal = data || [];
   }
 
+  // Filter variants by allowed sizes/frames if restrictions set on product
+  if (product && product.variants) {
+    const allowedSizes = product.allowed_sizes ? product.allowed_sizes.split(',').map((s: string) => s.trim()) : null;
+    const allowedFrames = product.allowed_frames ? product.allowed_frames.split(',').map((s: string) => s.trim()) : null;
+    if (allowedSizes || allowedFrames) {
+      product.variants = product.variants.filter((v: any) => {
+        const sizeOk = !allowedSizes || allowedSizes.includes(v.size);
+        const frameOk = !allowedFrames || allowedFrames.includes(v.frame_type);
+        return sizeOk && frameOk;
+      });
+    }
+  }
+
   return c.json({ product, reviews: reviews || [], frequentlyBoughtTogether: fbt, youMayAlsoLike: ymal });
   } catch (e: any) { return c.json({ error: 'Product not found' }, 404); }
 });
 
 export default products;
+
+// ─── Public review submit with photo (customer-facing) ────────────────────────
+// Photo upload is optional and controlled by review_photo_enabled config

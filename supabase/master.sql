@@ -867,3 +867,454 @@ ON CONFLICT (slug) DO NOTHING;
 -- END OF SCRIPT
 -- Run this once in Supabase SQL Editor. Safe to re-run.
 -- ============================================================================
+
+-- ============================================================================
+-- SECTION 13: NEW TABLES (v3.1 additions)
+-- ============================================================================
+
+-- Suggestions table
+CREATE TABLE IF NOT EXISTS suggestions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  message TEXT NOT NULL,
+  contact_name TEXT,
+  contact_email TEXT,
+  contact_phone TEXT,
+  status TEXT DEFAULT 'new' CHECK (status IN ('new', 'read', 'actioned')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Review requests table (sent after delivery)
+CREATE TABLE IF NOT EXISTS review_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(order_id),
+  customer_email TEXT NOT NULL,
+  customer_name TEXT,
+  sent_at TIMESTAMPTZ DEFAULT NOW(),
+  review_submitted BOOLEAN DEFAULT false,
+  review_id UUID REFERENCES reviews(id)
+);
+CREATE INDEX IF NOT EXISTS idx_review_requests_order ON review_requests(order_id);
+
+-- SEO tasks table (for tracking AI-generated SEO)
+CREATE TABLE IF NOT EXISTS seo_tasks (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  type TEXT NOT NULL CHECK (type IN ('site', 'product', 'blog')),
+  entity_id TEXT,
+  entity_name TEXT,
+  generated_by TEXT DEFAULT 'openrouter',
+  model_used TEXT,
+  result_json JSONB,
+  applied BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- SECTION 14: SYSTEM CONFIG UPDATES (v3.1)
+-- ============================================================================
+
+-- Update COD minimum to ₹899 (was ₹499)
+UPDATE system_config SET value = '899', updated_at = NOW()
+WHERE key = 'cod_min_value';
+
+-- Add new config keys if not exist
+INSERT INTO system_config (key, value) VALUES
+  ('whatsapp_disputes', '918333066370'),
+  ('bulk_order_phone1', '8333066370'),
+  ('bulk_order_phone2', '7989094923'),
+  ('poster_enabled', 'false'),
+  ('review_photo_enabled', 'true'),
+  ('openrouter_model', 'meta-llama/llama-3.1-8b-instruct:free'),
+  ('premium_frame_surcharge', '250')
+ON CONFLICT (key) DO NOTHING;
+
+-- ============================================================================
+-- SECTION 15: SEO BLOG POSTS (5 posts)
+-- ============================================================================
+
+INSERT INTO blog_posts (title, slug, excerpt, content, category, tags, is_published, meta_title, meta_description) VALUES
+
+('Best Photo Frame Sizes for Every Room — Complete Size Guide India 2025',
+ 'best-photo-frame-sizes-room-guide-2025',
+ 'Not sure which photo frame size to pick? Our complete guide helps you choose the perfect frame size for bedroom, living room, office, and gallery walls.',
+ '<h2>Best Photo Frame Sizes for Every Room</h2>
+<p>Choosing the right frame size can transform a wall from ordinary to stunning. Here is our complete guide for Indian homes.</p>
+<h3>Small (8×12 inches) — Perfect For:</h3>
+<ul><li>Study desks and bookshelves</li><li>Bathroom walls</li><li>Creating gallery clusters (group of 5–7 small frames)</li><li>Budget-friendly gifts</li></ul>
+<h3>Medium (12×18 inches) — Most Popular</h3>
+<p>Our bestseller. Medium frames work in virtually every room — bedroom accent walls, home office walls, kitchen decor.</p>
+<h3>Large (18×24 inches) — Statement Pieces</h3>
+<ul><li>Living room feature walls</li><li>Dining room focal points</li><li>Above-sofa arrangements</li></ul>
+<h3>XL (24×36 inches) — Gallery-Grade</h3>
+<p>For high ceilings and bold statements. Perfect for corporate offices, hotel lobbies, and spacious living rooms.</p>
+<h3>Pro Tip: The 57-Inch Rule</h3>
+<p>Hang the center of your frame at 57 inches (145 cm) from the floor — the average human eye level. This applies universally and is the standard used by art galleries worldwide.</p>
+<h2>Buy Photo Frames Online India</h2>
+<p>PhotoFrameIn offers all four sizes starting at ₹499, with Standard and Premium (white mount) options. Free delivery above ₹799.</p>',
+ 'buying-guide', ARRAY['photo frame sizes', 'frame guide India', 'wall art sizes', 'home decor'], true,
+ 'Best Photo Frame Sizes for Every Room — Complete Guide India 2025',
+ 'Find the perfect photo frame size for bedroom, living room, office. Complete size guide from Small 8x12 to XL 24x36. Buy frames from ₹499 with free delivery.'),
+
+('10 Creative Ways to Display Photo Frames on Your Wall',
+ 'creative-photo-frame-wall-display-ideas',
+ 'Move beyond single frames! Discover gallery walls, symmetrical grids, staircase arrangements and more creative ways to display photo frames in Indian homes.',
+ '<h2>10 Creative Ways to Display Photo Frames on Your Wall</h2>
+<p>A single frame is nice. A thoughtfully arranged collection is breathtaking. Here are 10 creative ideas to transform your walls.</p>
+<h3>1. The Gallery Wall Cluster</h3>
+<p>Mix 5–9 frames of different sizes in a loose cluster. Start from the center and work outward. Use matching frame styles for cohesion.</p>
+<h3>2. Symmetrical Grid Layout</h3>
+<p>6 or 9 matching frames in a perfect grid. Uniform spacing (usually 2–3 inches). Best for modern, minimalist rooms.</p>
+<h3>3. Staircase Arrangement</h3>
+<p>Follow the diagonal line of your staircase. Space frames every 8 inches along the rail. Creates dramatic visual flow.</p>
+<h3>4. The Salon-Style Wall</h3>
+<p>Floor-to-ceiling frames packed tightly together. Mix artwork, photos, and mirrors. Bold, maximalist, statement-making.</p>
+<h3>5. Single Statement Frame</h3>
+<p>One large XL frame (24×36) centered above a sofa or bed. No competing elements. Maximum impact.</p>
+<h3>6. Floating Shelves + Frames</h3>
+<p>Combine frames with plants, books and objects on floating shelves. Easy to rearrange without re-drilling walls.</p>
+<h3>7. The Triptych</h3>
+<p>Three frames side-by-side with the same image split across them, or a themed collection (e.g., three Ganesha artworks).</p>
+<h3>8. Bedroom Headboard Replacement</h3>
+<p>3–5 frames arranged horizontally above the bed. Creates a stunning headboard effect at a fraction of the cost.</p>
+<h3>9. Office Motivation Wall</h3>
+<p>5 motivational quote frames in your work-from-home setup. Increases productivity and makes video calls look professional.</p>
+<h3>10. The Pooja Room Frame Arrangement</h3>
+<p>Divine art frames arranged around your home mandir. Ganesha at center, Shiva and Hanuman flanking, Lakshmi below. Spiritually balanced and visually stunning.</p>',
+ 'decor-ideas', ARRAY['photo frame display ideas', 'gallery wall India', 'wall decor ideas', 'frame arrangement'], true,
+ '10 Creative Ways to Display Photo Frames on Your Wall | PhotoFrameIn',
+ 'Transform your walls with these 10 creative photo frame display ideas — gallery walls, grids, staircase arrangements. Buy premium frames from ₹499.'),
+
+('Why Custom Photo Frames Make the Best Personalised Gifts in India',
+ 'custom-photo-frames-best-personalised-gifts-india',
+ 'Looking for a unique, heartfelt gift? Custom photo frames stand out from generic gifts. Here is why personalised frames are the best gift for every occasion in India.',
+ '<h2>Why Custom Photo Frames Make the Best Personalised Gifts in India</h2>
+<p>In a world of generic gifts — candles, chocolates, gift cards — a custom photo frame stands apart. It is personal. It is lasting. It is meaningful.</p>
+<h3>Perfect Occasions for Gifting Frames</h3>
+<ul>
+<li><strong>Weddings:</strong> A framed couple portrait is one gift that will be displayed for decades</li>
+<li><strong>Birthdays:</strong> Upload a favourite memory, frame it professionally</li>
+<li><strong>Housewarming:</strong> A beautiful framed divine art piece blesses the new home</li>
+<li><strong>Anniversaries:</strong> Premium white-mount frame with a meaningful photo</li>
+<li><strong>Corporate gifting:</strong> Branded frames for client gifting or employee awards</li>
+</ul>
+<h3>What Makes PhotoFrameIn Frames Special</h3>
+<ul>
+<li>300gsm museum-grade fine art paper — colours stay vivid for 75+ years</li>
+<li>Kiln-dried solid hardwood frames — no plastic, no warping</li>
+<li>Every custom design is manually verified and upscaled before printing</li>
+<li>Premium option includes pure white archival mount — gallery presentation style</li>
+</ul>
+<h3>How to Order a Custom Frame Gift</h3>
+<ol>
+<li>Visit our Custom Frames page</li>
+<li>Upload your photo (minimum 1500×2000px for best quality)</li>
+<li>Choose size and frame style</li>
+<li>Add to cart and checkout — we deliver across India in 3–5 days</li>
+</ol>
+<p>Starting at ₹499. Premium frames from ₹799. Free delivery above ₹799.</p>',
+ 'gifting', ARRAY['custom photo frame gift India', 'personalised frame gift', 'photo frame gift', 'unique gifts India'], true,
+ 'Custom Photo Frames — Best Personalised Gifts in India | PhotoFrameIn',
+ 'Custom photo frames make the best personalised gifts for weddings, birthdays, anniversaries in India. Premium quality from ₹499. Free delivery above ₹799.'),
+
+('Divine Art Frames for Home — Ganesha, Shiva, Hanuman, Krishna Wall Art',
+ 'divine-art-frames-home-ganesha-shiva-hanuman-krishna',
+ 'Bring spirituality into your home with premium divine art frames. Discover the best Ganesha, Shiva, Hanuman and Krishna framed wall art for home mandir and living room.',
+ '<h2>Divine Art Frames for Your Home</h2>
+<p>Art has always been inseparable from Indian spirituality. A beautifully framed divine artwork elevates your home — aesthetically and spiritually.</p>
+<h3>Most Popular Divine Art Frames</h3>
+<h4>Ganesha Frames</h4>
+<p>Lord Ganesha is the remover of obstacles and is traditionally placed at home entrances and in study rooms. Our Ganesha wall art frames feature high-resolution cinematic interpretations perfect for modern homes.</p>
+<h4>Shiva Frames</h4>
+<p>Mahadev art for meditation rooms, home mandirs and bedrooms. The cosmic energy of Shiva captured in premium fine art printing.</p>
+<h4>Hanuman Frames</h4>
+<p>Bajrangbali art for courage and strength. Popular in home gyms, study rooms and puja rooms.</p>
+<h4>Krishna Frames</h4>
+<p>The divine love and wisdom of Krishna — perfect for living rooms, dining rooms and gifting to devotees.</p>
+<h3>Where to Hang Divine Art Frames</h3>
+<ul>
+<li><strong>Home mandir:</strong> Frame directly above or flanking the mandir</li>
+<li><strong>Living room:</strong> Feature wall above sofa</li>
+<li><strong>Bedroom:</strong> East or north-facing walls (Vastu preferred)</li>
+<li><strong>Entrance:</strong> Ganesha at doorway — blessings for all who enter</li>
+</ul>
+<h3>Frame Options for Divine Art</h3>
+<p>All our divine art frames come in Standard (direct print) or Premium (pure white archival mount, gallery style). The white mount adds a museum-quality border that makes the artwork float within the frame.</p>',
+ 'divine', ARRAY['Ganesha wall art frame', 'divine art frames India', 'Shiva frame', 'Hanuman frame', 'Krishna wall art'], true,
+ 'Divine Art Frames — Ganesha, Shiva, Hanuman, Krishna Wall Art India',
+ 'Buy premium divine art frames for home. Ganesha, Shiva, Hanuman, Krishna framed wall art. Perfect for home mandir & living room. From ₹499 with free delivery.'),
+
+('Automotive Art Frames — Porsche, Ferrari, Lamborghini Poster Frames India',
+ 'automotive-art-frames-porsche-ferrari-lamborghini-india',
+ 'Turn your love for cars into stunning wall art. Discover premium automotive poster frames — Porsche, Ferrari, Lamborghini, hypercar prints for man-cave, garage and office.',
+ '<h2>Automotive Art Frames — For Car Enthusiasts</h2>
+<p>Your passion deserves to be on your wall. Automotive art frames transform any room into a gallery of speed, power, and design excellence.</p>
+<h3>Why Car Art Frames Are the Perfect Man-Cave Addition</h3>
+<ul>
+<li>Cinematic, high-detail imagery — not phone photography</li>
+<li>Professional colour grading capturing the drama of each car</li>
+<li>Solid hardwood frames that match the quality of the art</li>
+<li>Sizes from 8×12 to 24×36 — wall art at any scale</li>
+</ul>
+<h3>Popular Automotive Prints</h3>
+<h4>Porsche Frames</h4>
+<p>The Porsche 911 is arguably the most iconic sports car ever made. Our Porsche wall art captures the car in cinematic lighting — perfect for offices, home garages and living rooms of car enthusiasts.</p>
+<h4>Ferrari Frames</h4>
+<p>The prancing horse. Ferrari wall art for the ultimate enthusiast — vibrant reds, dramatic shadows, Italian passion.</p>
+<h4>Lamborghini Frames</h4>
+<p>Aggressive, angular, unmistakable. Lamborghini framed art makes a bold statement in any room.</p>
+<h3>Where to Hang Automotive Frames</h3>
+<ul>
+<li>Home garage or workshop</li>
+<li>Man-cave or gaming room</li>
+<li>Home office or study</li>
+<li>Corporate office lobby</li>
+</ul>
+<h3>Gift Ideas for Car Lovers India</h3>
+<p>A framed automotive print is the perfect birthday, Diwali, or festive gift for any car enthusiast. Starting ₹499, delivered pan-India in 3–5 days.</p>',
+ 'automotive', ARRAY['automotive art frames India', 'Porsche poster frame', 'car wall art India', 'Ferrari frame India', 'man cave decor India'], true,
+ 'Automotive Art Frames — Porsche Ferrari Lamborghini Poster Frames India',
+ 'Buy premium automotive poster frames — Porsche, Ferrari, Lamborghini car wall art for man-cave, garage, office. From ₹499 with free delivery across India.')
+
+ON CONFLICT (slug) DO NOTHING;
+
+-- ============================================================================
+-- SECTION 16: UPDATE FAQ with new COD range (₹899-₹1995)
+-- ============================================================================
+
+UPDATE faq SET answer = 'Yes, for orders between ₹899-₹1,995. A ₹49 COD handling fee applies. WhatsApp confirmation required within 24 hours.',
+  updated_at = NOW()
+WHERE question ILIKE '%cod available%';
+
+-- ============================================================================
+-- END OF v3.1 ADDITIONS — Run in Supabase SQL Editor
+-- ============================================================================
+
+-- ============================================================================
+-- SECTION 15: PRODUCT SIZE/FRAME RESTRICTIONS + REVIEW PHOTO CONTROL
+-- ============================================================================
+
+-- Add allowed_sizes and allowed_frames columns to products table
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS allowed_sizes TEXT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS allowed_frames TEXT DEFAULT NULL;
+
+COMMENT ON COLUMN products.allowed_sizes IS 'Comma-separated list of allowed sizes, e.g. "Small,Medium". NULL = all sizes.';
+COMMENT ON COLUMN products.allowed_frames IS 'Comma-separated list of allowed frame types, e.g. "Standard,Premium". NULL = all.';
+
+-- ============================================================================
+-- SECTION 16: REVIEW REQUEST TABLE + PHOTO FIELD ON REVIEWS
+-- ============================================================================
+
+-- Add photo_url to reviews if not present
+ALTER TABLE reviews
+  ADD COLUMN IF NOT EXISTS photo_url TEXT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS order_id TEXT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS verified_purchase BOOLEAN DEFAULT false;
+
+COMMENT ON COLUMN reviews.photo_url IS 'Customer-uploaded photo with review. Only stored if review_photo_enabled=true.';
+
+-- ============================================================================
+-- SECTION 17: BLOG POSTS FOR SEO (v3.1)
+-- ============================================================================
+
+INSERT INTO blog_posts (title, slug, excerpt, content, category, is_published, created_at)
+VALUES
+(
+  'How to Choose the Perfect Photo Frame Size for Your Home',
+  'choose-perfect-photo-frame-size',
+  'A complete guide to selecting the right frame size for every room — bedroom, living room, office, and more.',
+  '<h2>Frame Sizes Explained</h2>
+  <p>Choosing the right frame size can transform a room. Here''s our complete guide:</p>
+  <h3>Small (8×12") — Desks &amp; Shelves</h3>
+  <p>Perfect for bedside tables, study desks, and floating shelves. Creates intimate displays without overwhelming the space.</p>
+  <h3>Medium (12×18") — Bedrooms &amp; Offices</h3>
+  <p>Our bestseller. Works perfectly above beds, on home office walls, and in reading nooks. The ideal gift size.</p>
+  <h3>Large (18×24") — Living Rooms</h3>
+  <p>Statement pieces for living rooms and dining areas. Creates a focal point on feature walls.</p>
+  <h3>XL (24×36") — Feature Walls</h3>
+  <p>Gallery-quality display. Ideal for large walls in living rooms, hallways, and commercial spaces.</p>
+  <h2>Size Guide by Room</h2>
+  <ul>
+    <li><strong>Bedroom above bed:</strong> Medium or Large (12×18" or 18×24")</li>
+    <li><strong>Living room feature wall:</strong> Large or XL (18×24" or 24×36")</li>
+    <li><strong>Home office:</strong> Medium (12×18")</li>
+    <li><strong>Desk or shelf:</strong> Small (8×12")</li>
+    <li><strong>Gifting:</strong> Medium is universally appreciated</li>
+  </ul>
+  <h2>Order Custom Photo Frames Online in India</h2>
+  <p>PhotoFrameIn ships handcrafted frames across India with free delivery above ₹799. Each frame includes ready-to-hang mounting hardware.</p>',
+  'buying-guide',
+  true,
+  NOW() - INTERVAL '7 days'
+),
+(
+  'Top 10 Ganesha Wall Art Frames for Your Home Mandir',
+  'ganesha-wall-art-frames-home-mandir',
+  'Transform your pooja room or living space with these stunning Lord Ganesha framed art prints — perfect for gifting and home decor.',
+  '<h2>Why Ganesha Frames Make the Perfect Home Decor</h2>
+  <p>Lord Ganesha, the remover of obstacles, brings positivity and auspiciousness to every home. A premium framed Ganesha print in your mandir, entrance, or living room is both spiritually meaningful and aesthetically beautiful.</p>
+  <h2>Best Placements for Ganesha Frames</h2>
+  <ul>
+    <li><strong>Home Mandir/Pooja Room:</strong> A large Ganesha frame sets a serene, devotional atmosphere</li>
+    <li><strong>Main Entrance:</strong> Traditional Vastu placement — Ganesha at the entrance brings blessings</li>
+    <li><strong>Living Room:</strong> Creates a spiritual focal point for family gatherings</li>
+    <li><strong>Office Desk:</strong> Small frame for daily blessings and positive energy</li>
+  </ul>
+  <h2>Our Premium Mount Option</h2>
+  <p>Elevate your Ganesha frame with our Premium White Mount (+₹250) — a pure white archival border that creates a gallery-quality presentation, just like the finest art galleries. The clean white border draws the eye to the divine image.</p>
+  <h2>Order Ganesha Frames Online</h2>
+  <p>All PhotoFrameIn divine art frames come with UV-resistant 300gsm museum-quality printing. Free delivery across India. COD available for orders ₹899–₹1995.</p>',
+  'divine-art',
+  true,
+  NOW() - INTERVAL '5 days'
+),
+(
+  'Why Custom Photo Frames Make the Best Personalized Gifts in India',
+  'custom-photo-frames-best-personalized-gifts-india',
+  'Looking for the perfect gift? A custom photo frame with a personal photo is thoughtful, lasting, and universally loved. Here''s why.',
+  '<h2>The Gift That Never Goes Out of Style</h2>
+  <p>In a world of disposable gifts, a custom framed photograph stands apart. It''s personal, meaningful, and becomes a lasting keepsake that recipients display for years.</p>
+  <h2>Perfect Occasions for Photo Frame Gifts</h2>
+  <ul>
+    <li><strong>Birthdays:</strong> Frame a favourite memory or milestone photo</li>
+    <li><strong>Weddings &amp; Anniversaries:</strong> A couple''s portrait in a premium frame</li>
+    <li><strong>Housewarming:</strong> Family photo for their new home</li>
+    <li><strong>Graduation:</strong> Proud achievement moment</li>
+    <li><strong>Diwali/Festivals:</strong> Divine art or family photo — ideal festive gift</li>
+    <li><strong>Corporate Gifting:</strong> Bulk custom frames with company logo or team photos</li>
+  </ul>
+  <h2>How to Order a Custom Photo Frame</h2>
+  <ol>
+    <li>Visit our <a href="/customize">Custom Frame page</a></li>
+    <li>Upload your photo (JPG/PNG, up to 50MB)</li>
+    <li>Select your frame size (Small 8×12" to XL 24×36")</li>
+    <li>Choose Standard or Premium (with white mount)</li>
+    <li>We manually review, upscale to 4K, and print professionally</li>
+    <li>Delivered pan-India in 3–5 business days</li>
+  </ol>
+  <h2>Bulk & Corporate Orders</h2>
+  <p>Planning a bulk order for your team or event? Call us: <strong>8333066370</strong> or <strong>7989094923</strong> for special corporate pricing.</p>',
+  'custom-frames',
+  true,
+  NOW() - INTERVAL '3 days'
+),
+(
+  'Automotive Wall Art: The Best Car Frames for Man Caves and Home Offices',
+  'automotive-wall-art-car-frames-man-cave',
+  'Porsche, Ferrari, Lamborghini — stunning automotive art frames that transform any space into a petrolhead''s paradise.',
+  '<h2>Turn Your Wall Into a Racing Gallery</h2>
+  <p>The finest car photography deserves the finest frames. Our automotive art collection features cinematic Porsche, Ferrari, and hypercar prints that bring the thrill of the track to your wall.</p>
+  <h2>Best Rooms for Automotive Art</h2>
+  <ul>
+    <li><strong>Man Cave:</strong> Multiple frames create an immersive automotive gallery</li>
+    <li><strong>Home Office:</strong> Inspiration while you work — a Porsche 911 or Ferrari Roma</li>
+    <li><strong>Garage:</strong> Complement your actual car with matching automotive art</li>
+    <li><strong>Gaming Setup:</strong> Cinematic car prints elevate any gaming battlestation</li>
+  </ul>
+  <h2>Gallery Wall Tips</h2>
+  <p>Mix sizes for visual interest: one XL centerpiece with two Medium frames on either side. Our Standard frame provides a clean, modern look that works perfectly for automotive prints.</p>
+  <h2>Buy Automotive Art Frames Online India</h2>
+  <p>Free shipping on orders above ₹799. Delivered across India in 3–5 days. COD available ₹899–₹1995.</p>',
+  'automotive',
+  true,
+  NOW() - INTERVAL '1 day'
+)
+ON CONFLICT (slug) DO NOTHING;
+
+-- ============================================================================
+-- SECTION 18: WRANGLER SECRETS REFERENCE
+-- ============================================================================
+-- The following secrets must be set in Cloudflare Dashboard or via wrangler:
+-- npx wrangler secret put OPENROUTER_API_KEY --project-name photoframein
+-- npx wrangler secret put SUPABASE_URL --project-name photoframein
+-- npx wrangler secret put SUPABASE_SERVICE_KEY --project-name photoframein
+-- npx wrangler secret put CLOUDINARY_CLOUD_NAME --project-name photoframein
+-- npx wrangler secret put CLOUDINARY_API_KEY --project-name photoframein
+-- npx wrangler secret put CLOUDINARY_API_SECRET --project-name photoframein
+-- npx wrangler secret put RAZORPAY_KEY_ID --project-name photoframein
+-- npx wrangler secret put RAZORPAY_KEY_SECRET --project-name photoframein
+
+-- ============================================================================
+-- SECTION 19: DESIGN PREVIEWS & ADDITIONAL CONFIG
+-- ============================================================================
+
+-- Add design_preview_images config (comma-separated Cloudinary URLs, admin-managed)
+INSERT INTO system_config (key, value) VALUES
+  ('design_preview_image_1', ''),
+  ('design_preview_image_2', ''),
+  ('design_preview_image_3', ''),
+  ('openrouter_api_key_hint', 'Set OPENROUTER_API_KEY as Cloudflare secret — not stored in DB')
+ON CONFLICT (key) DO NOTHING;
+
+-- ============================================================================
+-- SECTION 20: SIZE GUIDE TABLE (for product size restrictions reference)
+-- ============================================================================
+-- Size restrictions are stored in products.allowed_sizes (comma string)
+-- and products.allowed_frames (comma string). NULL = all allowed.
+-- Example: allowed_sizes = 'Small,Medium' means only those two sizes appear.
+-- Example: allowed_frames = 'Standard' hides Premium option for that product.
+
+COMMENT ON COLUMN products.allowed_sizes IS
+  'CSV of allowed sizes e.g. "Small,Medium,Large,XL". NULL = all sizes shown.';
+COMMENT ON COLUMN products.allowed_frames IS
+  'CSV of allowed frame types e.g. "Standard,Premium". NULL = all shown.';
+
+-- ============================================================================
+-- SECTION 21: ADDITIONAL BLOG POSTS FOR SEO
+-- ============================================================================
+INSERT INTO blog_posts (title, slug, excerpt, content, category, is_published, created_at)
+VALUES
+(
+  '5 Frame Sizes Explained — Which One Is Right for Your Wall?',
+  'frame-sizes-guide-india',
+  'Small 8x12 to XL 24x36 — everything you need to know about choosing the right frame size for your room and wall space.',
+  '<h2>Choosing the Right Frame Size</h2>
+  <p>One of the most common questions we get at PhotoFrameIn is: "Which size should I order?" The answer depends on three things — where you''re hanging it, how far away you''ll view it, and whether it''s the only frame or part of a gallery wall.</p>
+  <h3>Small (8×12" / 20×30 cm)</h3>
+  <p>Perfect for desks, shelves, and bedside tables. Works well for portrait photos and smaller rooms. Starting from ₹499.</p>
+  <h3>Medium (12×18" / 30×45 cm)</h3>
+  <p>Our bestseller. Great for bedrooms, home offices, and single-frame walls. Enough presence without overwhelming the room. From ₹799.</p>
+  <h3>Large (18×24" / 45×60 cm)</h3>
+  <p>A statement piece for living rooms and dining areas. Works beautifully with divine art and automotive prints. From ₹1,149.</p>
+  <h3>XL (24×36" / 60×90 cm)</h3>
+  <p>Feature wall hero. Best for open-plan living areas, studios, and commercial spaces. Maximum visual impact. From ₹1,749.</p>
+  <h2>Gallery Wall Tip</h2>
+  <p>Mix a Large centerpiece with two Small frames on either side for a professional gallery wall look. Total investment: under ₹2,500.</p>',
+  'Size Guide',
+  true,
+  NOW() - INTERVAL '5 days'
+),
+(
+  'Premium White Mount Frames — What Is a Mat Board and Why It Matters',
+  'premium-white-mount-frames-mat-board',
+  'Learn what archival mount boards are, why galleries use them, and how our Premium frames replicate the gallery look at home.',
+  '<h2>What Is a Mount Mat Board?</h2>
+  <p>A mount mat (or mat board) is a thick paper border placed between a frame and the artwork. It creates visual breathing space and is a hallmark of professional gallery framing.</p>
+  <h2>Why White Mount Boards Are Standard</h2>
+  <p>Pure white archival mat boards are used in museums and galleries because they:</p>
+  <ul>
+    <li>Make colours in the artwork pop</li>
+    <li>Create a clean, professional border</li>
+    <li>Protect the artwork from direct contact with the glass</li>
+    <li>Are acid-free, preventing yellowing over time</li>
+  </ul>
+  <h2>Our Premium Frame Option</h2>
+  <p>Our Premium (+₹250) frame option includes a genuine pure white archival mount board, replicating the exact gallery presentation style. The outer frame is dark, the mount is brilliant white, and your art sits centered in the composition.</p>
+  <p>It transforms any print into a gallery-quality piece — perfect for divine art, automotive prints, or your custom photo.</p>',
+  'Behind the Scenes',
+  true,
+  NOW() - INTERVAL '2 days'
+)
+ON CONFLICT (slug) DO NOTHING;
+
+-- ============================================================================
+-- SECTION 22: COMPETITOR GAP — COLOUR SCHEME NOTE
+-- ============================================================================
+-- Analysis: Most Indian frame competitors (Frames & Gifts, Printland, Zoomin)
+-- use white/light themes. PhotoFrameIn's dark luxury (#050505 bg, gold accents)
+-- is a deliberate differentiator targeting premium buyers (₹750-₹2000 AOV).
+-- Recommendation: Keep dark theme. Improve contrast ratio on gray text.
+-- Low-effort gap: Add a "Room Visualiser" teaser (coming soon) to stand out.
+-- SEO gap: Competitors rank for "photo frames online" but not for:
+--   "divine art frames India", "automotive wall art frame", "custom frame Hyderabad"
+-- → These are PhotoFrameIn's target keywords with very low competition.
+

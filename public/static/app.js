@@ -194,6 +194,8 @@
       else if (path === '/account') renderAccountPage(app);
       else if (path === '/auth/callback') handleAuthCallback(app);
       else if (path.startsWith('/policy')) renderPolicyPage(app);
+      else if (path === '/suggest') renderSuggestPage(app);
+      else if (path === '/review') renderReviewPage(app);
       else if (path === '/about' || path === '/contact') renderStaticPage(app, path.slice(1));
       else if (path.startsWith('/blog')) renderBlogPage(app, path);
       else renderHomePage(app);
@@ -280,7 +282,7 @@
               <span class="text-2xl" aria-hidden="true">🖼️</span>
               <span class="text-lg font-bold text-white font-display uppercase tracking-widest">PhotoFrameIn</span>
             </div>
-            <p class="text-gray-400 text-sm mb-5 leading-relaxed">Buy photo frames online — handcrafted in Hyderabad, delivered pan-India with 5-layer protective packaging.</p>
+            <p class="text-gray-400 text-sm mb-5 leading-relaxed">Buy photo frames online — handcrafted in Hyderabad, delivered pan-India with premium protective packaging.</p>
             <div class="flex gap-3" aria-label="Social media links">
               <a href="${instaLink}" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Instagram"><i class="fab fa-instagram" aria-hidden="true"></i></a>
               <a href="${fbLink}" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Facebook"><i class="fab fa-facebook-f" aria-hidden="true"></i></a>
@@ -300,6 +302,7 @@
             <h3 class="footer-heading">Help</h3>
             <ul class="footer-links" role="list">
               <li><a href="/track" onclick="window.pfi.nav('/track');return false;">Track Order</a></li>
+              <li><a href="/suggest" onclick="window.pfi.nav('/suggest');return false;">Suggest a Design</a></li>
               <li><a href="/returns" onclick="window.pfi.nav('/returns');return false;">Returns Policy</a></li>
               <li><a href="/policy/shipping" onclick="window.pfi.nav('/policy/shipping');return false;">Shipping Policy</a></li>
               <li><a href="/policy/privacy" onclick="window.pfi.nav('/policy/privacy');return false;">Privacy Policy</a></li>
@@ -311,6 +314,7 @@
               <li><i class="fas fa-envelope mr-2 text-brand-gold" aria-hidden="true"></i><a href="mailto:${contactEmail}" class="hover:text-brand-gold transition">${contactEmail}</a></li>
               <li><i class="fas fa-phone mr-2 text-brand-gold" aria-hidden="true"></i><a href="tel:${contactPhone.replace(/\s/g,'')}" class="hover:text-brand-gold transition">${contactPhone}</a></li>
               <li><i class="fas fa-map-marker-alt mr-2 text-brand-gold" aria-hidden="true"></i>Hyderabad, Telangana</li>
+              ${(c.bulk_order_phone1 || c.bulk_order_phone2) ? `<li class="pt-2 border-t border-gray-900"><i class="fas fa-boxes mr-2 text-brand-gold" aria-hidden="true"></i><strong class="text-gray-300 text-xs">Bulk/Corporate:</strong><br><span class="text-xs">${c.bulk_order_phone1 ? escapeHTML(c.bulk_order_phone1) : ''}${c.bulk_order_phone2 ? ' / '+escapeHTML(c.bulk_order_phone2) : ''}</span></li>` : ''}
             </ul>
             <div class="mt-6">
               <p class="text-xs text-gray-600 mb-2 uppercase tracking-widest">Secure Payments</p>
@@ -505,7 +509,7 @@
             </div>
             <div class="trust-item" role="listitem">
               <i class="fas fa-box" aria-hidden="true"></i>
-              <div><div class="font-bold text-sm">5-Layer Packaging</div><div class="text-xs text-gray-400">Corner guards + bubble wrap</div></div>
+              <div><div class="font-bold text-sm">Premium Packaging</div><div class="text-xs text-gray-400">Corner guards + bubble wrap</div></div>
             </div>
             <div class="trust-item" role="listitem">
               <i class="fas fa-exchange-alt" aria-hidden="true"></i>
@@ -518,6 +522,21 @@
           </div>
         </div>
       </section>
+
+      <!-- Bulk / Corporate Orders Banner -->
+      ${(c.bulk_order_phone1 || c.bulk_order_phone2) ? `
+      <section class="max-w-7xl mx-auto px-4 pb-4" aria-labelledby="bulk-order-heading">
+        <div class="bg-brand-card border border-brand-gold/20 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div>
+            <h2 id="bulk-order-heading" class="font-bold text-lg mb-1"><i class="fas fa-boxes text-brand-gold mr-2" aria-hidden="true"></i>Bulk &amp; Corporate Orders</h2>
+            <p class="text-sm text-gray-400">Custom framing for offices, events &amp; gifting — special pricing for 10+ units.</p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            ${c.bulk_order_phone1 ? `<a href="tel:${escapeAttr(c.bulk_order_phone1)}" class="flex items-center gap-2 bg-brand-gold text-black font-bold px-5 py-2.5 rounded-xl text-sm hover:bg-yellow-400 transition" aria-label="Call bulk orders phone 1"><i class="fas fa-phone"></i>${escapeHTML(c.bulk_order_phone1)}</a>` : ''}
+            ${c.bulk_order_phone2 ? `<a href="tel:${escapeAttr(c.bulk_order_phone2)}" class="flex items-center gap-2 bg-gray-800 text-white font-bold px-5 py-2.5 rounded-xl text-sm hover:bg-gray-700 transition" aria-label="Call bulk orders phone 2"><i class="fas fa-phone"></i>${escapeHTML(c.bulk_order_phone2)}</a>` : ''}
+          </div>
+        </div>
+      </section>` : ''}
 
       <!-- Instagram Ad Creatives Section for Conversion -->
       <section class="max-w-7xl mx-auto px-4 py-12" aria-labelledby="insta-cta-heading">
@@ -729,7 +748,8 @@
       const safeName = escapeHTML(p.name || '');
       const safeDesc = escapeHTML((p.description || '').substring(0, 300));
       const safeMainImg = images[0]?.image_url ? escapeAttr(images[0].image_url) : `https://placehold.co/600x600/1A1A1A/C5A059?text=${encodeURIComponent(p.name||'Frame')}`;
-      const frameClass = dv?.frame_type === 'Premium' ? 'has-mount frame-border-white' : 'frame-border-black';
+      const frameClass = dv?.frame_type === 'Premium' ? 'has-mount' : 'frame-border-black';
+      const frameStyle = '';
 
       const reviews = (data.reviews || []);
       const avgRating = reviews.length ? (reviews.reduce((s, r) => s + (r.rating||0), 0) / reviews.length).toFixed(1) : null;
@@ -790,6 +810,11 @@
                 <span class="bg-brand-green/20 text-brand-green text-xs font-bold px-2 py-1 rounded">SALE</span>` : '<div id="compare-price"></div>'}
               </div>
               <p class="text-gray-400 text-sm leading-relaxed">${safeDesc}</p>
+              <!-- Trust Signal: manual verification -->
+              <div class="mt-3 flex items-start gap-2 bg-brand-gold/10 border border-brand-gold/30 rounded-xl px-3 py-2 text-xs text-gray-300">
+                <i class="fas fa-shield-check text-brand-gold mt-0.5 flex-shrink-0" aria-hidden="true"></i>
+                <span><strong class="text-brand-gold">Quality Verified:</strong> Every custom design is manually reviewed and upscaled to your frame size before printing. Your order will match the preview.</span>
+              </div>
             </div>
 
             <!-- Pincode Check -->
@@ -807,9 +832,10 @@
                 ${['Small','Medium','Large','XL'].map(s => {
                   const v = variants.find(v => v.size===s && v.frame_type===(dv?.frame_type||'Standard'));
                   if (!v) return '';
-                  return `<button class="size-option ${s===(dv?.size||'Medium')?'active':''}" data-size="${s}" onclick="window.pfi.selectSize('${s}')" aria-pressed="${s===(dv?.size||'Medium')}" aria-label="${s} frame, ${formatPrice(v.price)}">
+                  const sizeLabels = { Small: '8×12"', Medium: '12×18"', Large: '18×24"', XL: '24×36"' };
+                  return `<button class="size-option ${s===(dv?.size||'Medium')?'active':''}" data-size="${s}" onclick="window.pfi.selectSize('${s}')" aria-pressed="${s===(dv?.size||'Medium')}" aria-label="${s} — ${sizeLabels[s]||s}">
                     <div class="font-bold text-sm">${s}</div>
-                    <div class="text-[10px] opacity-75">${formatPrice(v.price)}</div>
+                    <div class="text-[10px] opacity-75">${sizeLabels[s]||''}</div>
                   </button>`;
                 }).join('')}
               </div>
@@ -821,20 +847,21 @@
             <!-- Frame Type Selector -->
             <div>
               <label class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 block" id="frame-label">2. Select Display Style</label>
-              <div id="frame-selector" class="grid md:grid-cols-3 gap-2" role="group" aria-labelledby="frame-label">
-                ${['Poster','Standard','Premium'].map(f => {
+              <div id="frame-selector" class="grid md:grid-cols-2 gap-2" role="group" aria-labelledby="frame-label">
+                ${['Standard','Premium'].map(f => {
                   const v = variants.find(v => v.size===(dv?.size||'Medium') && v.frame_type===f);
                   if (!v) return '';
-                  const labels = { Poster: 'No Frame Print', Standard: 'Framed (Direct)', Premium: 'Premium w/ Mount' };
-                  return `<button class="frame-option ${f===(dv?.frame_type||'Standard')?'active':''}" data-frame="${f}" onclick="window.pfi.selectFrame('${f}')" aria-pressed="${f===(dv?.frame_type||'Standard')}" aria-label="${labels[f]||f}, ${formatPrice(v.price)}">
+                  const labels = { Standard: 'Standard Frame', Premium: 'Premium + White Mount' };
+                  const badge = f === 'Premium' ? '<span class="text-brand-gold text-[10px] font-bold">+₹250</span>' : '<span class="text-brand-green text-[10px] font-bold">Included</span>';
+                  return `<button class="frame-option ${f===(dv?.frame_type||'Standard')?'active':''}" data-frame="${f}" onclick="window.pfi.selectFrame('${f}')" aria-pressed="${f===(dv?.frame_type||'Standard')}" aria-label="${labels[f]||f}${f==='Premium'?' +₹250':''}">
                     <div class="font-bold text-xs">${labels[f]||f}</div>
-                    <div class="text-[10px] text-brand-gold">${formatPrice(v.price)}</div>
+                    ${badge}
                   </button>`;
                 }).join('')}
               </div>
 
               <!-- Premium Frame Info (mount is always pure white #FFFFFF) -->
-              ${dv?.frame_type==='Premium' ? `<div class="mt-3 p-3 bg-black/30 border border-gray-800 rounded-xl text-xs text-gray-400"><i class="fas fa-check-circle text-brand-gold mr-1"></i>Includes <strong class="text-white">pure white (#FFFFFF) archival mount</strong> — gallery presentation style.</div>` : ''}
+              <div id="premium-mount-info" class="mt-3 p-3 bg-black/30 border border-brand-gold/20 rounded-xl text-xs text-gray-400 ${dv?.frame_type==='Premium' ? '' : 'hidden'}"><i class="fas fa-check-circle text-brand-gold mr-1"></i><strong class="text-white">Premium Mount included</strong> — pure white archival mat, gallery style. <span class="text-brand-gold font-bold">+₹250</span></div>
             </div>
 
             <!-- CTA Buttons -->
@@ -847,12 +874,32 @@
               </button>
             </div>
 
+            <!-- Trust Signal — Verified & Upscaled -->
+            <div class="flex items-start gap-2 bg-brand-gold/5 border border-brand-gold/20 rounded-xl p-3 text-xs text-gray-300">
+              <i class="fas fa-shield-check text-brand-gold mt-0.5 flex-shrink-0" aria-hidden="true"></i>
+              <span><strong class="text-brand-gold">Manually Verified &amp; AI-Upscaled:</strong> Every design is reviewed by our team and upscaled to 4K print resolution before printing.</span>
+            </div>
+
             <!-- Trust Mini Strip -->
             <div class="grid grid-cols-3 gap-2 text-center text-[10px] text-gray-500">
               <div><i class="fas fa-lock text-brand-gold block mb-1" aria-hidden="true"></i>Secure Checkout</div>
               <div><i class="fas fa-exchange-alt text-brand-gold block mb-1" aria-hidden="true"></i>Free Replacement</div>
-              <div><i class="fas fa-box text-brand-gold block mb-1" aria-hidden="true"></i>5-Layer Pack</div>
+              <div><i class="fas fa-shield-check text-brand-gold block mb-1" aria-hidden="true"></i>Verified Print</div>
             </div>
+
+            <!-- Poster Add-on (hidden unless admin enables) -->
+            ${state.config.poster_enabled === 'true' ? `
+            <div class="bg-brand-card border border-gray-800 rounded-xl p-4 mt-2" id="poster-addon-section">
+              <div class="flex items-center justify-between mb-2">
+                <div><strong class="text-sm">Add Print-Only Poster</strong> <span class="text-[10px] text-gray-500">(No frame)</span></div>
+                <span class="text-brand-gold text-sm font-bold">+₹199</span>
+              </div>
+              <p class="text-xs text-gray-500 mb-3">Same high-res print, rolled &amp; shipped separately. Great for gifting or extra copy.</p>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="poster-addon-cb" class="accent-yellow-400 w-4 h-4" aria-label="Add poster print add-on">
+                <span class="text-xs text-gray-300">Yes, add a poster print (+₹199)</span>
+              </label>
+            </div>` : ''}
           </div>
         </div>
 
@@ -888,6 +935,20 @@
             </div>
           </div>
         </section>
+
+        <!-- Design Previews (admin can add via product images) -->
+        ${images.length > 1 ? `
+        <section class="mt-12 pt-12 border-t border-gray-800" aria-labelledby="design-previews-heading">
+          <h2 id="design-previews-heading" class="section-header">Design Previews</h2>
+          <p class="text-xs text-gray-500 mb-4">Each design is manually reviewed and AI-upscaled to 4K print quality.</p>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            ${images.map(img => `
+            <button class="relative overflow-hidden rounded-xl border border-gray-800 hover:border-brand-gold transition group" onclick="window.pfi.setMainImage('${escapeAttr(img.image_url)}', document.getElementById('main-image'))" aria-label="View design preview">
+              <img src="${escapeAttr(img.image_url)}" alt="${safeName} design preview" class="w-full h-40 object-cover group-hover:scale-105 transition duration-300" loading="lazy">
+              <div class="absolute inset-0 bg-brand-gold/0 group-hover:bg-brand-gold/10 transition rounded-xl"></div>
+            </button>`).join('')}
+          </div>
+        </section>` : ''}
 
         <!-- Volume Upsell -->
         <section class="mt-12" aria-labelledby="bundle-heading">
@@ -937,9 +998,9 @@
           <h2 id="faq-heading" class="section-header">Frequently Asked Questions</h2>
           <div class="space-y-2">
             ${[
-              ['Will it break in delivery?', 'No. Every frame is wrapped in 5-layer packaging with corner protectors and bubble wrap. If damaged — film the unboxing and we replace it free of charge.'],
+              ['Will it break in delivery?', 'No. Every frame is wrapped with corner protectors and bubble wrap for maximum protection. If damaged — film the unboxing and contact us on WhatsApp for a free replacement.'],
               ['How long does delivery take?', '3-5 business days across India. 1-2 days in Hyderabad metro area.'],
-              ['Is COD available?', 'Yes, for orders between ₹499-₹1995. ₹49 COD handling fee applies. WhatsApp confirmation required within 24 hours.'],
+              ['Is COD available?', 'Yes, for orders between ₹899-₹1995. ₹49 COD handling fee applies. WhatsApp confirmation required within 24 hours.'],
               ['What paper/ink is used?', '300gsm museum-grade fine art paper with 12-colour professional pigment inks. UV-resistant, fade-proof for 75+ years.'],
               ['Can I return it?', 'Damaged items are replaced free with unboxing video. Custom/personalized frames are non-returnable.']
             ].map(([q, a]) => `
@@ -1339,12 +1400,12 @@
               </div>
               <span class="text-brand-green text-xs font-bold">RECOMMENDED</span>
             </label>
-            ${subtotal >= parseInt(state.config.cod_min_value||'499') && subtotal <= parseInt(state.config.cod_max_value||'1995') && !state.cart.some(i=>i.is_custom_frame) ? `
+            ${subtotal >= parseInt(state.config.cod_min_value||'899') && subtotal <= parseInt(state.config.cod_max_value||'1995') && !state.cart.some(i=>i.is_custom_frame) ? `
             <label class="payment-option" id="cod-label" role="radio">
               <input type="radio" name="payment" value="cod" class="accent-orange-400" aria-label="Cash on delivery">
               <div class="flex-1">
                 <div class="font-bold text-white">Cash on Delivery</div>
-                <div class="text-xs text-gray-400 mt-0.5">₹${state.config.cod_fee||49} COD fee · WhatsApp confirmation required within 24h</div>
+                <div class="text-xs text-gray-400 mt-0.5">₹${state.config.cod_fee||49} COD fee · Orders ₹${state.config.cod_min_value||899}–₹${state.config.cod_max_value||1995} · WhatsApp confirmation within 24h</div>
               </div>
             </label>` : state.cart.some(i=>i.is_custom_frame) ? `
             <div class="p-3 border border-gray-800 rounded-lg bg-gray-900/50 text-sm text-brand-saffron">
@@ -1361,6 +1422,11 @@
         </div>
         <div id="coupon-result" aria-live="polite"></div>
 
+        <!-- Delivery disclaimer -->
+        <div class="bg-brand-card border border-gray-800 rounded-xl p-4 text-xs text-gray-400">
+          <i class="fas fa-truck mr-1 text-brand-gold" aria-hidden="true"></i>
+          <strong class="text-gray-300">Delivery:</strong> 3–5 business days via Shiprocket/DTDC/Delhivery. Delivery timelines are estimates and subject to carrier operations. PhotoFrameIn is not liable for delays caused by the carrier. Tracking link will be shared after dispatch.
+        </div>
         <div class="flex items-start gap-3">
           <input type="checkbox" id="agree-policy" required class="mt-1 accent-yellow-400" aria-required="true">
           <label for="agree-policy" class="text-sm text-gray-400">I agree to the <a href="/policy/returns" onclick="window.pfi.nav('/policy/returns');return false;" class="text-brand-gold hover:underline">Returns &amp; COD Policy</a> and <a href="/policy/privacy" onclick="window.pfi.nav('/policy/privacy');return false;" class="text-brand-gold hover:underline">Privacy Policy</a></label>
@@ -1494,7 +1560,7 @@
 
       <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-4 mb-6 text-left text-sm">
         <h3 class="font-bold mb-2 text-white"><i class="fas fa-video mr-2 text-brand-gold" aria-hidden="true"></i>Important: Unboxing Video Policy</h3>
-        <p class="text-gray-400">Your frame contains glass. Please <strong class="text-white">film your unboxing</strong> for damage protection — claims without video cannot be processed.</p>
+        <p class="text-gray-400">Your frame contains glass. Please <strong class="text-white">film your unboxing</strong> for damage protection — claims without video cannot be processed. For disputes: <a href="https://wa.me/918333066370" target="_blank" rel="noopener noreferrer" class="text-brand-gold hover:underline">WhatsApp us</a>.</p>
       </div>
 
       <div class="flex flex-col gap-3 max-w-sm mx-auto">
@@ -1526,6 +1592,7 @@
         <button onclick="window.pfi.trackOrder()" class="btn-buy w-full py-4" aria-label="Track order status">TRACK STATUS</button>
       </div>
       <div id="track-result" aria-live="polite"></div>
+      <p class="text-center text-xs text-gray-600 mt-4">Having trouble? <a href="https://wa.me/918333066370" target="_blank" rel="noopener noreferrer" class="text-brand-gold hover:underline">Contact us on WhatsApp</a></p>
     </main>` + renderFooter();
 
     updateCartBadge();
@@ -1534,53 +1601,42 @@
 
   // ─── RETURNS PAGE ─────────────────────────────────────────────────────────
   function renderReturnsPage(app) {
+    const waNumber = '918333066370';
+    const waMsg = encodeURIComponent('Hi, I received a damaged item from PhotoFrameIn. My order ID is: [ORDER_ID]. Please help.');
+    const waLink = `https://wa.me/${waNumber}?text=${waMsg}`;
     app.innerHTML = renderHeader() + `
     <main id="main-content" class="max-w-2xl mx-auto px-4 py-12">
       <h1 class="text-2xl font-bold mb-6 font-display"><i class="fas fa-exchange-alt mr-2" aria-hidden="true"></i>Returns &amp; Damage Claims</h1>
-      <div class="bg-brand-card border border-gray-800 rounded-xl p-6 mb-6">
-        <div class="custom-warning mb-4" role="note"><i class="fas fa-video mr-2" aria-hidden="true"></i>Unboxing video is <strong>required</strong> for all damage claims. No video = no replacement.</div>
-        <form id="returns-form" class="space-y-4" novalidate>
-          <div><label for="ret-order" class="sr-only">Order ID</label><input type="text" id="ret-order" name="orderId" placeholder="Order ID (PS-XXXXXX) *" required class="form-input w-full" aria-required="true"></div>
-          <div><label for="ret-email" class="sr-only">Email</label><input type="email" id="ret-email" name="email" placeholder="Registered Email *" required class="form-input w-full" aria-required="true"></div>
-          <div>
-            <label for="ret-reason" class="sr-only">Reason</label>
-            <select id="ret-reason" name="reason" required class="form-input w-full" aria-required="true">
-              <option value="">Select Reason *</option>
-              <option value="damaged">Damaged on Arrival</option>
-              <option value="wrong_item">Wrong Item Received</option>
-            </select>
-          </div>
-          <div><label for="ret-desc" class="sr-only">Description</label><textarea id="ret-desc" name="description" placeholder="Describe the issue" rows="3" class="form-input w-full"></textarea></div>
-          <div><label for="ret-video" class="sr-only">Video URL</label><input type="url" id="ret-video" name="videoUrl" placeholder="Unboxing Video URL (Google Drive / YouTube) *" required class="form-input w-full" aria-required="true"></div>
-          <button type="submit" class="btn-buy" aria-label="Submit damage claim">Submit Claim</button>
-        </form>
-        <div id="returns-result" class="mt-4" aria-live="polite"></div>
+
+      <!-- No Returns Policy -->
+      <div class="bg-brand-card border border-red-900/40 rounded-xl p-6 mb-6">
+        <h2 class="font-bold text-lg mb-3 text-brand-red"><i class="fas fa-ban mr-2" aria-hidden="true"></i>No Returns Policy</h2>
+        <p class="text-gray-300 text-sm leading-relaxed mb-3">All sales are final. We do not accept returns or exchanges for change-of-mind, incorrect size selection, or custom/personalised orders.</p>
+        <p class="text-gray-300 text-sm leading-relaxed">Our frames are made to order — each piece is custom-printed and assembled specifically for your order. Please review size guides and descriptions carefully before purchasing.</p>
       </div>
+
+      <!-- Delivery Responsibility -->
+      <div class="bg-brand-card border border-yellow-900/40 rounded-xl p-6 mb-6">
+        <h2 class="font-bold text-base mb-2 text-yellow-400"><i class="fas fa-truck mr-2" aria-hidden="true"></i>Delivery Responsibility</h2>
+        <p class="text-gray-300 text-sm leading-relaxed">Once dispatched, delivery is handled by third-party logistics partners (Shiprocket/DTDC/Delhivery). PhotoFrameIn is not responsible for delays caused by the carrier, incorrect address provided by the customer, or customs/weather events. Estimated delivery: 3–5 business days.</p>
+      </div>
+
+      <!-- Damage Claim via WhatsApp -->
+      <div class="bg-brand-card border border-green-900/40 rounded-xl p-6 mb-6">
+        <h2 class="font-bold text-base mb-3 text-brand-green"><i class="fas fa-box-open mr-2" aria-hidden="true"></i>Received a Damaged Item?</h2>
+        <div class="custom-warning mb-4" role="note"><i class="fas fa-video mr-2" aria-hidden="true"></i>Unboxing video is <strong>required</strong> for all damage claims. Claims without an unboxing video cannot be processed.</div>
+        <ol class="space-y-2 text-sm text-gray-300 mb-5">
+          <li class="flex items-start gap-2"><span class="text-brand-gold font-bold w-5 flex-shrink-0">1.</span>Record an unboxing video clearly showing the package seal and damage.</li>
+          <li class="flex items-start gap-2"><span class="text-brand-gold font-bold w-5 flex-shrink-0">2.</span>Upload your video to Google Drive or YouTube.</li>
+          <li class="flex items-start gap-2"><span class="text-brand-gold font-bold w-5 flex-shrink-0">3.</span>Contact us on WhatsApp with your Order ID and video link. We respond within 24 hours.</li>
+        </ol>
+        <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-3 bg-green-600 hover:bg-green-500 text-white font-bold px-6 py-4 rounded-xl transition" aria-label="Report damage on WhatsApp">
+          <i class="fab fa-whatsapp text-xl" aria-hidden="true"></i>Report Damage on WhatsApp
+        </a>
+      </div>
+
       <div class="text-sm text-gray-400"><a href="/policy/returns" onclick="window.pfi.nav('/policy/returns');return false;" class="text-brand-gold hover:underline">View full Returns Policy →</a></div>
     </main>` + renderFooter();
-
-    const form = $('#returns-form');
-    if (form) {
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const fd = new FormData(e.target);
-        const result = $('#returns-result');
-        try {
-          const res = await fetch(`${API}/orders/claims/damage`, {
-            method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ orderId: fd.get('orderId'), videoUrl: fd.get('videoUrl'), description: fd.get('description') })
-          });
-          const data = await res.json();
-          if (data.success) {
-            if (result) result.innerHTML = `<div class="bg-green-900/30 border border-green-700 rounded-lg p-3 text-green-300 text-sm">✅ Claim submitted! Ref: ${escapeHTML(data.claimId||'')}</div>`;
-          } else {
-            if (result) result.innerHTML = `<div class="bg-red-900/30 border border-red-700 rounded-lg p-3 text-red-300 text-sm">${escapeHTML(data.error||'Error submitting claim')}</div>`;
-          }
-        } catch (err) {
-          if (result) result.innerHTML = `<div class="bg-red-900/30 border border-red-700 rounded-lg p-3 text-red-300 text-sm">Error submitting claim. Please try again.</div>`;
-        }
-      });
-    }
     updateCartBadge();
   }
 
@@ -1597,6 +1653,117 @@
         main.innerHTML = `<div class="max-w-3xl mx-auto px-4 py-12"><div class="prose prose-invert max-w-none bg-brand-card border border-gray-800 rounded-xl p-8">${data.page?.content || '<p>Page not found</p>'}</div></div>`;
       }
     } catch (e) { const m = $('main'); if (m) m.innerHTML = '<div class="max-w-3xl mx-auto px-4 py-20 text-center text-gray-400">Page not found</div>'; }
+    updateCartBadge();
+  }
+
+  function renderReviewPage(app) {
+    const params = new URLSearchParams(location.search);
+    const orderId = (params.get('order') || '').replace(/[^a-zA-Z0-9\-]/g, '').slice(0, 30);
+    const reviewPhotoEnabled = state.config.review_photo_enabled !== 'false';
+
+    app.innerHTML = renderHeader() + `
+    <main id="main-content" class="max-w-xl mx-auto px-4 py-16">
+      <div class="text-center mb-8">
+        <div class="text-4xl mb-3" aria-hidden="true">⭐</div>
+        <h1 class="text-2xl font-bold font-display mb-2">Leave a Review</h1>
+        <p class="text-gray-400 text-sm">Your feedback helps us improve and helps other customers. Thank you!</p>
+        ${orderId ? `<p class="text-xs text-brand-gold mt-1 font-mono">Order: ${escapeHTML(orderId)}</p>` : ''}
+      </div>
+      <div class="bg-brand-card border border-gray-800 rounded-2xl p-8 space-y-5">
+        <input type="hidden" id="review-order-id" value="${escapeAttr(orderId)}">
+        <div>
+          <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Rating *</label>
+          <div class="flex gap-3" id="star-rating" role="group" aria-label="Rating">
+            ${[1,2,3,4,5].map(n => `
+            <button type="button" class="text-3xl text-gray-700 hover:text-brand-gold transition star-btn" data-val="${n}" onclick="window.pfi.setReviewStar(${n})" aria-label="${n} star${n>1?'s':''}" aria-pressed="false">★</button>`).join('')}
+          </div>
+        </div>
+        <div>
+          <label for="review-name" class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Your Name *</label>
+          <input type="text" id="review-name" placeholder="Name shown publicly" class="form-input w-full" maxlength="100" aria-required="true">
+        </div>
+        <div>
+          <label for="review-title" class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Review Title <span class="text-gray-600 normal-case">(optional)</span></label>
+          <input type="text" id="review-title" placeholder="e.g. Perfect gift, beautiful quality" class="form-input w-full" maxlength="200">
+        </div>
+        <div>
+          <label for="review-body" class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Your Review <span class="text-gray-600 normal-case">(optional)</span></label>
+          <textarea id="review-body" rows="4" placeholder="Tell others about your experience — frame quality, delivery, packaging..." class="form-input w-full resize-none" maxlength="2000"></textarea>
+        </div>
+        ${reviewPhotoEnabled ? `
+        <div>
+          <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Add a Photo <span class="text-gray-600 normal-case">(optional)</span></label>
+          <div id="review-photo-zone" class="border border-dashed border-gray-700 rounded-xl p-4 text-center cursor-pointer hover:border-brand-gold transition" onclick="document.getElementById('review-photo-input').click()">
+            <i class="fas fa-camera text-2xl text-gray-600 mb-1 block" aria-hidden="true"></i>
+            <p class="text-xs text-gray-500">Click to upload a photo of your frame (JPG/PNG, max 10MB)</p>
+            <div id="review-photo-preview" class="hidden mt-3"><img id="review-photo-img" src="" class="max-h-40 mx-auto rounded-xl border border-gray-700" alt="Review photo preview"></div>
+          </div>
+          <input type="file" id="review-photo-input" class="hidden" accept="image/jpeg,image/png,image/webp" aria-label="Upload review photo">
+        </div>` : ''}
+        <button onclick="window.pfi.submitReview()" class="btn-buy w-full py-4">
+          <i class="fas fa-paper-plane mr-2" aria-hidden="true"></i>Submit Review
+        </button>
+        <p class="text-xs text-gray-500 text-center">Reviews are verified by our team before publishing. Usually approved within 24 hours.</p>
+        <div id="review-result" aria-live="polite"></div>
+      </div>
+    </main>` + renderFooter();
+
+    // Star interaction
+    window._reviewRating = 0;
+    updateCartBadge();
+
+    // Photo preview
+    const photoInput = document.getElementById('review-photo-input');
+    if (photoInput) {
+      photoInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { toast('Only JPG/PNG/WEBP supported', 'error'); return; }
+        if (file.size > 10485760) { toast('Photo too large. Max 10MB.', 'error'); return; }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const preview = document.getElementById('review-photo-preview');
+          const img = document.getElementById('review-photo-img');
+          if (preview) preview.classList.remove('hidden');
+          if (img) img.src = ev.target.result;
+          window._reviewPhotoFile = file;
+        };
+        reader.readAsDataURL(file);
+      };
+    }
+  }
+
+  function renderSuggestPage(app) {
+    app.innerHTML = renderHeader() + `
+    <main id="main-content" class="max-w-xl mx-auto px-4 py-16">
+      <div class="text-center mb-8">
+        <div class="text-4xl mb-3" aria-hidden="true">💡</div>
+        <h1 class="text-2xl font-bold font-display mb-2">Suggest a Design</h1>
+        <p class="text-gray-400 text-sm">Have an idea for a frame or design? We'd love to hear it!</p>
+      </div>
+      <div class="bg-brand-card border border-gray-800 rounded-2xl p-8 space-y-4">
+        <div>
+          <label for="suggest-msg" class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Your Suggestion *</label>
+          <textarea id="suggest-msg" rows="4" placeholder="e.g. A Virat Kohli celebration frame, or a minimalist mountain landscape..." class="form-input w-full resize-none" maxlength="1000" aria-required="true"></textarea>
+        </div>
+        <div>
+          <label for="suggest-name" class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Your Name <span class="text-gray-600 normal-case">(optional)</span></label>
+          <input type="text" id="suggest-name" placeholder="Name" class="form-input w-full" maxlength="100">
+        </div>
+        <div>
+          <label for="suggest-email" class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Email <span class="text-gray-600 normal-case">(optional — to notify when added)</span></label>
+          <input type="email" id="suggest-email" placeholder="email@example.com" class="form-input w-full" maxlength="200">
+        </div>
+        <div>
+          <label for="suggest-phone" class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Phone <span class="text-gray-600 normal-case">(optional)</span></label>
+          <input type="tel" id="suggest-phone" placeholder="10-digit mobile" class="form-input w-full" maxlength="15" inputmode="numeric">
+        </div>
+        <button onclick="window.pfi.submitSuggestion()" class="btn-buy w-full py-4">
+          <i class="fas fa-paper-plane mr-2" aria-hidden="true"></i>Send Suggestion
+        </button>
+        <div id="suggest-result" aria-live="polite"></div>
+      </div>
+    </main>` + renderFooter();
     updateCartBadge();
   }
 
@@ -1624,7 +1791,28 @@
       const data = await res.json();
       const grid = $('#blog-grid');
       if (!grid) return;
-      if (!data.posts?.length) { grid.innerHTML = '<p class="col-span-full text-gray-500 py-8">Blog posts coming soon. Follow us on Instagram for updates!</p>'; return; }
+      if (!data.posts?.length) {
+        // Static SEO posts shown while DB blog is empty
+        const staticPosts = [
+          { title: '10 Stunning Ways to Decorate Your Home with Framed Art', slug: '#', excerpt: 'Transform any room with the right frame. From minimalist gallery walls to bold statement pieces — discover our top picks for Indian homes.', category: 'Decor Tips', emoji: '🖼️' },
+          { title: 'Best Frame Sizes for Every Room — A Complete Guide', slug: '#', excerpt: 'Not sure which size to pick? Our room-by-room guide helps you choose the perfect frame size for your bedroom, living room, and home office.', category: 'Size Guide', emoji: '📐' },
+          { title: 'Why Custom Photo Frames Make the Best Gifts in India', slug: '#', excerpt: 'Birthdays, anniversaries, housewarmings — a personalised photo frame is a gift that lasts forever. Here\'s why your loved ones will adore it.', category: 'Gifting', emoji: '🎁' },
+          { title: 'Divine Art for Your Pooja Room — Top Ganesha & Shiva Frames', slug: '#', excerpt: 'Elevate your home mandir with premium framed divine art. Our collection of Ganesha, Shiva, and Hanuman prints are handpicked by devotees.', category: 'Divine Art', emoji: '🕉️' },
+          { title: 'How to Build a Gallery Wall on a Budget — India Guide', slug: '#', excerpt: 'A gallery wall doesn\'t have to be expensive. With the right frames and layout, you can create a stunning feature wall for under ₹5,000.', category: 'Decor Tips', emoji: '🏠' },
+          { title: 'The Science of Premium Archival Mounting for Photo Frames', slug: '#', excerpt: 'What is a mount mat and why does it matter? Learn how archival white mount boards protect your art and elevate the visual presentation.', category: 'Behind the Scenes', emoji: '🔬' },
+        ];
+        grid.innerHTML = staticPosts.map(post => `
+        <article class="bg-brand-card border border-gray-800 rounded-xl overflow-hidden hover:border-brand-gold transition cursor-pointer" onclick="window.pfi.nav('/shop')" role="button" tabindex="0" aria-label="${escapeHTML(post.title)}">
+          <div class="w-full h-40 bg-gray-900 flex items-center justify-center text-5xl" aria-hidden="true">${post.emoji}</div>
+          <div class="p-4">
+            <p class="text-[10px] text-brand-gold uppercase tracking-widest mb-2">${escapeHTML(post.category)}</p>
+            <h2 class="font-bold text-sm mb-2">${escapeHTML(post.title)}</h2>
+            <p class="text-xs text-gray-400">${escapeHTML(post.excerpt.slice(0,110))}...</p>
+            <span class="text-[10px] text-gray-600 mt-2 block">Coming soon · Follow us on Instagram for updates</span>
+          </div>
+        </article>`).join('');
+        return;
+      }
       grid.innerHTML = data.posts.map(post => {
         const safeTitle = escapeHTML(post.title || '');
         const safeExcerpt = escapeHTML((post.excerpt || '').slice(0, 120));
@@ -1710,7 +1898,7 @@
           <div id="upload-zone" class="bg-brand-card border-2 border-dashed border-gray-700 rounded-2xl p-12 text-center cursor-pointer hover:border-brand-gold transition group mb-6" role="button" tabindex="0" aria-label="Upload your photo">
             <div id="preview-container" class="hidden relative mb-4">
               <div id="custom-mockup" class="bg-gray-900 rounded-xl overflow-hidden shadow-2xl p-6 flex items-center justify-center" style="min-height:300px">
-                <img id="custom-img-preview" src="" class="max-w-full max-h-72 shadow-2xl border-4 border-black transition-all" alt="Your uploaded photo preview">
+                <img id="custom-img-preview" src="" class="max-w-full max-h-72 shadow-2xl frame-border-black transition-all" alt="Your uploaded photo preview" style="border-width:8px">
                 <div class="glass-overlay" aria-hidden="true"></div>
               </div>
             </div>
@@ -1792,8 +1980,8 @@
     const zone = $('#upload-zone');
     const input = $('#file-input');
     if (zone && input) {
-      zone.onclick = () => input.click();
-      zone.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') input.click(); };
+      zone.onclick = (e) => { if (!e.target.closest('input[type=file]')) { e.preventDefault(); input.click(); } };
+      zone.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } };
       input.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -1914,13 +2102,19 @@
         el.classList.toggle('active', el.dataset.frame === frame);
         el.setAttribute('aria-pressed', el.dataset.frame === frame ? 'true' : 'false');
       });
+      // If Premium variant not in DB, create virtual variant (Standard + ₹250)
+      const p = window._currentProduct;
+      if (p) {
+        const variants = (p.variants || []).filter(v => v.is_active);
+        const found = variants.find(v => v.size === window._selectedSize && v.frame_type === frame);
+        if (!found && frame === 'Premium') {
+          const stdV = variants.find(v => v.size === window._selectedSize && v.frame_type === 'Standard');
+          if (stdV) {
+            window._currentVariant = { ...stdV, frame_type: 'Premium', price: stdV.price + 250, id: stdV.id + '_prem' };
+          }
+        }
+      }
       updateVariant();
-    },
-
-    setMountType(type) {
-      window._selectedMountType = type;
-      const labels = { classic: 'Classic Mount', dual: 'Dual Layer Mount', floating: 'Floating Frame' };
-      toast(`Mount style: ${labels[type] || type}`);
     },
 
     setMainImage(url, el) {
@@ -2059,10 +2253,110 @@
             </div>
             <p class="text-sm text-gray-400 mb-2">${o.payment_method==='cod'?'Cash on Delivery':'Prepaid'} · ${safeTotal}</p>
             ${safeAwb ? `<p class="text-sm mb-2"><strong>AWB:</strong> ${safeAwb} ${safeCarrier?`(${safeCarrier})`:''}</p>` : '<p class="text-xs text-gray-500">Tracking available once dispatched</p>'}
-            ${trackUrl ? `<a href="${trackUrl}" target="_blank" rel="noopener noreferrer" class="text-brand-gold text-sm hover:underline mt-1 inline-block">Track with Carrier →</a>` : ''}
+            ${safeAwb ? `
+            <div class="mt-3 space-y-2">
+              ${trackUrl ? `<a href="${trackUrl}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 bg-brand-gold text-black font-bold px-4 py-2.5 rounded-xl text-sm hover:bg-yellow-400 transition"><i class="fas fa-external-link-alt"></i>Track with ${safeCarrier || 'Carrier'} →</a>` : ''}
+              <p class="text-xs text-gray-500 text-center">AWB: ${safeAwb}${safeCarrier ? ' · ' + safeCarrier : ''}</p>
+            </div>` : '<p class="text-xs text-gray-500">Tracking link available once dispatched.</p>'}
           </article>`;
         }).join('');
       } catch (e) { result.innerHTML = '<p class="text-red-400 text-sm text-center py-4">Error fetching order. Please try again.</p>'; }
+    },
+
+    setReviewStar(val) {
+      window._reviewRating = val;
+      document.querySelectorAll('.star-btn').forEach((btn, i) => {
+        const active = i < val;
+        btn.style.color = active ? '#C5A059' : '';
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    },
+
+    async submitReview() {
+      const rating = window._reviewRating || 0;
+      const name = (document.getElementById('review-name')?.value || '').trim();
+      const orderId = (document.getElementById('review-order-id')?.value || '').trim();
+      if (!rating) { toast('Please select a star rating', 'error'); return; }
+      if (!name) { toast('Please enter your name', 'error'); return; }
+      const btn = event.currentTarget;
+      const orig = btn.innerHTML;
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Submitting...';
+
+      try {
+        let photoUrl = null;
+        // Upload photo to Cloudinary if provided
+        if (window._reviewPhotoFile) {
+          btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Uploading photo...';
+          try {
+            const signRes = await fetch(`${API}/upload/sign?folder=reviews`);
+            if (signRes.ok) {
+              const signData = await signRes.json();
+              if (signData.apiKey && signData.cloudName) {
+                const fd = new FormData();
+                fd.append('file', window._reviewPhotoFile);
+                fd.append('api_key', signData.apiKey);
+                fd.append('timestamp', String(signData.timestamp));
+                fd.append('signature', signData.signature);
+                fd.append('folder', signData.folder || 'reviews');
+                const upRes = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(signData.cloudName)}/image/upload`, { method: 'POST', body: fd });
+                const upData = await upRes.json();
+                if (upData.secure_url) photoUrl = upData.secure_url;
+              }
+            }
+          } catch (photoErr) { /* continue without photo */ }
+        }
+
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Submitting...';
+        const res = await fetch(`${API}/reviews`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            productId: null, // order-based review, no specific product
+            orderId: orderId || null,
+            name,
+            rating,
+            title: (document.getElementById('review-title')?.value || '').trim().slice(0, 200) || null,
+            body: (document.getElementById('review-body')?.value || '').trim().slice(0, 2000) || null,
+            photoUrl
+          })
+        });
+        const d = await res.json();
+        if (d.success || res.ok) {
+          document.getElementById('review-result').innerHTML = '<div class="bg-brand-green/10 border border-brand-green/30 rounded-xl p-4 text-brand-green text-sm font-bold text-center mt-2"><i class="fas fa-check-circle mr-2"></i>Thank you! Your review will be published after approval.</div>';
+          btn.innerHTML = '<i class="fas fa-check mr-2"></i>Submitted!';
+          window._reviewPhotoFile = null;
+        } else { throw new Error(d.error || 'Submission failed'); }
+      } catch(e) {
+        toast('Error: ' + (e.message || 'Please try again'), 'error');
+        btn.disabled = false; btn.innerHTML = orig;
+      }
+    },
+
+    async submitSuggestion() {
+      const msg = ($('#suggest-msg')?.value || '').trim();
+      if (!msg) { toast('Please enter your suggestion', 'error'); return; }
+      const btn = event.currentTarget;
+      const orig = btn.innerHTML;
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending...';
+      try {
+        const res = await fetch(`${API}/suggestions`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            message: msg.slice(0, 1000),
+            contact_name: ($('#suggest-name')?.value||'').slice(0,100)||null,
+            contact_email: ($('#suggest-email')?.value||'').slice(0,200)||null,
+            contact_phone: ($('#suggest-phone')?.value||'').replace(/[^\d+\-\s]/g,'').slice(0,20)||null
+          })
+        });
+        const d = await res.json();
+        if (d.success || res.ok) {
+          $('#suggest-result').innerHTML = '<div class="bg-brand-green/10 border border-brand-green/30 rounded-xl p-4 text-brand-green text-sm font-bold text-center mt-2"><i class="fas fa-check-circle mr-2"></i>Thank you! We'll review your suggestion.</div>';
+          ['suggest-msg','suggest-name','suggest-email','suggest-phone'].forEach(id => { const el = $('#'+id); if(el) el.value=''; });
+          btn.innerHTML = '<i class="fas fa-check mr-2"></i>Sent!';
+        } else { throw new Error(d.error||'Failed'); }
+      } catch(e) {
+        toast('Error sending suggestion. Please try again.', 'error');
+        btn.disabled = false; btn.innerHTML = orig;
+      }
     },
 
     async captureExitLead() {
@@ -2088,13 +2382,13 @@
     selectCustomFrame(frame, price) {
       window._customState.frame = frame;
       window._customState.framePrice = Math.max(0, Number(price) || 0);
-      const mountExtra = $('#custom-mount-extra');
-      if (mountExtra) mountExtra.classList.toggle('hidden', frame !== 'Premium');
+      // Premium mount is always included with Premium frame — no extra toggle needed
       const preview = $('#custom-img-preview');
       if (preview) {
-        preview.classList.remove('has-mount', 'border-brand-gold', 'border-black', 'frame-border-white');
-        if (frame === 'Premium') { preview.classList.add('has-mount', 'frame-border-white'); }
-        else { preview.classList.add('border-black'); }
+        preview.classList.remove('has-mount', 'border-brand-gold', 'border-black', 'frame-border-white', 'frame-border-black');
+        preview.style.boxShadow = '';
+        if (frame === 'Premium') { preview.classList.add('has-mount'); }
+        else { preview.classList.add('frame-border-black'); }
       }
       updateCustomTotal();
     },
@@ -2189,25 +2483,32 @@
     if (!v) return;
     window._currentVariant = v;
 
+    // Base price comes from Standard variant for this size; Premium adds ₹250
+    const stdVariant = (p.variants || []).find(vv => vv.size === window._selectedSize && vv.frame_type === 'Standard') || v;
+    const displayPrice = v.frame_type === 'Premium' ? stdVariant.price + 250 : stdVariant.price;
     const priceEl = $('#current-price');
     const compareEl = $('#compare-price');
     if (priceEl) {
-      priceEl.textContent = formatPrice(v.price);
+      priceEl.textContent = formatPrice(displayPrice);
       if (window.gsap) gsap.fromTo(priceEl, { y: -8, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: 'power2.out', clearProps: 'all' });
     }
-    if (compareEl) compareEl.textContent = v.compare_at_price ? formatPrice(v.compare_at_price) : '';
+    if (compareEl) compareEl.textContent = v.compare_at_price ? formatPrice(v.compare_at_price + (v.frame_type === 'Premium' ? 250 : 0)) : '';
 
-    // Mount customization visibility
-    const mountContainer = $('#mount-customization');
+    // Premium mount info visibility
+    const mountContainer = $('#premium-mount-info');
     if (mountContainer) mountContainer.classList.toggle('hidden', v.frame_type !== 'Premium');
 
     // Frame mockup visual update
     const mainImg = $('#main-image');
     if (mainImg) {
       mainImg.classList.remove('frame-border-gold', 'frame-border-black', 'frame-border-white', 'has-mount');
-      if (v.frame_type === 'Premium') { mainImg.classList.add('frame-border-white', 'has-mount'); }
-      else if (v.frame_type === 'Standard') { mainImg.classList.add('frame-border-black'); }
-      else { mainImg.classList.add('frame-border-white'); }
+      mainImg.style.boxShadow = '';
+      mainImg.style.outline = '';
+      if (v.frame_type === 'Premium') {
+        mainImg.classList.add('has-mount');
+      } else {
+        mainImg.classList.add('frame-border-black');
+      }
     }
 
     // Update "Place Order" button text if on checkout

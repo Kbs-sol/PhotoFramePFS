@@ -317,6 +317,25 @@ admin.put('/products/:id', async (c) => {
   const body = await c.req.json();
   const sb = getSupabase(c.env);
   body.updated_at = new Date().toISOString();
+  // Sanitise allowed_sizes / allowed_frames — must be null or comma-string of known values
+  const validSizes = ['Small', 'Medium', 'Large', 'XL'];
+  const validFrames = ['Standard', 'Premium'];
+  if ('allowed_sizes' in body) {
+    if (body.allowed_sizes === null || body.allowed_sizes === 'null' || body.allowed_sizes === '') {
+      body.allowed_sizes = null;
+    } else {
+      const parts = String(body.allowed_sizes).split(',').map((s: string) => s.trim()).filter((s: string) => validSizes.includes(s));
+      body.allowed_sizes = parts.length ? parts.join(',') : null;
+    }
+  }
+  if ('allowed_frames' in body) {
+    if (body.allowed_frames === null || body.allowed_frames === 'null' || body.allowed_frames === '') {
+      body.allowed_frames = null;
+    } else {
+      const parts = String(body.allowed_frames).split(',').map((s: string) => s.trim()).filter((s: string) => validFrames.includes(s));
+      body.allowed_frames = parts.length ? parts.join(',') : null;
+    }
+  }
   const { data, error } = await sb.from('products').update(body).eq('id', id).select().single();
   if (error) return c.json({ error: error.message }, 400);
   return c.json({ product: data });
@@ -1160,7 +1179,7 @@ admin.post('/test-alert', async (c) => {
 
 // --- End of Logistics ---
 
-export default admin;
+// routes continue below
 
 // ==========================================
 // COMBOS – FULL CRUD + TOGGLE
@@ -1357,3 +1376,140 @@ admin.post('/email-failures/:id/retry', async (c) => {
   return c.json({ success: false, error: 'Retry failed again' }, 500);
 });
 
+
+// ─── SEO AI — OpenRouter Integration ────────────────────────────────────────
+admin.post('/seo/generate', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return c.json({ error: 'Unauthorized' }, 401);
+
+  const body = await c.req.json();
+  const { type, keywords, context, productName, productDesc, trend, model } = body;
+
+  const apiKey = c.env.OPENROUTER_API_KEY;
+  if (!apiKey) return c.json({ error: 'OPENROUTER_API_KEY not configured in Cloudflare secrets' }, 503);
+
+  const selectedModel = (model || 'meta-llama/llama-3.1-8b-instruct:free').slice(0, 100);
+
+  let prompt = '';
+  if (type === 'site') {
+    prompt = `You are an SEO expert for an Indian e-commerce store selling premium photo frames.
+Store: PhotoFrameIn (photoframein.com) — handcrafted frames from Hyderabad, India.
+Target keywords: ${(keywords || '').slice(0, 300)}
+${context ? `Context: ${context.slice(0, 500)}` : ''}
+
+Generate:
+1. SEO Title (max 60 chars) for the homepage
+2. SEO Meta Description (max 155 chars) for the homepage
+3. 5 long-tail keyword phrases to target in blog posts
+4. 3 blog post title ideas with high purchase-intent keywords
+
+Return as JSON: {"seo_title":"...","seo_description":"...","keywords":["..."],"blog_titles":["..."]}`;
+  } else {
+    prompt = `You are an SEO expert for an Indian photo frames e-commerce store.
+Product: ${(productName || '').slice(0, 100)}
+Description: ${(productDesc || '').slice(0, 300)}
+${trend ? `Seasonal/trend context: ${trend.slice(0, 200)}` : ''}
+
+Generate:
+1. SEO Title (max 60 chars) — include product name + "frame" + India if possible
+2. SEO Meta Description (max 155 chars) — include key benefits, CTA
+3. 3 search keywords this product should rank for
+
+Return as JSON: {"seo_title":"...","seo_description":"...","keywords":["..."]}`;
+  }
+
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://photoframein.com',
+        'X-Title': 'PhotoFrameIn SEO AI'
+      },
+      body: JSON.stringify({
+        model: selectedModel,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 500,
+        temperature: 0.7
+      })
+    });
+    const data: any = await res.json();
+    if (data.error) return c.json({ error: data.error.message || 'OpenRouter error' }, 502);
+    const result = data.choices?.[0]?.message?.content || '';
+    return c.json({ result });
+  } catch (err: any) {
+    return c.json({ error: err.message || 'Failed to call OpenRouter' }, 502);
+  }
+});
+
+// ─── Suggestions ──────────────────────────────────────────────────────────────
+admin.get('/suggestions', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return c.json({ error: 'Unauthorized' }, 401);
+  const sb = getSupabase(c.env);
+  const { data } = await sb.from('suggestions').select('*').order('created_at', { ascending: false }).limit(100);
+  return c.json({ suggestions: data || [] });
+});
+
+admin.put('/suggestions/:id', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id').replace(/[^a-zA-Z0-9\-]/g, '').slice(0, 40);
+  const body = await c.req.json();
+  const sb = getSupabase(c.env);
+  await sb.from('suggestions').update({ status: body.status || 'read' }).eq('id', id);
+  return c.json({ success: true });
+});
+
+// ─── Review Requests (after delivery) ────────────────────────────────────────
+admin.post('/review-requests', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return c.json({ error: 'Unauthorized' }, 401);
+  const { orderId, email, name } = await c.req.json();
+  if (!orderId || !email) return c.json({ error: 'orderId and email required' }, 400);
+  const sb = getSupabase(c.env);
+  // Prevent duplicate requests
+  const { data: existing } = await sb.from('review_requests')
+    .select('id').eq('order_id', orderId).single();
+  if (existing) return c.json({ success: true, note: 'already_sent' });
+  await sb.from('review_requests').insert({
+    order_id: orderId, customer_email: email, customer_name: name || null
+  });
+  // Send review request email
+  try {
+    const { data: order } = await sb.from('orders').select('*').eq('order_id', orderId).single();
+    if (order) {
+      const reviewUrl = `https://photoframein.com/review?order=${orderId}`;
+      const html = reviewRequestEmail ? reviewRequestEmail({ ...order, reviewUrl }) : `<p>Hi ${name || 'there'},<br>How was your PhotoFrameIn order (${orderId})? Leave a review: <a href="${reviewUrl}">${reviewUrl}</a></p>`;
+      await sendEmail(c.env, {
+        to: email, subject: `How was your order? Leave a review | ${orderId}`,
+        html, orderId, type: 'review_request'
+      });
+    }
+  } catch (e) { /* non-fatal */ }
+  return c.json({ success: true });
+});
+
+admin.get('/review-requests', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return c.json({ error: 'Unauthorized' }, 401);
+  const sb = getSupabase(c.env);
+  const { data } = await sb.from('review_requests').select('*').order('sent_at', { ascending: false }).limit(100);
+  return c.json({ requests: data || [] });
+});
+
+// ─── Order Detail (for review-request trigger) ────────────────────────────────
+admin.get('/orders/:orderId/detail', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return c.json({ error: 'Unauthorized' }, 401);
+  const orderId = c.req.param('orderId');
+  const sb = getSupabase(c.env);
+  const { data: order } = await sb.from('orders').select('*').eq('order_id', orderId).single();
+  if (!order) return c.json({ error: 'Not found' }, 404);
+  return c.json({ order });
+});
+
+// ─── Public Review Submit (customer-facing) ───────────────────────────────────
+
+export default admin;

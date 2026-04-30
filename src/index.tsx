@@ -221,6 +221,30 @@ app.post('/api/reviews', async (c) => {
       .gte('created_at', new Date(Date.now() - 86400000).toISOString());
     if ((count || 0) >= 3) return c.json({ error: 'Review limit reached' }, 429);
 
+    // Check review_photo_enabled config
+    let reviewPhotoEnabled = true;
+    try {
+      const photoSetting = await getConfig(c.env, 'review_photo_enabled');
+      reviewPhotoEnabled = photoSetting !== 'false';
+    } catch (e) {}
+
+    // Validate photo URL if provided and photos are enabled
+    let photoUrl: string | null = null;
+    if (reviewPhotoEnabled && body.photoUrl && typeof body.photoUrl === 'string') {
+      if (/^https?:\/\/res\.cloudinary\.com\//.test(body.photoUrl)) {
+        photoUrl = body.photoUrl.slice(0, 500);
+      }
+    }
+
+    // Validate order_id if provided (verified purchase)
+    const orderId = body.orderId ? String(body.orderId).replace(/[^a-zA-Z0-9\-]/g, '').slice(0, 30) : null;
+    let verifiedPurchase = false;
+    if (orderId) {
+      const { data: orderCheck } = await sb.from('orders')
+        .select('order_id').eq('order_id', orderId).eq('status', 'delivered').single();
+      verifiedPurchase = !!orderCheck;
+    }
+
     const { data, error } = await sb.from('reviews').insert({
       product_id: body.productId,
       customer_id: body.customerId || null,
@@ -228,12 +252,34 @@ app.post('/api/reviews', async (c) => {
       rating: rating,
       title: cleanTitle,
       body: cleanBody,
+      photo_url: photoUrl,
+      order_id: orderId,
+      verified_purchase: verifiedPurchase,
       image_urls: (Array.isArray(body.imageUrls) ? body.imageUrls.filter((u: any) => typeof u === 'string' && /^https?:\/\//.test(u)) : []).slice(0, 5),
       is_approved: false // Reviews require admin approval before display
     }).select().single();
     if (error) return c.json({ error: error.message }, 400);
     return c.json({ success: true, review: data, message: 'Review submitted for approval' });
   } catch (e: any) { return c.json({ error: e.message || 'Server error' }, 500); }
+});
+
+// POST /api/suggestions — public suggestion form
+app.post('/api/suggestions', async (c) => {
+  try {
+    if (!c.env.SUPABASE_URL) return c.json({ success: true });
+    const body = await c.req.json();
+    const msg = String(body.message || '').slice(0, 1000).trim();
+    if (!msg) return c.json({ error: 'Message required' }, 400);
+    const sb = getSupabase(c.env);
+    await sb.from('suggestions').insert({
+      message: msg,
+      contact_name: String(body.contact_name || '').slice(0, 100) || null,
+      contact_email: String(body.contact_email || '').slice(0, 200) || null,
+      contact_phone: String(body.contact_phone || '').replace(/[^\d+\-\s]/g, '').slice(0, 20) || null,
+      status: 'new'
+    });
+    return c.json({ success: true });
+  } catch (e) { return c.json({ success: true }); }
 });
 
 // POST /api/leads — capture leads
@@ -280,7 +326,9 @@ app.get('/api/config/public', async (c) => {
       'contact_email', 'contact_phone', 'contact_address',
       'urgency_text', 'urgency_subtext', 'combos_enabled', 'exit_intent_enabled',
       'festival_mode', 'seo_title', 'seo_description', 'og_image',
-      'gtm_container_id', 'whatsapp_number'
+      'gtm_container_id', 'whatsapp_number',
+      'bulk_order_phone1', 'bulk_order_phone2', 'poster_enabled',
+      'review_photo_enabled', 'whatsapp_disputes'
     ]);
     return c.json({ config });
   } catch (e) {
@@ -579,3 +627,4 @@ app.get('/admin/:section', async (c) => {
 });
 
 export default app;
+// (OPENROUTER_API_KEY is accessed via c.env as any in admin routes)
