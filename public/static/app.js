@@ -2349,7 +2349,7 @@
         });
         const d = await res.json();
         if (d.success || res.ok) {
-          $('#suggest-result').innerHTML = '<div class="bg-brand-green/10 border border-brand-green/30 rounded-xl p-4 text-brand-green text-sm font-bold text-center mt-2"><i class="fas fa-check-circle mr-2"></i>Thank you! We'll review your suggestion.</div>';
+          $('#suggest-result').innerHTML = '<div class="bg-brand-green/10 border border-brand-green/30 rounded-xl p-4 text-brand-green text-sm font-bold text-center mt-2"><i class="fas fa-check-circle mr-2"></i>Thank you! We\'ll review your suggestion.</div>';
           ['suggest-msg','suggest-name','suggest-email','suggest-phone'].forEach(id => { const el = $('#'+id); if(el) el.value=''; });
           btn.innerHTML = '<i class="fas fa-check mr-2"></i>Sent!';
         } else { throw new Error(d.error||'Failed'); }
