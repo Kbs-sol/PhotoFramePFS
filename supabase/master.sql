@@ -592,7 +592,7 @@ INSERT INTO system_config (key, value, description) VALUES
   ('cod_min_value',              '499',          'Minimum order value for COD (₹)'),
   ('cod_max_value',              '1995',         'Maximum order value for COD (₹)'),
   ('cod_fee',                    '49',           'COD confirmation fee (₹)'),
-  ('free_shipping_threshold',    '799',          'Free shipping above this amount for prepaid (₹)'),
+  ('free_shipping_threshold',    '899',          'Free shipping above this amount for prepaid (₹)'),
   ('prepaid_discount',           '50',           'Flat discount for prepaid orders (₹)'),
   ('premium_frame_surcharge',    '250',          'Extra charge for Premium frame type (₹)'),
   -- ── Volume Discounts ─────────────────────────────────────────────────────
@@ -623,7 +623,7 @@ INSERT INTO system_config (key, value, description) VALUES
   ('google_business_link',       '',             'Google Business Profile URL'),
   -- ── Announcement Bar ─────────────────────────────────────────────────────
   ('announcement_active',        'true',         'Show announcement bar'),
-  ('announcement_text',          'Free Delivery on orders above ₹799 | COD Available', 'Announcement bar text'),
+  ('announcement_text',          'Free Delivery on orders above ₹899 | COD Available', 'Announcement bar text'),
   ('announcement_link',          '/shop',        'Announcement bar link'),
   ('announcement_bg',            '#CC0000',      'Announcement bar background colour'),
   -- ── Urgency / CRO ────────────────────────────────────────────────────────
@@ -632,7 +632,7 @@ INSERT INTO system_config (key, value, description) VALUES
   ('festival_mode',              '',             'Active festival: diwali, navratri, janmashtami…'),
   -- ── SEO ──────────────────────────────────────────────────────────────────
   ('seo_title',                  'PhotoFrameIn | Buy Photo Frames & Wall Art Online India', 'Homepage SEO title'),
-  ('seo_description',            'Buy premium poster frames, wall art & custom photo frames online. Fast delivery across India. Starting ₹199. Free delivery ₹799+', 'Homepage SEO description'),
+  ('seo_description',            'Buy premium poster frames, wall art & custom photo frames online. Fast delivery across India. Starting ₹199. Free delivery ₹899+', 'Homepage SEO description'),
   ('og_image',                   '',             'Homepage OG/social share image URL'),
   -- ── Hero Banner ──────────────────────────────────────────────────────────
   ('hero_banner_title',          'Premium Photo Frames & Wall Art Online',      'Homepage hero heading'),
@@ -718,7 +718,7 @@ SELECT
   'Bring divine energy into your space with this stunning Lord Ganesh artwork. The golden tones and intricate detailing create a warm, sacred atmosphere perfect for your puja room or living area.',
   id, true, true,
   'Shree Ganesh Golden Aura Wall Art | PhotoFrameIn',
-  'Buy Shree Ganesh golden artwork. Premium framed print with rich golden tones. Perfect for puja room. Free delivery ₹799+',
+  'Buy Shree Ganesh golden artwork. Premium framed print with rich golden tones. Perfect for puja room. Free delivery ₹899+',
   ARRAY['divine', 'ganesh', 'god', 'spiritual', 'puja'],
   'Avoid direct sunlight. Wipe frame with dry cloth only.',
   'Small = desk/bedside | Medium = main wall | Large = feature wall | XL = statement piece'
@@ -858,7 +858,7 @@ INSERT INTO pages (slug, title, content) VALUES
   ('terms', 'Terms & Conditions',
    '<h2>Terms & Conditions</h2><p>By using PhotoFrameIn, you agree to these terms.</p><h3>Orders</h3><p>All orders are made-to-order. Delivery timeline is 3–5 business days.</p><h3>COD Policy</h3><p>COD available ₹499–₹1,995. A non-refundable ₹49 COD fee applies. Orders must be confirmed via WhatsApp within 24 hours.</p>'),
   ('shipping', 'Shipping Policy',
-   '<h2>Shipping Policy</h2><p>We dispatch orders within 12 hours of confirmation.</p><h3>Delivery</h3><ul><li>Hyderabad (500xxx): 1–3 business days</li><li>Rest of India: 3–5 business days</li></ul><h3>Charges</h3><ul><li>Prepaid above ₹799: FREE</li><li>Prepaid below ₹799: ₹79</li><li>COD Small/Medium: ₹99</li><li>COD Large/XL: ₹149</li></ul>'),
+   '<h2>Shipping Policy</h2><p>We dispatch orders within 12 hours of confirmation.</p><h3>Delivery</h3><ul><li>Hyderabad (500xxx): 1–3 business days</li><li>Rest of India: 3–5 business days</li></ul><h3>Charges</h3><ul><li>Prepaid above ₹899: FREE</li><li>Prepaid below ₹899: ₹79</li><li>COD Small/Medium: ₹99</li><li>COD Large/XL: ₹149</li></ul>'),
   ('privacy', 'Privacy Policy',
    '<h2>Privacy Policy</h2><p>PhotoFrameIn collects only essential information to process orders. We never sell your data. Payments are processed securely by Razorpay.</p>')
 ON CONFLICT (slug) DO NOTHING;
@@ -949,7 +949,7 @@ INSERT INTO blog_posts (title, slug, excerpt, content, category, tags, is_publis
 <h3>Pro Tip: The 57-Inch Rule</h3>
 <p>Hang the center of your frame at 57 inches (145 cm) from the floor — the average human eye level. This applies universally and is the standard used by art galleries worldwide.</p>
 <h2>Buy Photo Frames Online India</h2>
-<p>PhotoFrameIn offers all four sizes starting at ₹499, with Standard and Premium (white mount) options. Free delivery above ₹799.</p>',
+<p>PhotoFrameIn offers all four sizes starting at ₹499, with Standard and Premium (white mount) options. Free delivery above ₹899.</p>',
  'buying-guide', ARRAY['photo frame sizes', 'frame guide India', 'wall art sizes', 'home decor'], true,
  'Best Photo Frame Sizes for Every Room — Complete Guide India 2025',
  'Find the perfect photo frame size for bedroom, living room, office. Complete size guide from Small 8x12 to XL 24x36. Buy frames from ₹499 with free delivery.'),
@@ -1010,10 +1010,10 @@ INSERT INTO blog_posts (title, slug, excerpt, content, category, tags, is_publis
 <li>Choose size and frame style</li>
 <li>Add to cart and checkout — we deliver across India in 3–5 days</li>
 </ol>
-<p>Starting at ₹499. Premium frames from ₹799. Free delivery above ₹799.</p>',
+<p>Starting at ₹499. Premium frames from ₹799. Free delivery above ₹899.</p>',
  'gifting', ARRAY['custom photo frame gift India', 'personalised frame gift', 'photo frame gift', 'unique gifts India'], true,
  'Custom Photo Frames — Best Personalised Gifts in India | PhotoFrameIn',
- 'Custom photo frames make the best personalised gifts for weddings, birthdays, anniversaries in India. Premium quality from ₹499. Free delivery above ₹799.'),
+ 'Custom photo frames make the best personalised gifts for weddings, birthdays, anniversaries in India. Premium quality from ₹499. Free delivery above ₹899.'),
 
 ('Divine Art Frames for Home — Ganesha, Shiva, Hanuman, Krishna Wall Art',
  'divine-art-frames-home-ganesha-shiva-hanuman-krishna',
@@ -1141,7 +1141,7 @@ VALUES
     <li><strong>Gifting:</strong> Medium is universally appreciated</li>
   </ul>
   <h2>Order Custom Photo Frames Online in India</h2>
-  <p>PhotoFrameIn ships handcrafted frames across India with free delivery above ₹799. Each frame includes ready-to-hang mounting hardware.</p>',
+  <p>PhotoFrameIn ships handcrafted frames across India with free delivery above ₹899. Each frame includes ready-to-hang mounting hardware.</p>',
   'buying-guide',
   true,
   NOW() - INTERVAL '7 days'
@@ -1213,7 +1213,7 @@ VALUES
   <h2>Gallery Wall Tips</h2>
   <p>Mix sizes for visual interest: one XL centerpiece with two Medium frames on either side. Our Standard frame provides a clean, modern look that works perfectly for automotive prints.</p>
   <h2>Buy Automotive Art Frames Online India</h2>
-  <p>Free shipping on orders above ₹799. Delivered across India in 3–5 days. COD available ₹899–₹1995.</p>',
+  <p>Free shipping on orders above ₹899. Delivered across India in 3–5 days. COD available ₹899–₹1995.</p>',
   'automotive',
   true,
   NOW() - INTERVAL '1 day'

@@ -73,7 +73,7 @@ products.get('/upsell', async (c) => {
     const { data: variants } = await sb.from('product_variants')
       .select('id, size, frame_type, price, compare_at_price, is_active, product:products(id, name, slug, images:product_images(image_url))')
       .eq('size', 'A4')
-      .eq('frame_type', 'No Frame')
+      .eq('frame_type', 'Poster')
       .eq('is_active', true)
       .limit(1);
     

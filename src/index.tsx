@@ -10,7 +10,7 @@ import adminRoutes from './routes/admin';
 import analyticsRoutes from './routes/analytics';
 import uploadRoutes from './routes/upload';
 import authRoutes from './routes/auth';
-import { getSupabase, getConfigs } from './lib/supabase';
+import { getSupabase, getConfig, getConfigs } from './lib/supabase';
 
 export type Bindings = {
   SUPABASE_URL: string;
@@ -42,6 +42,7 @@ export type Bindings = {
   CLOUDINARY_CLOUD_NAME: string;   // preferred individual key
   CLOUDINARY_API_KEY: string;      // preferred individual key
   CLOUDINARY_API_SECRET: string;   // preferred individual key
+  OPENROUTER_API_KEY: string;      // for SEO AI
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -305,12 +306,12 @@ app.get('/api/config/public', async (c) => {
     if (!c.env.SUPABASE_URL) {
       return c.json({ config: {
         announcement_active: 'true',
-        announcement_text: 'Free Delivery on orders above ₹799 | COD Available',
+        announcement_text: 'Free Delivery on orders above ₹899 | COD Available',
         announcement_link: '/shop',
         announcement_bg: '#CC0000',
         cod_enabled: 'true', cod_min_value: '499', cod_max_value: '1995', cod_fee: '49',
-        free_shipping_threshold: '799', prepaid_discount: '50',
-        urgency_text: 'Limited Stock Available', urgency_subtext: 'Offer Ends Tonight',
+        free_shipping_threshold: '899', prepaid_discount: '50',
+        urgency_text: 'Limited Stock Available', urgency_subtext: 'Offer Ends Soon',
         combos_enabled: 'true', exit_intent_enabled: 'true',
         seo_title: 'PhotoFrameIn | Buy Photo Frames & Custom Wall Art Online in India',
         seo_description: 'Buy photo frames online, wall art, and custom poster frames. Fast delivery across India. Starting ₹199.'

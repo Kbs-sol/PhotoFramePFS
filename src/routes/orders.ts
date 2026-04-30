@@ -117,7 +117,7 @@ orders.post('/create', async (c) => {
       console.error('Shiprocket serviceability error:', e);
     }
 
-    const freeThreshold = parseInt(config.free_shipping_threshold || '799');
+    const freeThreshold = parseInt(config.free_shipping_threshold || '899');
     const shippingCharge = calculateShipping(shiprocketRate, paymentMethod, largestSize, subtotal, freeThreshold);
 
     // COD fee

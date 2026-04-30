@@ -163,7 +163,7 @@
     }, 0);
     const itemCount = state.cart.reduce((s, i) => s + (i.quantity || 1), 0);
     const { discount, label } = getVolumeDiscount(subtotal, itemCount);
-    const freeThreshold = parseInt(state.config.free_shipping_threshold || '799');
+    const freeThreshold = parseInt(state.config.free_shipping_threshold || '899');
     const afterDiscount = subtotal - discount;
     // Volumetric weight influences shipping tier display (backend validates actual)
     const volWeight = getCartVolumetricWeight();
@@ -221,7 +221,7 @@
     const ann = state.config;
     const isAnnActive = ann.announcement_active === 'true';
     // SECURITY: announcement_text comes from DB admin config — escape it
-    const annText = escapeHTML(ann.announcement_text || 'Free Delivery on orders above ₹799 | COD Available');
+    const annText = escapeHTML(ann.announcement_text || 'Free Delivery on orders above ₹899 | COD Available');
     const annLink = ann.announcement_link ? escapeAttr(ann.announcement_link) : '/shop';
     const annBg = /^#[0-9A-Fa-f]{3,8}$/.test(ann.announcement_bg || '') ? ann.announcement_bg : '#CC0000';
 
@@ -328,7 +328,7 @@
           </div>
         </div>
         <div class="pt-6 border-t border-gray-900 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-600">
-          <p>© ${new Date().getFullYear()} PhotoFrameIn. All Rights Reserved. | GST: Registered</p>
+          <p>© ${new Date().getFullYear()} PhotoFrameIn. All Rights Reserved.</p>
           <div class="flex gap-4">
             <a href="/policy/privacy" onclick="window.pfi.nav('/policy/privacy');return false;" class="hover:text-gray-400 transition">Privacy</a>
             <a href="/policy/terms" onclick="window.pfi.nav('/policy/terms');return false;" class="hover:text-gray-400 transition">Terms</a>
@@ -407,7 +407,7 @@
           <!-- Trust Strip -->
           <div class="flex flex-wrap justify-center gap-3 mb-12" role="list" aria-label="Store guarantees">
             <span class="trust-badge" role="listitem"><i class="fas fa-bolt" aria-hidden="true"></i> 12-Hour Dispatch</span>
-            <span class="trust-badge green" role="listitem"><i class="fas fa-shipping-fast" aria-hidden="true"></i> Free Delivery ₹799+</span>
+            <span class="trust-badge green" role="listitem"><i class="fas fa-shipping-fast" aria-hidden="true"></i> Free Delivery ₹899+</span>
             <span class="trust-badge gold" role="listitem"><i class="fas fa-shield-alt" aria-hidden="true"></i> Damage Protected</span>
             <span class="trust-badge" role="listitem"><i class="fas fa-money-bill-wave" aria-hidden="true"></i> COD Available</span>
           </div>
@@ -547,7 +547,7 @@
             <button onclick="window.pfi.nav('/category/divine')" class="btn-buy max-w-xs" aria-label="Shop divine art frames">🕉️ Shop Divine Art</button>
             <button onclick="window.pfi.nav('/category/automotive')" class="btn-cart max-w-xs" aria-label="Shop automotive art frames">🏎️ Shop Automotive</button>
           </div>
-          <p class="text-xs text-gray-500">First order? Use code <strong class="text-brand-gold">WELCOME15</strong> for 15% off</p>
+          <p class="text-xs text-gray-500">First order? Use code <strong class="text-brand-gold">WELCOME10</strong> for 10% off</p>
         </div>
       </section>
     </main>` + renderFooter();
@@ -786,7 +786,7 @@
             <!-- Shipping Info Widget -->
             <div class="bg-brand-card border border-gray-800 rounded-xl p-4 flex items-center gap-4 mt-4">
               <div class="w-10 h-10 bg-gray-900 rounded-full flex items-center justify-center text-brand-gold flex-shrink-0" aria-hidden="true"><i class="fas fa-shipping-fast"></i></div>
-              <div class="text-xs text-gray-400">Delivered in <strong class="text-white">3-5 business days</strong> · <strong class="text-brand-green">Free above ₹799</strong></div>
+              <div class="text-xs text-gray-400">Delivered in <strong class="text-white">3-5 business days</strong> · <strong class="text-brand-green">Free above ₹899</strong></div>
             </div>
           </div>
 
@@ -967,6 +967,29 @@
           </div>
         </section>
 
+        <!-- Bulk / Corporate Orders -->
+        <section class="mt-12 pt-12 border-t border-gray-800 text-center" aria-labelledby="corporate-heading">
+          <div class="bg-gradient-to-br from-gray-900 to-black border border-brand-gold/20 rounded-2xl p-8 md:p-12 relative overflow-hidden">
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(202,138,4,0.05)_0%,transparent_70%)]" aria-hidden="true"></div>
+            <div class="relative z-10 max-w-2xl mx-auto">
+              <div class="text-brand-gold text-xs font-bold uppercase tracking-widest mb-3">Premium Gifting & Wholesale</div>
+              <h2 id="corporate-heading" class="text-3xl md:text-4xl font-bold text-white mb-4">Bulk & Corporate Orders</h2>
+              <p class="text-gray-400 text-sm md:text-base leading-relaxed mb-8">Contact us directly for special pricing and priority production for bulk orders.</p>
+              <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                ${state.config.bulk_order_phone1 ? `
+                <a href="tel:${escapeAttr(state.config.bulk_order_phone1)}" class="w-full sm:w-auto flex items-center justify-center gap-2 bg-brand-gold text-black font-bold px-8 py-4 rounded-xl hover:bg-yellow-400 transition shadow-lg shadow-yellow-900/20">
+                  <i class="fas fa-phone"></i> Call ${escapeHTML(state.config.bulk_order_phone1)}
+                </a>` : ''}
+                ${state.config.bulk_order_phone2 ? `
+                <a href="https://wa.me/91${escapeAttr(state.config.bulk_order_phone2.replace(/\D/g,''))}?text=Hi,%20I'm%20interested%20in%20Bulk/Corporate%20orders%20for%20${encodeURIComponent(safeName)}" target="_blank" class="w-full sm:w-auto flex items-center justify-center gap-2 bg-brand-green text-white font-bold px-8 py-4 rounded-xl hover:bg-green-600 transition shadow-lg shadow-green-900/20">
+                  <i class="fab fa-whatsapp"></i> WhatsApp Quote
+                </a>` : ''}
+              </div>
+              <p class="text-[10px] text-gray-500 mt-6 uppercase tracking-[0.2em]">Priority Production • Custom Branding • Pan-India Delivery</p>
+            </div>
+          </div>
+        </section>
+
         <!-- Reviews -->
         ${reviews.length > 0 ? `
         <section class="mt-12 pt-12 border-t border-gray-800" aria-labelledby="reviews-heading">
@@ -1060,7 +1083,7 @@
             <div class="flex items-center gap-4">
               ${safeImg2 ? `<img src="${safeImg2}" class="w-14 h-14 rounded-lg object-cover border border-gray-800 flex-shrink-0" alt="${safeName3}" loading="lazy">` : ''}
               <div class="flex-1">
-                <div class="text-[10px] font-bold text-brand-gold uppercase tracking-widest mb-1">Add-on Offer</div>
+                <div class="text-[10px] font-bold text-brand-gold uppercase tracking-widest mb-1">Poster Add-on</div>
                 <h4 class="text-sm font-bold text-white">${safeName3}</h4>
                 <p class="text-xs font-bold text-brand-green">Only ${formatPrice(u.price)}</p>
               </div>
@@ -1216,7 +1239,7 @@
       seoTitle: 'Motivation Frames | Hustle & Mindset Wall Art — PhotoFrameIn',
       badge: '🔥 Study Room Favourite',
       cta: 'Fuel Your Ambition',
-      trustMsg: '⚡ Free delivery on orders above ₹799'
+      trustMsg: '⚡ Free delivery on orders above ₹899'
     },
     sports: {
       title: 'Sports Art Frames',
@@ -1248,7 +1271,7 @@
       seoTitle: slug + ' Frames — PhotoFrameIn',
       badge: '✅ In Stock',
       cta: 'Shop Now',
-      trustMsg: '📦 Free delivery above ₹799'
+      trustMsg: '📦 Free delivery above ₹899'
     };
 
     // Update page meta
@@ -1417,7 +1440,7 @@
         <!-- Coupon Code -->
         <div class="flex gap-2">
           <label for="coupon-input" class="sr-only">Coupon code</label>
-          <input type="text" id="coupon-input" placeholder="Coupon Code (e.g. INSTA10)" class="form-input flex-1" autocapitalize="characters" aria-label="Enter coupon code">
+          <input type="text" id="coupon-input" placeholder="Coupon Code (e.g. WELCOME10)" class="form-input flex-1" autocapitalize="characters" aria-label="Enter coupon code">
           <button type="button" onclick="window.pfi.applyCoupon()" class="btn-gold !py-3 !px-4 !text-sm whitespace-nowrap" aria-label="Apply coupon code">Apply</button>
         </div>
         <div id="coupon-result" aria-live="polite"></div>

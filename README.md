@@ -45,6 +45,7 @@ webapp/
 ├── .env.example               # All required env var keys (copy → .dev.vars)
 ├── wrangler.jsonc             # Cloudflare config + full secrets reference
 ├── SYSTEM_LITERACY.md         # Full developer/AI guide
+├── GUIDE_THIRD_PARTY.md       # Setup guide for Razorpay, Shiprocket, etc.
 └── ecosystem.config.cjs       # PM2 config for local dev
 ```
 

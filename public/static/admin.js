@@ -505,7 +505,7 @@
           return `
           <tr>
             <td class="font-mono text-yellow-400">${o.order_id}</td>
-            <td><div>${o.customer_name}</div><div class="text-[10px] text-gray-500">${o.address?.city}</div></td>
+            <td><div>${escapeHTML(o.customer_name)}</div><div class="text-[10px] text-gray-500">${escapeHTML(o.address?.city || '')}</div></td>
             <td class="text-[10px] font-mono">${o.shiprocket_order_id ? o.shiprocket_order_id.replace(/,/g, '<br>') : `<button onclick="admin.createShiprocketOrder('${o.order_id}')" class="admin-btn admin-btn-primary text-[10px] py-0 px-1">Create</button>`}</td>
             <td>${awbs.length ? awbs.map(a => `<div class="font-mono text-[10px]">${a}</div>`).join('') : `<button onclick="admin.generateAWB('${o.order_id}')" class="admin-btn admin-btn-ghost text-[10px] py-0 px-1" ${!o.shiprocket_synced ? 'disabled' : ''}>Gen AWB</button>`}</td>
             <td>
@@ -735,9 +735,9 @@
     </div>
     <div id="content-pages">
       ${(pages.pages || []).map(p => `
-        <div class="stat-card mb-4 cursor-pointer" onclick="admin.editPage('${p.slug}')">
+        <div class="stat-card mb-4 cursor-pointer" onclick="admin.editPage('${escapeAttr(p.slug)}')">
           <div class="flex justify-between items-center">
-            <div><strong>${p.title}</strong><div class="text-xs text-gray-500">/${p.slug} · v${p.version || 1}</div></div>
+            <div><strong>${escapeHTML(p.title)}</strong><div class="text-xs text-gray-500">/${escapeHTML(p.slug)} · v${p.version || 1}</div></div>
             <button class="admin-btn admin-btn-ghost text-xs">Edit</button>
           </div>
         </div>
@@ -746,7 +746,7 @@
     <div id="content-faq" style="display:none">
       <button onclick="admin.showFAQForm()" class="admin-btn admin-btn-primary mb-4"><i class="fas fa-plus mr-1"></i>Add FAQ</button>
       ${(faq.faq || []).map(f => `
-        <div class="stat-card mb-2"><strong class="text-sm">${f.question}</strong><p class="text-xs text-gray-400 mt-1">${f.answer?.slice(0, 100)}...</p></div>
+        <div class="stat-card mb-2"><strong class="text-sm">${escapeHTML(f.question)}</strong><p class="text-xs text-gray-400 mt-1">${escapeHTML(f.answer?.slice(0, 100))}...</p></div>
       `).join('')}
     </div>
     <div id="content-blog" style="display:none">
@@ -899,8 +899,8 @@
         ${o.admin_notes ? `<div class="mt-4 bg-yellow-900/20 rounded p-3 text-sm"><strong>Admin Notes:</strong> ${o.admin_notes}</div>` : ''}
         ${data.claims?.length ? `<div class="mt-4"><h4 class="font-bold text-red-400 mb-2">Damage Claims:</h4>${data.claims.map(cl => `
           <div class="bg-red-900/20 border border-red-800 rounded p-3 mb-2">
-            <p class="text-sm">${cl.description}</p>
-            <a href="${cl.video_url}" target="_blank" class="text-yellow-400 text-sm">Watch Video</a>
+            <p class="text-sm">${escapeHTML(cl.description)}</p>
+            <a href="${escapeAttr(cl.video_url)}" target="_blank" class="text-yellow-400 text-sm">Watch Video</a>
             <div class="flex gap-2 mt-2">
               ${cl.status === 'pending' ? `<button onclick="admin.approveClaim('${cl.id}')" class="admin-btn admin-btn-green text-xs">Approve</button><button onclick="admin.declineClaim('${cl.id}')" class="admin-btn admin-btn-danger text-xs">Decline</button>` : `<span class="${cl.status === 'approved' ? 'badge-green' : 'badge-red'}">${cl.status}</span>`}
             </div>

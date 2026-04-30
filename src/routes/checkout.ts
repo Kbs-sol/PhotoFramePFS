@@ -34,7 +34,7 @@ checkout.post('/shipping-estimate', async (c) => {
 
   if (!isValidPincode(pincode)) return c.json({ error: 'Invalid pincode' }, 400);
 
-  const freeThreshold = parseInt(config.free_shipping_threshold || '799');
+  const freeThreshold = parseInt(config.free_shipping_threshold || '899');
   const pickupPincode = config.pickup_pincode || '501504';
 
   // Calculate cart total and find largest size

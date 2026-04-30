@@ -119,7 +119,7 @@ All site behaviour is controlled via `system_config` table. Admin can edit via S
 | `cod_max_value` | `1995` | Maximum order for COD (₹) |
 | `cod_fee` | `49` | COD handling fee (₹) |
 | `prepaid_discount` | `50` | Prepaid discount at checkout (₹) |
-| `free_shipping_threshold` | `799` | Free shipping above this (₹) |
+| `free_shipping_threshold` | `899` | Free shipping above this (₹) |
 | `acrylic_enabled` | `true` | Show acrylic upgrade option |
 | `combos_enabled` | `true` | Show combo/bundle upsells |
 
@@ -226,7 +226,7 @@ Formula: `(L × W × H) / 5000` kg
 ### Shipping Rates (Backend)
 | Condition | Rate |
 |-----------|------|
-| Prepaid above ₹799 | FREE |
+| Prepaid above ₹899 | FREE |
 | Standard prepaid | ₹79–₹99 |
 | COD Small/Medium | ₹99 |
 | COD Large/XL | ₹149 |
@@ -467,7 +467,7 @@ Break-even orders/month:  52  (fixed overhead ~₹15,000)
 | COD availability | `cod_enabled=true`, ₹49 fee | +20% order rate |
 | Urgency bar | `urgency_text` config key | +8% CVR |
 | Volume discount | 2→₹100, 3→₹250 | +15% AOV |
-| Free shipping threshold | `free_shipping_threshold=799` | +12% AOV |
+| Free shipping threshold | `free_shipping_threshold=899` | +12% AOV |
 | WhatsApp COD confirm | `whatsapp_number` config | -40% RTO |
 | Custom frame upsell | `/customize` page | +₹250 avg premium |
 
