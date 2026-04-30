@@ -1155,50 +1155,80 @@
         loadSection('coupons');
       } catch (e) { toast('Error saving coupon', 'error'); }
     },
-    async uploadToCloudinary(input, targetSelector) {
+    async uploadToCloudinary(input, targetSelector, folder) {
       if (!input.files?.length) return;
       const file = input.files[0];
-      const btn = input.previousElementSibling || input.nextElementSibling;
-      const originalText = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-      btn.disabled = true;
-      
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast('Only image files are supported.', 'error');
+        return;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        toast('File too large. Max 20MB.', 'error');
+        return;
+      }
+
+      // Find the trigger button — could be sibling or the element that triggered the click
+      // We search upward for a button in the same parent container
+      const container = input.parentElement;
+      const btn = container ? (container.querySelector('button') || input.nextElementSibling || input.previousElementSibling) : null;
+      const originalText = btn ? btn.innerHTML : '';
+      if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Uploading...'; btn.disabled = true; }
+
       try {
         // 1. Get signed signature from backend
-        const { data: signData } = await axios.get('/api/upload/sign', {
-          params: { folder: 'products' }
-        });
-        
-        // 2. Upload to Cloudinary
+        const uploadFolder = folder || 'products';
+        const signRes = await fetch(`/api/upload/sign?folder=${encodeURIComponent(uploadFolder)}`);
+        if (!signRes.ok) {
+          const errData = await signRes.json().catch(() => ({}));
+          throw new Error(errData.error || `Sign request failed (${signRes.status})`);
+        }
+        const signData = await signRes.json();
+        if (!signData.apiKey || !signData.cloudName) {
+          throw new Error('Cloudinary credentials not configured. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME + CLOUDINARY_API_KEY + CLOUDINARY_API_SECRET in Cloudflare secrets.');
+        }
+
+        // 2. Upload directly to Cloudinary
         const formData = new FormData();
         formData.append('file', file);
         formData.append('api_key', signData.apiKey);
-        formData.append('timestamp', signData.timestamp);
+        formData.append('timestamp', String(signData.timestamp));
         formData.append('signature', signData.signature);
         formData.append('folder', signData.folder);
-        
-        const res = await axios.post(
-          `https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`,
-          formData
+        if (signData.tags) formData.append('tags', signData.tags);
+
+        const uploadRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${encodeURIComponent(signData.cloudName)}/image/upload`,
+          { method: 'POST', body: formData }
         );
-        
-        if (res.data.secure_url) {
-          const url = res.data.secure_url;
-          if (targetSelector) {
-            $(targetSelector).value = url;
-            // Also update preview if it exists
-            const prev = $(targetSelector + '-preview');
-            if (prev) prev.src = url;
-          }
-          toast('Cloudinary upload success!', 'success');
-          return url;
+        const uploadData = await uploadRes.json();
+
+        if (!uploadRes.ok || !uploadData.secure_url) {
+          throw new Error(uploadData.error?.message || 'Cloudinary upload failed');
         }
+
+        // Validate URL is genuinely from Cloudinary
+        if (!/^https:\/\/res\.cloudinary\.com\//.test(uploadData.secure_url)) {
+          throw new Error('Invalid upload response');
+        }
+
+        const url = uploadData.secure_url;
+        if (targetSelector) {
+          const target = $(targetSelector);
+          if (target) target.value = url;
+          const prev = $(targetSelector + '-preview');
+          if (prev) { prev.src = url; prev.classList.remove('hidden'); }
+        }
+        toast(`✅ Uploaded! ${file.name}`, 'success');
+        return url;
       } catch (e) {
         console.error('Cloudinary upload failed', e);
-        toast('Upload failed. Check console.', 'error');
+        toast(e.message || 'Upload failed — check Cloudflare secrets (CLOUDINARY_URL etc.)', 'error');
       } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        if (btn) { btn.innerHTML = originalText; btn.disabled = false; }
+        // Reset file input so same file can be re-uploaded
+        input.value = '';
       }
     },
     async uploadToR2(input, targetSelector) {
@@ -1533,33 +1563,159 @@
   }
 
   async function renderMedia(el) {
+    // Check if Cloudinary is configured
+    let cloudinaryStatus = { configured: false };
+    try {
+      const r = await fetch('/api/upload/config');
+      cloudinaryStatus = await r.json();
+    } catch (e) { /* ignore */ }
+
     el.innerHTML = `
-      <h2 class="text-2xl font-bold mb-6">Media Manager (Cloudinary)</h2>
-      <div class="stat-card mb-6">
-        <p class="text-sm text-gray-400 mb-4">Upload images here to get direct links for products, category banners, or blog posts.</p>
-        <div class="flex gap-4 items-center">
-          <input type="file" id="bulk-media-upload" class="hidden" onchange="admin.uploadToCloudinary(this, '#media-link-result')">
-          <button onclick="$('#bulk-media-upload').click()" class="admin-btn admin-btn-primary">
-            <i class="fas fa-upload mr-2"></i>Upload to Cloudinary
-          </button>
-          <input type="text" id="media-link-result" class="admin-input flex-1" readonly placeholder="Uploaded link will appear here...">
-          <button onclick="navigator.clipboard.writeText($('#media-link-result').value); toast('Link copied!')" class="admin-btn admin-btn-ghost">
-            <i class="fas fa-copy"></i>
-          </button>
+      <h2 class="text-2xl font-bold mb-6">Media Manager — Cloudinary Uploads</h2>
+
+      ${!cloudinaryStatus.configured ? `
+      <div class="stat-card mb-6 border border-yellow-600/40 bg-yellow-900/10">
+        <div class="flex items-start gap-3">
+          <i class="fas fa-exclamation-triangle text-yellow-400 text-xl mt-1"></i>
+          <div>
+            <p class="font-bold text-yellow-400 mb-1">Cloudinary Not Configured</p>
+            <p class="text-sm text-gray-300">Set these secrets in Cloudflare Dashboard → Settings → Variables &amp; Secrets:</p>
+            <ul class="mt-2 space-y-1 text-xs font-mono text-gray-400">
+              <li>• <strong class="text-white">CLOUDINARY_CLOUD_NAME</strong> — your cloud name</li>
+              <li>• <strong class="text-white">CLOUDINARY_API_KEY</strong> — your API key</li>
+              <li>• <strong class="text-white">CLOUDINARY_API_SECRET</strong> — your API secret</li>
+              <li class="text-gray-500">— OR — set <strong class="text-white">CLOUDINARY_URL</strong> (cloudinary://KEY:SECRET@CLOUD_NAME)</li>
+            </ul>
+            <p class="text-xs text-gray-500 mt-2">Find these in your <a href="https://cloudinary.com/console" target="_blank" class="text-brand-gold underline">Cloudinary Console → Dashboard</a>.</p>
+          </div>
         </div>
-        <p class="text-xs text-silver-dim mt-4"><i class="fas fa-info-circle mr-1"></i> High-resolution originals should be uploaded here first to get the URL for the product variants.</p>
+      </div>` : `
+      <div class="stat-card mb-4 border border-green-700/40 bg-green-900/10 flex items-center gap-2 py-3">
+        <i class="fas fa-check-circle text-green-400"></i>
+        <span class="text-sm text-green-300">Cloudinary connected — cloud: <strong>${escapeHTML(cloudinaryStatus.cloudName || '')}</strong></span>
+      </div>`}
+
+      <!-- Upload Zone -->
+      <div class="stat-card mb-6">
+        <h3 class="text-lg font-bold mb-1">Upload Image</h3>
+        <p class="text-xs text-gray-400 mb-4">Choose a folder, then pick your image. The public URL will appear instantly — copy it into any product or category form.</p>
+
+        <div class="flex flex-wrap gap-3 mb-4">
+          <label class="text-xs text-gray-400 self-center">Folder:</label>
+          <select id="media-folder-select" class="admin-input w-auto text-sm py-1.5">
+            <option value="products">products/</option>
+            <option value="categories">categories/</option>
+            <option value="custom_frames">custom_frames/</option>
+            <option value="blog">blog/</option>
+            <option value="misc">misc/</option>
+          </select>
+        </div>
+
+        <div id="media-drop-zone" class="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-brand-gold transition-colors"
+             onclick="$('#bulk-media-upload').click()"
+             ondragover="event.preventDefault(); this.classList.add('border-brand-gold')"
+             ondragleave="this.classList.remove('border-brand-gold')"
+             ondrop="event.preventDefault(); this.classList.remove('border-brand-gold'); admin.handleMediaDrop(event)">
+          <i class="fas fa-cloud-upload-alt text-4xl text-gray-600 mb-3 block"></i>
+          <p class="text-gray-400 font-medium">Click or drag &amp; drop image here</p>
+          <p class="text-xs text-gray-600 mt-1">JPG, PNG, WEBP — max 20MB</p>
+        </div>
+        <input type="file" id="bulk-media-upload" class="hidden" accept="image/*"
+               onchange="admin.triggerMediaUpload(this)">
+
+        <!-- Result row (hidden until upload) -->
+        <div id="media-result-row" class="hidden mt-4">
+          <div class="flex gap-2 items-center mb-3">
+            <img id="media-preview" src="" alt="preview" class="w-16 h-16 object-cover rounded-lg border border-gray-700 flex-shrink-0">
+            <div class="flex-1 min-w-0">
+              <p class="text-xs text-gray-400 mb-1">Cloudinary URL (copy &amp; use anywhere):</p>
+              <div class="flex gap-2">
+                <input type="text" id="media-link-result" class="admin-input flex-1 text-xs font-mono" readonly placeholder="Upload an image to get its URL...">
+                <button onclick="navigator.clipboard.writeText($('#media-link-result').value); toast('✅ Link copied!', 'success')"
+                        class="admin-btn admin-btn-ghost flex-shrink-0" title="Copy URL">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upload history (session only) -->
+        <div id="media-history" class="hidden mt-4">
+          <p class="text-xs text-gray-500 mb-2 font-bold uppercase tracking-wider">Recent Uploads (this session)</p>
+          <div id="media-history-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+        </div>
       </div>
 
+      <!-- Usage Guide -->
       <div class="stat-card">
-        <h3 class="text-lg font-bold mb-4">Usage Guide</h3>
-        <ul class="space-y-3 text-sm text-gray-400">
-          <li><strong class="text-white">Products:</strong> Use the generated link in the "Images" section when adding/editing products.</li>
-          <li><strong class="text-white">Banners:</strong> Use links for category or collection banners in the Categories section.</li>
-          <li><strong class="text-white">Blog:</strong> Embed these links directly in your blog post content.</li>
-        </ul>
+        <h3 class="text-lg font-bold mb-4">📖 How To Use</h3>
+        <div class="grid md:grid-cols-3 gap-4 text-sm">
+          <div class="bg-black/30 rounded-xl p-4">
+            <p class="font-bold text-brand-gold mb-2">🖼️ Product Images</p>
+            <p class="text-gray-400">Upload to <code class="text-xs bg-gray-900 px-1 rounded">products/</code> folder → copy URL → paste into product form "Image URL" field.</p>
+          </div>
+          <div class="bg-black/30 rounded-xl p-4">
+            <p class="font-bold text-brand-saffron mb-2">🗂️ Category Banners</p>
+            <p class="text-gray-400">Upload to <code class="text-xs bg-gray-900 px-1 rounded">categories/</code> → copy URL → paste into category "Image URL" in Categories section.</p>
+          </div>
+          <div class="bg-black/30 rounded-xl p-4">
+            <p class="font-bold text-brand-green mb-2">✏️ Blog / Misc</p>
+            <p class="text-gray-400">Upload to <code class="text-xs bg-gray-900 px-1 rounded">blog/</code> or <code class="text-xs bg-gray-900 px-1 rounded">misc/</code> → embed URL directly in content editor.</p>
+          </div>
+        </div>
       </div>
     `;
+
+    // Initialise session history array on window
+    if (!window._mediaUploads) window._mediaUploads = [];
   }
+
+  // Called when file input changes in Media Manager
+  admin.triggerMediaUpload = async function(input) {
+    const folder = $('#media-folder-select')?.value || 'products';
+    const url = await admin.uploadToCloudinary(input, '#media-link-result', folder);
+    if (url) {
+      // Show result row
+      const resultRow = $('#media-result-row');
+      if (resultRow) resultRow.classList.remove('hidden');
+      const preview = $('#media-preview');
+      if (preview) { preview.src = url; }
+
+      // Add to session history
+      if (!window._mediaUploads) window._mediaUploads = [];
+      window._mediaUploads.unshift({ url, name: input.files[0]?.name || 'image', ts: Date.now() });
+
+      const historyEl = $('#media-history');
+      const listEl = $('#media-history-list');
+      if (historyEl && listEl) {
+        historyEl.classList.remove('hidden');
+        listEl.innerHTML = window._mediaUploads.slice(0, 10).map(u => `
+          <div class="flex items-center gap-2 bg-gray-900/50 rounded-lg p-2">
+            <img src="${u.url}" class="w-8 h-8 object-cover rounded" alt="">
+            <span class="text-xs text-gray-400 flex-1 truncate">${escapeHTML(u.name)}</span>
+            <button onclick="navigator.clipboard.writeText('${u.url}'); toast('Copied!', 'success')"
+                    class="text-xs text-brand-gold hover:underline flex-shrink-0">Copy</button>
+          </div>
+        `).join('');
+      }
+    }
+  };
+
+  // Drag-and-drop handler for Media Manager
+  admin.handleMediaDrop = async function(event) {
+    const files = event.dataTransfer?.files;
+    if (!files?.length) return;
+    const fakeInput = { files, value: '' };
+    const folder = $('#media-folder-select')?.value || 'products';
+    const url = await admin.uploadToCloudinary(fakeInput, '#media-link-result', folder);
+    if (url) {
+      const resultRow = $('#media-result-row');
+      if (resultRow) resultRow.classList.remove('hidden');
+      const preview = $('#media-preview');
+      if (preview) preview.src = url;
+    }
+  };
 
   // Init — check if token exists
   if (adminToken) { render(); } else { showLogin(); }

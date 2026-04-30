@@ -386,11 +386,97 @@ When an AI assistant works on this codebase:
 
 - [ ] Backend route → `src/routes/admin.ts` or appropriate route file
 - [ ] Frontend UI → `public/static/admin.js` (admin) or `public/static/app.js` (customer)
-- [ ] Database → `supabase/updates_v2.sql` (new ALTER/CREATE statements)
-- [ ] Config key → `supabase/seed.sql` + `system_config` table insert
-- [ ] Secrets → add to `.dev.vars` AND Cloudflare Pages secrets
+- [ ] Database → append ALTER/CREATE to `supabase/master.sql` (**single source of truth**)
+- [ ] Config key → add `INSERT INTO system_config` block in `supabase/master.sql`
+- [ ] Secrets → add to `.dev.vars` AND Cloudflare Pages secrets + document in `wrangler.jsonc` comments
 - [ ] Document → update this SYSTEM_LITERACY.md
+
+### Supabase SQL File Convention
+```
+supabase/
+└── master.sql   ← THE ONLY FILE — run once, idempotent, contains everything:
+                    schema • indexes • RLS policies • RPC functions •
+                    system_config seed • categories • products • combos • FAQ • pages
+```
+All previous files (schema.sql, unified.sql, seed.sql, updates_v2.sql, etc.) have been
+merged into master.sql and deleted. When you need a schema change, append it to master.sql.
 
 ---
 
-*Last updated: 2026-04-26 | Maintained by: vijayprasadvvp@gmail.com*
+## 18. Market-Entry Business Strategy
+
+**Objective:** Reach ₹1L/month revenue within 90 days with a budget of ₹15,000.
+
+### Target Segments & Positioning
+
+| Segment | Buyer Persona | Hook | Price Point |
+|---------|--------------|------|-------------|
+| 🕉️ Divine | Hindu homeowner (25-50F), Hyderabad + Tier-2 | "Make your pooja room premium" | ₹799–₹1,195 |
+| 🏎️ Automotive | Young man (18-32M), car enthusiast | "Your dream car on your wall" | ₹899–₹1,495 |
+| 🎁 Gifting | Anyone buying for birthdays/weddings | "Personalised gift under ₹999" | ₹699–₹999 |
+
+### 90-Day Execution Plan
+
+#### Phase 1 — Foundation (Days 1–15) · Budget: ₹0
+- [ ] Upload 6 product images to Cloudinary via Media Manager (2 divine, 2 auto, 2 motivation)
+- [ ] Set live config in Supabase: `owner_email`, `whatsapp_number`, `announcement_text`
+- [ ] Create 3 Instagram Reels: unboxing + pooja room reveal, Porsche frame reveal, custom frame surprise
+- [ ] Post to 5 relevant Facebook groups (Hyderabad home decor, car lovers India)
+- [ ] Enable Google Business Profile listing (free local SEO)
+
+#### Phase 2 — Paid Acquisition (Days 16–45) · Budget: ₹8,000
+- [ ] Meta Ads: ₹100/day — 2 ad sets
+  - Divine: "Ganesha wall art for home" → product page — optimize for Add to Cart
+  - Automotive: "Porsche poster frame India" → product page — optimize for Purchase
+- [ ] Target: CAC < ₹300, ROAS > 3x (₹900 AOV means ₹300 CAC = 33% acquisition cost)
+- [ ] A/B test 2 creatives per ad set (static image vs Reel)
+- [ ] Track via UTM + `sales_funnel_events` table in Supabase
+- [ ] Kill any ad set with CTR < 1% or CAC > ₹500 within 7 days
+
+#### Phase 3 — Scale & Retention (Days 46–90) · Budget: ₹7,000
+- [ ] Influencer gifting: 3–5 micro-creators (10k–100k followers) in divine/auto niches
+  - Offer: 2 free frames in exchange for a tagged Reel (no paid fee)
+  - Cost: ~₹1,500 in product COGS
+- [ ] WhatsApp broadcast to all COD-confirmed buyers (repeat purchase offer: 10% discount)
+- [ ] Launch "Starter Desk Setup" combo via Meta retargeting (warm audience)
+- [ ] SEO: publish 2 blog posts (`/blog`) — "Best Ganesha wall art for pooja rooms 2026"
+- [ ] Email drip: 3-email post-purchase flow via Brevo (delivery → review request → repeat offer)
+
+### Unit Economics at Scale
+
+```
+AOV:              ₹900
+COGS (frames):    ₹220  (24%)
+Shipping cost:    ₹80   (9%)
+Payment gateway:  ₹27   (3%)
+Packaging:        ₹30   (3%)
+--------------------------
+Gross Margin:     ₹543  (60%)
+
+Target CAC:       ₹250  (Meta ads at ROAS 3.6x)
+Contribution/order: ₹293
+
+Break-even orders/month:  52  (fixed overhead ~₹15,000)
+₹1L/month revenue target: 112 orders (~3.7/day)
+```
+
+### Key Conversion Levers (already built)
+| Lever | Implementation | Expected Lift |
+|-------|---------------|---------------|
+| Exit-intent lead capture | `leads` table + Brevo email | +5% recoveries |
+| COD availability | `cod_enabled=true`, ₹49 fee | +20% order rate |
+| Urgency bar | `urgency_text` config key | +8% CVR |
+| Volume discount | 2→₹100, 3→₹250 | +15% AOV |
+| Free shipping threshold | `free_shipping_threshold=799` | +12% AOV |
+| WhatsApp COD confirm | `whatsapp_number` config | -40% RTO |
+| Custom frame upsell | `/customize` page | +₹250 avg premium |
+
+### Risk Management
+- **High RTO risk** → mandate WhatsApp confirmation before dispatch; block repeat-RTO pincodes via `pincode_risk` table
+- **Low CAC margin** → never run ads below 2.5x ROAS; log weekly in `ad_performance` table
+- **Cashflow** → prefer prepaid (Razorpay) with 3% discount incentive (`prepaid_discount` config)
+- **Negative review spike** → unboxing video policy + `damage_claims` table for replacements
+
+---
+
+*Last updated: 2026-04-30 | Maintained by: vijayprasadvvp@gmail.com*
