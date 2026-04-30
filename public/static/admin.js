@@ -108,6 +108,8 @@
     { id: 'content', icon: 'fa-file-alt', label: 'Content' },
     { id: 'combos', icon: 'fa-layer-group', label: 'Combos & Bundles' },
     { id: 'ad_performance', icon: 'fa-chart-bar', label: 'Ad Performance' },
+    { id: 'seo_ai', icon: 'fa-robot', label: 'SEO AI' },
+    { id: 'suggestions', icon: 'fa-comment-alt', label: 'Suggestions' },
     { id: 'settings', icon: 'fa-cog', label: 'Settings' }
   ];
 
@@ -170,6 +172,8 @@
         case 'settings': await renderSettings(content); break;
         case 'combos': await renderCombos(content); break;
         case 'ad_performance': await renderAdPerformance(content); break;
+        case 'seo_ai': await renderSeoAI(content); break;
+        case 'suggestions': await renderSuggestions(content); break;
       }
     } catch (e) {
       content.innerHTML = `<div class="text-center py-12"><p class="text-red-400">Error loading ${id}</p><p class="text-sm text-gray-500 mt-2">${e.message}</p><button onclick="admin.go('${id}')" class="admin-btn admin-btn-ghost mt-4">Retry</button></div>`;
@@ -667,6 +671,12 @@
 
   // ========== REVIEWS (upgraded: feature, reply, bulk import, hidden tab) ==========
   async function renderReviews(el) {
+    // Load review_photo_enabled config
+    let reviewPhotoEnabled = true;
+    try {
+      const cfgRes = await api('GET', '/settings');
+      reviewPhotoEnabled = (cfgRes.settings?.review_photo_enabled || 'true') === 'true';
+    } catch(e) {}
     el.innerHTML = '<div class="text-center py-10"><div class="admin-spinner"></div></div>';
     const [pending, approved] = await Promise.all([
       api('GET', '/reviews?status=pending'),
@@ -781,7 +791,14 @@
       { key: 'twitter_link', label: 'Twitter/X Link (URL)', type: 'text' },
       { key: 'contact_email', label: 'Contact Email', type: 'text' },
       { key: 'contact_phone', label: 'Contact Phone', type: 'text' },
-      { key: 'contact_address', label: 'Contact Address', type: 'text' }
+      { key: 'contact_address', label: 'Contact Address', type: 'text' },
+      { key: 'whatsapp_disputes', label: 'WhatsApp Disputes Number', type: 'text' },
+      { key: 'bulk_order_phone1', label: 'Bulk/Corporate Orders Phone 1', type: 'text' },
+      { key: 'bulk_order_phone2', label: 'Bulk/Corporate Orders Phone 2', type: 'text' },
+      { key: 'poster_enabled', label: 'Poster/Print-Only Sales Enabled', type: 'toggle' },
+      { key: 'review_photo_enabled', label: 'Allow Photo in Reviews', type: 'toggle' },
+      { key: 'openrouter_model', label: 'OpenRouter AI Model', type: 'text' },
+      { key: 'openrouter_api_key_hint', label: 'OpenRouter API Key (set in Cloudflare Secrets as OPENROUTER_API_KEY)', type: 'text' }
     ];
 
     el.innerHTML = `
@@ -809,6 +826,23 @@
         <button type="button" onclick="admin.viewErrors()" class="admin-btn admin-btn-ghost"><i class="fas fa-bug mr-1"></i>Error Log</button>
       </div>
     </form>`;
+
+    // Show current bulk order contacts prominently
+    const bulkPhone1 = s['bulk_order_phone1'] || '8333066370';
+    const bulkPhone2 = s['bulk_order_phone2'] || '7989094923';
+    const settingsHeader = el.querySelector('h2');
+    if (settingsHeader) {
+      const bulkBanner = document.createElement('div');
+      bulkBanner.className = 'stat-card mb-6 bg-brand-gold/5 border border-brand-gold/20';
+      bulkBanner.innerHTML = `
+        <h3 class="font-bold text-base mb-3 text-brand-gold"><i class="fas fa-building mr-2"></i>Bulk / Corporate Orders</h3>
+        <div class="flex flex-wrap gap-6 text-sm">
+          <div><span class="text-gray-400">Phone 1:</span> <a href="tel:${bulkPhone1}" class="text-white font-bold hover:text-brand-gold">${bulkPhone1}</a></div>
+          <div><span class="text-gray-400">Phone 2:</span> <a href="tel:${bulkPhone2}" class="text-white font-bold hover:text-brand-gold">${bulkPhone2}</a></div>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">Update below in "Bulk/Corporate Orders Phone 1/2" fields.</p>`;
+      el.insertBefore(bulkBanner, el.querySelector('form'));
+    }
 
     $('#settings-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -852,6 +886,16 @@
           </div>
         `).join('')}
         ${o.awb_number ? `<div class="mt-4 bg-gray-900 rounded p-3"><strong>AWB:</strong> ${o.awb_number} · <strong>Carrier:</strong> ${o.carrier || '-'}</div>` : ''}
+        ${o.status === 'delivered' && o.customer_email ? `
+        <div class="mt-4 p-3 bg-green-900/20 border border-green-800 rounded-xl flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-bold text-green-400"><i class="fas fa-star mr-2"></i>Order Delivered — Send Review Request</p>
+            <p class="text-xs text-gray-400">Email a review link to ${escapeHTML(o.customer_email)}</p>
+          </div>
+          <button onclick="admin.sendReviewRequest('${escapeHTML(o.order_id)}', '${escapeHTML(o.customer_email)}', '${escapeHTML(o.customer_name||'')}')" class="admin-btn admin-btn-primary text-xs whitespace-nowrap">
+            <i class="fas fa-envelope mr-1"></i>Send Request
+          </button>
+        </div>` : ''}
         ${o.admin_notes ? `<div class="mt-4 bg-yellow-900/20 rounded p-3 text-sm"><strong>Admin Notes:</strong> ${o.admin_notes}</div>` : ''}
         ${data.claims?.length ? `<div class="mt-4"><h4 class="font-bold text-red-400 mb-2">Damage Claims:</h4>${data.claims.map(cl => `
           <div class="bg-red-900/20 border border-red-800 rounded p-3 mb-2">
@@ -868,6 +912,17 @@
     },
     async updateStatus(orderId, status) {
       await api('PUT', `/orders/${orderId}/status`, { status });
+      // Auto-send review request when marking as delivered
+      if (status === 'delivered') {
+        try {
+          const ord = await api('GET', `/orders/${orderId}/detail`);
+          if (ord.order?.customer_email) {
+            await api('POST', '/review-requests', {
+              orderId, email: ord.order.customer_email, name: ord.order.customer_name || ''
+            });
+          }
+        } catch(e) { /* silent */ }
+      }
       loadSection('orders');
     },
     async confirmCOD(orderId, phoneStr, nameStr, totalAmount) {
@@ -1070,11 +1125,21 @@
             </div>
           </div>
           <div class="border-t border-gray-800 pt-4">
+            <label class="block text-xs text-gray-400 mb-2">Allowed Sizes (leave blank = all sizes allowed)</label>
+            <div class="flex flex-wrap gap-2 mb-2" id="size-restriction-options">
+              ${['Small','Medium','Large','XL'].map(s => `<label class="flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" name="allowed_sizes_${s}" class="accent-yellow-400" ${!p.allowed_sizes || p.allowed_sizes.includes(s) ? 'checked' : ''}> ${s}</label>`).join('')}
+            </div>
+            <label class="block text-xs text-gray-400 mb-1 mt-3">Allowed Frame Types (leave blank = all)</label>
+            <div class="flex flex-wrap gap-2 mb-4">
+              ${['Standard','Premium'].map(f => `<label class="flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" name="allowed_frames_${f}" class="accent-yellow-400" ${!p.allowed_frames || p.allowed_frames.includes(f) ? 'checked' : ''}> ${f}</label>`).join('')}
+            </div>
+          </div>
+          <div class="border-t border-gray-800 pt-4">
             <label class="block text-xs text-gray-400 mb-2">Image URL (Cloudinary Preferred)</label>
             <div class="flex gap-2">
               <input type="text" id="new-image-url" name="image_url" value="${p.image_url || ''}" class="admin-input" placeholder="Paste URL or upload -->">
-              <input type="file" id="image-upload-cloudinary" style="display:none" onchange="admin.uploadToCloudinary(this, '#new-image-url')">
-              <button type="button" onclick="$('#image-upload-cloudinary').click()" class="admin-btn admin-btn-primary"><i class="fas fa-upload"></i></button>
+              <input type="file" id="image-upload-cloudinary" style="display:none" accept="image/*" onchange="admin.uploadToCloudinary(this, '#new-image-url', 'products')">
+              <button type="button" onclick="document.getElementById('image-upload-cloudinary').click()" class="admin-btn admin-btn-primary" title="Upload to Cloudinary (click to browse)"><i class="fas fa-upload mr-1"></i>Upload Image</button>
             </div>
             <p class="text-[10px] text-gray-500 mt-1">Recommended: Use Cloudinary for automated sizing and optimization.</p>
           </div>
@@ -1091,7 +1156,19 @@
       const payload = Object.fromEntries(fd.entries());
       payload.is_active = fd.has('is_active');
       payload.is_placeholder = fd.has('is_placeholder');
-      
+
+      // Collect allowed_sizes from checkboxes
+      const checkedSizes = ['Small','Medium','Large','XL'].filter(s => fd.has(`allowed_sizes_${s}`));
+      payload.allowed_sizes = checkedSizes.length < 4 && checkedSizes.length > 0 ? checkedSizes.join(',') : null;
+
+      // Collect allowed_frames from checkboxes
+      const checkedFrames = ['Standard','Premium'].filter(f => fd.has(`allowed_frames_${f}`));
+      payload.allowed_frames = checkedFrames.length < 2 && checkedFrames.length > 0 ? checkedFrames.join(',') : null;
+
+      // Remove per-size/frame keys from payload (they're not DB columns)
+      ['Small','Medium','Large','XL'].forEach(s => delete payload[`allowed_sizes_${s}`]);
+      ['Standard','Premium'].forEach(f => delete payload[`allowed_frames_${f}`]);
+
       try {
         if (id) await api('PUT', `/products/${id}`, payload);
         else await api('POST', '/products', payload);
@@ -1612,7 +1689,7 @@
         </div>
 
         <div id="media-drop-zone" class="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-brand-gold transition-colors"
-             onclick="$('#bulk-media-upload').click()"
+             onclick="document.getElementById('bulk-media-upload').click()"
              ondragover="event.preventDefault(); this.classList.add('border-brand-gold')"
              ondragleave="this.classList.remove('border-brand-gold')"
              ondrop="event.preventDefault(); this.classList.remove('border-brand-gold'); admin.handleMediaDrop(event)">
@@ -1715,6 +1792,221 @@
       const preview = $('#media-preview');
       if (preview) preview.src = url;
     }
+  };
+
+  // ========== SEO AI (OpenRouter) ==========
+  async function renderSeoAI(el) {
+    let products = [];
+    try { const r = await api('GET', '/products?limit=50'); products = r.products || []; } catch(e) {}
+    el.innerHTML = `
+    <h2 class="text-2xl font-bold mb-2">SEO AI — Powered by OpenRouter</h2>
+    <p class="text-gray-400 text-sm mb-4">Auto-generate SEO metadata for products using AI.</p>
+    <div class="bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-3 mb-6 text-xs text-yellow-300">
+      <i class="fas fa-key mr-2"></i><strong>Setup required:</strong> Add <code class="bg-black/30 px-1 rounded">OPENROUTER_API_KEY</code> in Cloudflare Dashboard → Settings → Variables &amp; Secrets. Get a free key at <a href="https://openrouter.ai/keys" target="_blank" class="underline">openrouter.ai/keys</a>.
+    </div>
+
+    <!-- Site-wide SEO -->
+    <div class="stat-card mb-6">
+      <h3 class="font-bold text-lg mb-4">🌐 Site-wide SEO (Long-term)</h3>
+      <div class="grid md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Target Keywords (comma-separated)</label>
+          <input id="seo-keywords" class="admin-input w-full" placeholder="photo frames India, custom framing, wall art..." value="premium photo frames India, custom framing online, wall art framed, buy photo frames online">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">AI Model</label>
+          <select id="seo-model" class="admin-input w-full">
+            <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (Free)</option>
+            <option value="mistralai/mistral-7b-instruct:free">Mistral 7B (Free)</option>
+            <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+            <option value="google/gemini-flash-1.5">Gemini Flash 1.5</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="admin.generateSiteSEO()" class="admin-btn admin-btn-primary">
+        <i class="fas fa-robot mr-2"></i>Generate Site SEO Suggestions
+      </button>
+      <div id="site-seo-result" class="mt-4"></div>
+    </div>
+
+    <!-- Per-product SEO -->
+    <div class="stat-card mb-6">
+      <h3 class="font-bold text-lg mb-4">🏷️ Per-Product SEO (Short-term)</h3>
+      <div class="grid md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Select Product</label>
+          <select id="seo-product-select" class="admin-input w-full">
+            <option value="">-- Select a product --</option>
+            ${products.map(p => `<option value="${p.id}" data-name="${escapeHTML(p.name||'')}" data-desc="${escapeHTML((p.description||'').slice(0,200))}">${escapeHTML(p.name||'')}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Trend Context (optional)</label>
+          <input id="seo-trend-ctx" class="admin-input w-full" placeholder="e.g. Diwali gifting season, monsoon decor...">
+        </div>
+      </div>
+      <button onclick="admin.generateProductSEO()" class="admin-btn admin-btn-primary">
+        <i class="fas fa-magic mr-2"></i>Generate Product SEO
+      </button>
+      <div id="product-seo-result" class="mt-4"></div>
+    </div>
+
+    <!-- SEO Tips -->
+    <div class="stat-card">
+      <h3 class="font-bold text-base mb-3">📋 SEO Quick Wins</h3>
+      <div class="grid md:grid-cols-2 gap-4 text-sm text-gray-400">
+        <div>
+          <p class="font-bold text-gray-300 mb-1">Long-tail keywords to target:</p>
+          <ul class="space-y-1 text-xs">
+            <li>• "photo frames for home decor India"</li>
+            <li>• "custom framed prints online Hyderabad"</li>
+            <li>• "Ganesha wall art framed India"</li>
+            <li>• "buy Porsche poster frame India"</li>
+            <li>• "personalized photo frame gift"</li>
+          </ul>
+        </div>
+        <div>
+          <p class="font-bold text-gray-300 mb-1">Content strategy:</p>
+          <ul class="space-y-1 text-xs">
+            <li>• Blog: "10 ways to decorate your home with frames"</li>
+            <li>• Blog: "Best frame sizes for different room types"</li>
+            <li>• Blog: "Why custom frames make the best gifts"</li>
+            <li>• Alt text: Always include product + location</li>
+            <li>• Schema: Product + Review markup ✅ (active)</li>
+          </ul>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  admin.generateSiteSEO = async function() {
+    const keywords = document.getElementById('seo-keywords')?.value || '';
+    const model = document.getElementById('seo-model')?.value || 'meta-llama/llama-3.1-8b-instruct:free';
+    const resultEl = document.getElementById('site-seo-result');
+    if (!resultEl) return;
+    resultEl.innerHTML = '<p class="text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Generating SEO suggestions...</p>';
+    try {
+      const res = await api('POST', '/seo/generate', {
+        type: 'site',
+        keywords,
+        model,
+        context: 'PhotoFrameIn — premium handcrafted photo frames from Hyderabad, India. Products: divine art frames, automotive frames, motivation frames, custom personalised frames. Price range ₹499-₹2000.'
+      });
+      if (res.result) {
+        resultEl.innerHTML = `<div class="bg-gray-900 rounded-xl p-4 text-sm text-gray-300 whitespace-pre-wrap font-mono border border-gray-800">${escapeHTML(res.result)}</div>
+        <div class="flex gap-2 mt-3">
+          <button onclick="navigator.clipboard.writeText(document.querySelector('#site-seo-result pre, #site-seo-result .font-mono')?.textContent||''); toast('Copied!','success')" class="admin-btn admin-btn-ghost text-xs"><i class="fas fa-copy mr-1"></i>Copy</button>
+        </div>`;
+      } else {
+        resultEl.innerHTML = '<p class="text-red-400 text-sm">No result returned. Check OPENROUTER_API_KEY in Cloudflare secrets.</p>';
+      }
+    } catch(e) {
+      resultEl.innerHTML = `<p class="text-red-400 text-sm">Error: ${escapeHTML(e.message||'Unknown error')}. Make sure OPENROUTER_API_KEY is set in Cloudflare secrets.</p>`;
+    }
+  };
+
+  admin.generateProductSEO = async function() {
+    const select = document.getElementById('seo-product-select');
+    const trend = document.getElementById('seo-trend-ctx')?.value || '';
+    const model = document.getElementById('seo-model')?.value || 'meta-llama/llama-3.1-8b-instruct:free';
+    const resultEl = document.getElementById('product-seo-result');
+    if (!select || !resultEl) return;
+    const productId = select.value;
+    const productName = select.options[select.selectedIndex]?.dataset?.name || '';
+    const productDesc = select.options[select.selectedIndex]?.dataset?.desc || '';
+    if (!productId) { toast('Select a product first', 'error'); return; }
+    resultEl.innerHTML = '<p class="text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Generating product SEO...</p>';
+    try {
+      const res = await api('POST', '/seo/generate', {
+        type: 'product',
+        productId,
+        productName,
+        productDesc,
+        trend,
+        model
+      });
+      if (res.result) {
+        resultEl.innerHTML = `<div class="bg-gray-900 rounded-xl p-4 text-sm text-gray-300 whitespace-pre-wrap font-mono border border-gray-800">${escapeHTML(res.result)}</div>
+        <div class="flex gap-2 mt-3">
+          <button onclick="navigator.clipboard.writeText(document.querySelector('#product-seo-result .font-mono')?.textContent||''); toast('Copied!','success')" class="admin-btn admin-btn-ghost text-xs"><i class="fas fa-copy mr-1"></i>Copy</button>
+          ${productId ? `<button onclick="admin.applySEOToProduct('${productId}')" class="admin-btn admin-btn-primary text-xs"><i class="fas fa-save mr-1"></i>Apply to Product</button>` : ''}
+        </div>`;
+        window._lastSeoResult = res.result;
+        window._lastSeoProductId = productId;
+      } else {
+        resultEl.innerHTML = '<p class="text-red-400 text-sm">No result. Check OPENROUTER_API_KEY.</p>';
+      }
+    } catch(e) {
+      resultEl.innerHTML = `<p class="text-red-400 text-sm">Error: ${escapeHTML(e.message||'Unknown error')}</p>`;
+    }
+  };
+
+  admin.applySEOToProduct = async function(productId) {
+    if (!window._lastSeoResult || !productId) return;
+    try {
+      // Parse JSON from result if possible
+      let parsed = {};
+      try { parsed = JSON.parse(window._lastSeoResult); } catch(e) { /* raw text */ }
+      await api('PUT', `/products/${productId}`, {
+        seo_title: parsed.seo_title || '',
+        seo_description: parsed.seo_description || ''
+      });
+      toast('SEO metadata saved to product!', 'success');
+    } catch(e) { toast('Failed to save SEO: ' + e.message, 'error'); }
+  };
+
+  // ========== SUGGESTIONS BOX ==========
+  async function renderSuggestions(el) {
+    let data = { suggestions: [] };
+    try { data = await api('GET', '/suggestions'); } catch(e) {}
+    const suggestions = data.suggestions || [];
+    el.innerHTML = `
+    <h2 class="text-2xl font-bold mb-2">Customer Suggestions</h2>
+    <p class="text-gray-400 text-sm mb-6">Anonymous suggestions submitted by customers or visitors. Optional contact details when provided.</p>
+    <div class="stat-card mb-6">
+      <div class="flex justify-between items-center mb-4">
+        <span class="text-sm text-gray-400">${suggestions.length} suggestion${suggestions.length !== 1 ? 's' : ''} total</span>
+        <button onclick="admin.go('suggestions')" class="admin-btn admin-btn-ghost text-xs"><i class="fas fa-sync mr-1"></i>Refresh</button>
+      </div>
+      ${suggestions.length === 0 ? '<p class="text-gray-500 py-8 text-center">No suggestions yet.</p>' :
+        suggestions.map(s => `
+        <div class="bg-gray-900 rounded-xl p-4 mb-3 border border-gray-800">
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs text-gray-500">${new Date(s.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full ${s.status==='read'?'bg-green-900/40 text-green-400':'bg-yellow-900/40 text-yellow-400'}">${s.status||'new'}</span>
+          </div>
+          <p class="text-sm text-gray-200 mb-2">${escapeHTML(s.message||'')}</p>
+          ${s.contact_name || s.contact_email || s.contact_phone ? `
+          <div class="text-xs text-gray-500 flex flex-wrap gap-3 mt-1">
+            ${s.contact_name ? `<span><i class="fas fa-user mr-1"></i>${escapeHTML(s.contact_name)}</span>` : ''}
+            ${s.contact_email ? `<a href="mailto:${escapeHTML(s.contact_email)}" class="text-brand-gold hover:underline"><i class="fas fa-envelope mr-1"></i>${escapeHTML(s.contact_email)}</a>` : ''}
+            ${s.contact_phone ? `<a href="tel:${escapeHTML(s.contact_phone)}" class="text-brand-gold hover:underline"><i class="fas fa-phone mr-1"></i>${escapeHTML(s.contact_phone)}</a>` : ''}
+          </div>` : '<span class="text-xs text-gray-600">Anonymous</span>'}
+          ${s.status !== 'read' ? `<button onclick="admin.markSuggestionRead('${s.id}')" class="admin-btn admin-btn-ghost text-xs mt-2"><i class="fas fa-check mr-1"></i>Mark Read</button>` : ''}
+        </div>`).join('')}
+    </div>`;
+  }
+
+  admin.toggleReviewPhotoSetting = async function(enabled) {
+    try {
+      await api('PUT', '/settings', { review_photo_enabled: enabled ? 'true' : 'false' });
+      toast(`Photo reviews ${enabled ? 'enabled' : 'disabled'}`, 'success');
+    } catch(e) { toast('Failed to update setting', 'error'); }
+  };
+
+  admin.sendReviewRequest = async function(orderId, email, name) {
+    try {
+      const res = await api('POST', '/review-requests', { orderId, email, name });
+      toast(res.success ? 'Review request sent!' : 'Error: ' + (res.error || 'failed'), res.success ? 'success' : 'error');
+    } catch(e) { toast('Failed to send review request', 'error'); }
+  };
+
+  admin.markSuggestionRead = async function(id) {
+    try {
+      await api('PUT', `/suggestions/${id}`, { status: 'read' });
+      admin.go('suggestions');
+    } catch(e) { toast('Error: ' + e.message, 'error'); }
   };
 
   // Init — check if token exists
