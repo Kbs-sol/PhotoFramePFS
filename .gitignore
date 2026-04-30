@@ -4,14 +4,14 @@ node_modules/
 # Build output
 dist/
 
-# Wrangler
+# Wrangler local state
 .wrangler/
 
-# Environment variables
+# Environment variables — never commit secrets
 .env
 .dev.vars
 
-# PM2
+# PM2 runtime
 pids/
 logs/
 *.log
@@ -20,18 +20,41 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Backup files
+# Backup / archive
 *.backup
 *.bak
 *.tar.gz
 *.zip
 
-# Agent & Skills
+# Agent & skill lock files
 .agents/
 skills-lock.json
 
-# Temp scripts & test artifacts
+# Temp / test artifacts
 tmp/
 test-results/
 *.pyc
 __pycache__/
+
+# ── Project-specific noise ──────────────────────────────────────
+# Audit, plan & prompt dump files — never needed in repo
+*_audit_report.*
+*_inventory*
+*_plan*.md
+*_PLAN*.md
+*IMPLEMENTATION*
+*RECOVERED*
+*PROMPT_CATALOG*
+*blueprint*
+patch.js
+mcp_config.json
+
+# Local asset drafts (all product images served via Cloudinary)
+public/images/
+public/static/images/
+
+# Supabase CLI temp files
+supabase/.temp/
+
+# One-off migration / helper scripts
+scripts/
