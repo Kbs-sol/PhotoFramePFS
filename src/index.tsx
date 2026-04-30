@@ -35,6 +35,13 @@ export type Bindings = {
   GOOGLE_CLIENT_ID: string;
   WHATSAPP_NUMBER: string;
   GTM_CONTAINER_ID: string;
+  GA4_MEASUREMENT_ID: string;
+  MICROSOFT_CLARITY_ID: string;
+  // Cloudinary — set all four OR just CLOUDINARY_URL
+  CLOUDINARY_URL: string;          // cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+  CLOUDINARY_CLOUD_NAME: string;   // preferred individual key
+  CLOUDINARY_API_KEY: string;      // preferred individual key
+  CLOUDINARY_API_SECRET: string;   // preferred individual key
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -56,7 +63,7 @@ app.use('*', async (c, next) => {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
     "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net",
     "img-src 'self' data: blob: https: http:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://api.cloudinary.com https://www.google-analytics.com https://www.googletagmanager.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://api.cloudinary.com https://res.cloudinary.com https://www.google-analytics.com https://www.googletagmanager.com https://www.clarity.ms",
     "frame-src https://checkout.razorpay.com",
     "object-src 'none'",
     "base-uri 'self'"

@@ -2104,18 +2104,31 @@
       const fileInput = $('#file-input');
       const file = fileInput?.files?.[0];
       if (!file) { toast('Please upload your photo first!', 'error'); return; }
+
+      // Validate type
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        toast('Only JPG, PNG, or WEBP images are supported.', 'error'); return;
+      }
       if (file.size > 52428800) { toast('File too large. Max 50MB.', 'error'); return; }
 
       const btn = event.currentTarget;
       const originalText = btn.innerHTML;
-      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2" aria-hidden="true"></i>Uploading...';
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2" aria-hidden="true"></i>Uploading your photo...';
 
       try {
-        // Get signed upload URL from backend
-        const signRes = await fetch(`${API}/upload/sign`);
+        // Get signed upload params from backend — folder=custom_frames
+        const signRes = await fetch(`${API}/upload/sign?folder=custom_frames`);
+        if (!signRes.ok) {
+          const errData = await signRes.json().catch(() => ({}));
+          throw new Error(errData.error || `Sign request failed (${signRes.status}). Contact support.`);
+        }
         const signData = await signRes.json();
-        if (!signData.apiKey) throw new Error('Upload service unavailable');
+        if (!signData.apiKey || !signData.cloudName) {
+          throw new Error('Upload not configured on server. Contact support.');
+        }
 
+        // Build Cloudinary direct-upload FormData
         const formData = new FormData();
         formData.append('file', file);
         formData.append('api_key', signData.apiKey);
@@ -2123,16 +2136,25 @@
         formData.append('signature', signData.signature);
         formData.append('folder', signData.folder || 'custom_frames');
 
-        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(signData.cloudName)}/image/upload`, { method: 'POST', body: formData });
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2" aria-hidden="true"></i>Processing...';
+        const uploadRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${encodeURIComponent(signData.cloudName)}/image/upload`,
+          { method: 'POST', body: formData }
+        );
         const uploadData = await uploadRes.json();
-        if (!uploadData.secure_url) throw new Error('Upload failed');
+
+        if (!uploadRes.ok || !uploadData.secure_url) {
+          throw new Error(uploadData.error?.message || 'Upload failed. Check file and try again.');
+        }
 
         const imageUrl = uploadData.secure_url;
-        // Validate returned URL is from Cloudinary
-        if (!/^https:\/\/res\.cloudinary\.com\//.test(imageUrl)) throw new Error('Invalid upload response');
+        // Security: validate URL comes from Cloudinary
+        if (!/^https:\/\/res\.cloudinary\.com\//.test(imageUrl)) {
+          throw new Error('Invalid upload response.');
+        }
 
-        // Premium frame adds ₹250 surcharge (no mount dropdown — always pure white #FFFFFF)
-        const totalPrice = Math.max(0, (Number(s.basePrice)||799) + (Number(s.framePrice)||0));
+        // Premium frame adds ₹250 surcharge (always pure white #FFFFFF mount)
+        const totalPrice = Math.max(0, (Number(s.basePrice) || 799) + (Number(s.framePrice) || 0));
 
         state.cart.push({
           productId: 'custom-frame',
@@ -2147,11 +2169,14 @@
           is_custom_frame: true,
           quantity: 1
         });
-        saveCart(); toast('Custom frame added! Redirecting to cart...'); navigate('/cart');
+        saveCart();
+        toast('✅ Custom frame added to cart!');
+        navigate('/cart');
       } catch (err) {
         console.error('Custom frame upload error:', err);
-        toast('Upload failed. Check your internet and try again.', 'error');
-        btn.disabled = false; btn.innerHTML = originalText;
+        toast(err.message || 'Upload failed. Check your internet and try again.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = originalText;
       }
     }
   };
