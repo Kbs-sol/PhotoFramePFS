@@ -522,7 +522,7 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
 // All customer-facing routes serve the SPA shell
 const customerRoutes = ['/', '/shop', '/product/:slug', '/category/:slug', '/cart', '/checkout', '/customize',
   '/track', '/returns', '/policy', '/policy/:section', '/about', '/contact', '/blog',
-  '/blog/:slug', '/review', '/wishlist', '/account', '/account/:section', '/login', '/auth/callback'];
+  '/blog/:slug', '/review', '/suggest', '/wishlist', '/account', '/account/:section', '/login', '/auth/callback'];
 
 for (const route of customerRoutes) {
   app.get(route, async (c) => {

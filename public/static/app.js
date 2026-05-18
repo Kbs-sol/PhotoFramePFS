@@ -755,79 +755,63 @@
       const avgRating = reviews.length ? (reviews.reduce((s, r) => s + (r.rating||0), 0) / reviews.length).toFixed(1) : null;
 
       app.innerHTML = renderHeader() + `
-      <main id="main-content" class="max-w-7xl mx-auto px-4 py-8">
-        <!-- Breadcrumb for SEO -->
-        <nav class="text-xs text-gray-500 mb-6 flex items-center gap-2" aria-label="Breadcrumb">
+      <main id="main-content" class="max-w-6xl mx-auto px-4 py-6">
+        <!-- Breadcrumb -->
+        <nav class="text-xs text-gray-500 mb-4 flex items-center gap-2" aria-label="Breadcrumb">
           <a href="/" onclick="window.pfi.nav('/');return false;" class="hover:text-brand-gold">Home</a>
           <span aria-hidden="true">›</span>
           <a href="/shop" onclick="window.pfi.nav('/shop');return false;" class="hover:text-brand-gold">Shop</a>
           <span aria-hidden="true">›</span>
-          <span class="text-gray-300" aria-current="page">${safeName}</span>
+          <span class="text-gray-300 truncate max-w-[200px]" aria-current="page">${safeName}</span>
         </nav>
 
-        <div class="grid lg:grid-cols-2 gap-12">
-          <!-- Image Gallery -->
-          <div class="sticky top-24 self-start">
-            <div class="frame-mockup-container mb-4" role="img" aria-label="${safeName} frame preview">
+        <!-- ===== HERO: Image + Config — NO sticky on image col ===== -->
+        <div class="grid lg:grid-cols-2 gap-8 lg:gap-12">
+
+          <!-- LEFT: Image Gallery (NOT sticky — scrolls naturally) -->
+          <div>
+            <div class="frame-mockup-container mb-3" role="img" aria-label="${safeName} frame preview">
               <div class="relative inline-block w-full max-w-lg mx-auto">
                 <img id="main-image" src="${safeMainImg}" alt="${escapeAttr(p.name)}" class="max-w-full h-auto rounded transition-all duration-500 ${frameClass}" loading="eager">
                 <div class="glass-overlay" aria-hidden="true"></div>
               </div>
             </div>
             ${images.length > 1 ? `
-            <div class="flex gap-2 overflow-x-auto pb-2 product-gallery-nav" role="list" aria-label="Product images">
+            <div class="flex gap-2 overflow-x-auto pb-1 product-gallery-nav" role="list" aria-label="Product images">
               ${images.map((img, i) => `
                 <button class="gallery-thumb-btn ${i===0?'active':''}" onclick="window.pfi.setMainImage('${escapeAttr(img.image_url)}', this)" role="listitem" aria-label="View image ${i+1}" aria-pressed="${i===0}">
-                  <img src="${escapeAttr(img.image_url)}" alt="${escapeAttr(img.alt_text||p.name)}" class="w-16 h-16 rounded-lg object-cover" loading="lazy" width="64" height="64">
+                  <img src="${escapeAttr(img.image_url)}" alt="${escapeAttr(img.alt_text||p.name)}" class="w-14 h-14 rounded-lg object-cover" loading="lazy" width="56" height="56">
                 </button>
               `).join('')}
             </div>` : ''}
-
-            <!-- Shipping Info Widget -->
-            <div class="bg-brand-card border border-gray-800 rounded-xl p-4 flex items-center gap-4 mt-4">
-              <div class="w-10 h-10 bg-gray-900 rounded-full flex items-center justify-center text-brand-gold flex-shrink-0" aria-hidden="true"><i class="fas fa-shipping-fast"></i></div>
-              <div class="text-xs text-gray-400">Delivered in <strong class="text-white">3-5 business days</strong> · <strong class="text-brand-green">Free above ₹799</strong></div>
-            </div>
           </div>
 
-          <!-- Product Config -->
-          <div class="space-y-6">
-            <!-- Title + Rating -->
+          <!-- RIGHT: Config + CTA -->
+          <div class="flex flex-col gap-5">
+
+            <!-- BLOCK 1: Name + Price + Rating -->
             <div>
-              <div class="flex items-center gap-2 mb-2 flex-wrap">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
                 <span class="badge-express text-xs"><i class="fas fa-check-circle mr-1" aria-hidden="true"></i>In Stock</span>
                 ${p.category?.name ? `<span class="text-brand-gold text-xs font-bold uppercase tracking-widest">${escapeHTML(p.category.name)}</span>` : ''}
               </div>
-              <h1 class="text-3xl md:text-4xl font-bold font-display mb-3">${safeName}</h1>
+              <h1 class="text-2xl md:text-3xl font-bold font-display mb-2 leading-tight">${safeName}</h1>
               ${avgRating ? `
-              <div class="flex items-center gap-2 mb-3" aria-label="Rating: ${avgRating} out of 5, ${reviews.length} reviews">
+              <div class="flex items-center gap-2 mb-2" aria-label="Rating: ${avgRating} out of 5, ${reviews.length} reviews">
                 <span class="stars text-sm" aria-hidden="true">${'★'.repeat(Math.round(Number(avgRating)))}${'☆'.repeat(5-Math.round(Number(avgRating)))}</span>
-                <span class="text-sm text-gray-400">${avgRating} (${reviews.length} reviews)</span>
+                <span class="text-xs text-gray-400">${avgRating} · ${reviews.length} verified reviews</span>
               </div>` : ''}
-              <div class="flex items-center gap-3 mb-4">
+              <div class="flex items-center gap-3 mb-2">
                 <div id="current-price" class="text-3xl font-bold text-brand-gold" aria-live="polite">${formatPrice(dv?.price||0)}</div>
-                ${dv?.compare_at_price ? `<div id="compare-price" class="text-xl text-gray-500 line-through" aria-label="Was ${formatPrice(dv.compare_at_price)}">${formatPrice(dv.compare_at_price)}</div>
+                ${dv?.compare_at_price ? `<div id="compare-price" class="text-lg text-gray-500 line-through" aria-label="Was ${formatPrice(dv.compare_at_price)}">${formatPrice(dv.compare_at_price)}</div>
                 <span class="bg-brand-green/20 text-brand-green text-xs font-bold px-2 py-1 rounded">SALE</span>` : '<div id="compare-price"></div>'}
               </div>
               <p class="text-gray-400 text-sm leading-relaxed">${safeDesc}</p>
-              <!-- Trust Signal: manual verification -->
-              <div class="mt-3 flex items-start gap-2 bg-brand-gold/10 border border-brand-gold/30 rounded-xl px-3 py-2 text-xs text-gray-300">
-                <i class="fas fa-shield-check text-brand-gold mt-0.5 flex-shrink-0" aria-hidden="true"></i>
-                <span><strong class="text-brand-gold">Quality Verified:</strong> Every custom design is manually reviewed and upscaled to your frame size before printing. Your order will match the preview.</span>
-              </div>
             </div>
 
-            <!-- Pincode Check -->
-            <div class="flex items-center gap-2">
-              <label for="pincode-input" class="sr-only">Check delivery pincode</label>
-              <input type="text" id="pincode-input" placeholder="Enter Pincode" maxlength="6" pattern="[1-9][0-9]{5}" class="pincode-input text-sm" aria-label="Enter delivery pincode" inputmode="numeric">
-              <button onclick="window.pfi.checkPincode()" class="btn-gold !py-2 !px-4 !text-xs whitespace-nowrap" aria-label="Check delivery availability">Check Delivery</button>
-            </div>
-            <div id="pincode-result" aria-live="polite"></div>
-
-            <!-- Size Selector -->
+            <!-- BLOCK 2: Size Selector -->
             <div>
-              <label class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 block" id="size-label">1. Select Size</label>
+              <label class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 block" id="size-label">1. Choose Size</label>
               <div id="size-selector" class="grid grid-cols-2 md:grid-cols-4 gap-2" role="group" aria-labelledby="size-label">
                 ${['Small','Medium','Large','XL'].map(s => {
                   const v = variants.find(v => v.size===s && v.frame_type===(dv?.frame_type||'Standard'));
@@ -835,66 +819,85 @@
                   const sizeLabels = { Small: '8×12"', Medium: '12×18"', Large: '18×24"', XL: '24×36"' };
                   return `<button class="size-option ${s===(dv?.size||'Medium')?'active':''}" data-size="${s}" onclick="window.pfi.selectSize('${s}')" aria-pressed="${s===(dv?.size||'Medium')}" aria-label="${s} — ${sizeLabels[s]||s}">
                     <div class="font-bold text-sm">${s}</div>
-                    <div class="text-[10px] opacity-75">${sizeLabels[s]||''}</div>
+                    <div class="text-[10px] opacity-70">${sizeLabels[s]||''}</div>
                   </button>`;
                 }).join('')}
               </div>
-              <button onclick="document.getElementById('size-guide').scrollIntoView({behavior:'smooth'})" class="text-[10px] text-brand-gold mt-2 font-bold uppercase tracking-widest hover:underline" aria-label="View size guide">
-                <i class="fas fa-ruler-combined mr-1" aria-hidden="true"></i>View Size Guide
+              <button onclick="document.getElementById('size-guide').scrollIntoView({behavior:'smooth'})" class="text-[10px] text-brand-gold mt-1.5 font-bold uppercase tracking-widest hover:underline inline-flex items-center gap-1" aria-label="View size guide">
+                <i class="fas fa-ruler-combined" aria-hidden="true"></i>Size Guide ↓
               </button>
             </div>
 
-            <!-- Frame Type Selector -->
+            <!-- BLOCK 3: Frame Style Selector -->
             <div>
-              <label class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 block" id="frame-label">2. Select Display Style</label>
-              <div id="frame-selector" class="grid md:grid-cols-2 gap-2" role="group" aria-labelledby="frame-label">
+              <label class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 block" id="frame-label">2. Choose Frame Style</label>
+              <div id="frame-selector" class="grid grid-cols-2 gap-2" role="group" aria-labelledby="frame-label">
                 ${['Standard','Premium'].map(f => {
                   const v = variants.find(v => v.size===(dv?.size||'Medium') && v.frame_type===f);
                   if (!v) return '';
                   const labels = { Standard: 'Standard Frame', Premium: 'Premium + White Mount' };
-                  const badge = f === 'Premium' ? '<span class="text-brand-gold text-[10px] font-bold">+₹250</span>' : '<span class="text-brand-green text-[10px] font-bold">Included</span>';
+                  const badge = f === 'Premium'
+                    ? '<span class="text-brand-gold text-[10px] font-bold">+₹250</span>'
+                    : '<span class="text-brand-green text-[10px] font-bold">Best Value</span>';
                   return `<button class="frame-option ${f===(dv?.frame_type||'Standard')?'active':''}" data-frame="${f}" onclick="window.pfi.selectFrame('${f}')" aria-pressed="${f===(dv?.frame_type||'Standard')}" aria-label="${labels[f]||f}${f==='Premium'?' +₹250':''}">
                     <div class="font-bold text-xs">${labels[f]||f}</div>
                     ${badge}
                   </button>`;
                 }).join('')}
               </div>
-
-              <!-- Premium Frame Info (mount is always pure white #FFFFFF) -->
-              <div id="premium-mount-info" class="mt-3 p-3 bg-black/30 border border-brand-gold/20 rounded-xl text-xs text-gray-400 ${dv?.frame_type==='Premium' ? '' : 'hidden'}"><i class="fas fa-check-circle text-brand-gold mr-1"></i><strong class="text-white">Premium Mount included</strong> — pure white archival mat, gallery style. <span class="text-brand-gold font-bold">+₹250</span></div>
+              <div id="premium-mount-info" class="mt-2 p-2.5 bg-black/30 border border-brand-gold/20 rounded-lg text-xs text-gray-400 ${dv?.frame_type==='Premium' ? '' : 'hidden'}">
+                <i class="fas fa-check-circle text-brand-gold mr-1"></i><strong class="text-white">Premium White Mount</strong> — pure white archival mat, gallery-ready. <span class="text-brand-gold font-bold">+₹250</span>
+              </div>
             </div>
 
-            <!-- CTA Buttons -->
-            <div class="space-y-3 pt-2">
-              <button onclick="window.pfi.addToCart()" class="btn-buy py-5 text-lg shadow-xl shadow-red-950/30" aria-label="Add ${safeName} to cart">
+            <!-- BLOCK 4: Delivery Check -->
+            <div class="flex items-center gap-2">
+              <label for="pincode-input" class="sr-only">Check delivery pincode</label>
+              <input type="text" id="pincode-input" placeholder="📍 Enter Pincode" maxlength="6" pattern="[1-9][0-9]{5}" class="pincode-input text-sm flex-1" aria-label="Enter delivery pincode" inputmode="numeric">
+              <button onclick="window.pfi.checkPincode()" class="btn-gold !py-2 !px-4 !text-xs whitespace-nowrap" aria-label="Check delivery">Check</button>
+            </div>
+            <div id="pincode-result" class="-mt-3" aria-live="polite"></div>
+
+            <!-- BLOCK 5: CTA BUTTONS — Primary Action -->
+            <div class="space-y-2.5 pt-1">
+              <button onclick="window.pfi.addToCart()" class="btn-buy py-4 text-base font-bold shadow-xl shadow-red-950/30" aria-label="Add ${safeName} to cart">
                 <i class="fas fa-shopping-bag mr-2" aria-hidden="true"></i>Add to Cart
               </button>
-              <button onclick="window.pfi.buyNow()" class="btn-cart py-4" aria-label="Buy ${safeName} now">
-                <i class="fas fa-bolt mr-2" aria-hidden="true"></i>Buy Now — Direct Checkout
+              <button onclick="window.pfi.buyNow()" class="btn-cart py-3.5 text-sm" aria-label="Buy ${safeName} now — direct checkout">
+                <i class="fas fa-bolt mr-2" aria-hidden="true"></i>Buy Now — Skip to Checkout
               </button>
             </div>
 
-            <!-- Trust Signal — Verified & Upscaled -->
-            <div class="flex items-start gap-2 bg-brand-gold/5 border border-brand-gold/20 rounded-xl p-3 text-xs text-gray-300">
-              <i class="fas fa-shield-check text-brand-gold mt-0.5 flex-shrink-0" aria-hidden="true"></i>
-              <span><strong class="text-brand-gold">Manually Verified &amp; AI-Upscaled:</strong> Every design is reviewed by our team and upscaled to 4K print resolution before printing.</span>
+            <!-- BLOCK 6: Trust Bar -->
+            <div class="grid grid-cols-3 gap-1.5 text-center text-[10px] text-gray-500 pt-1">
+              <div class="bg-brand-card border border-gray-800 rounded-lg py-2 px-1">
+                <i class="fas fa-shipping-fast text-brand-gold block mb-1 text-sm" aria-hidden="true"></i>
+                <span>Free Delivery<br><span class="text-gray-600">above ₹799</span></span>
+              </div>
+              <div class="bg-brand-card border border-gray-800 rounded-lg py-2 px-1">
+                <i class="fas fa-exchange-alt text-brand-gold block mb-1 text-sm" aria-hidden="true"></i>
+                <span>Free Replace<br><span class="text-gray-600">if damaged</span></span>
+              </div>
+              <div class="bg-brand-card border border-gray-800 rounded-lg py-2 px-1">
+                <i class="fas fa-shield-check text-brand-gold block mb-1 text-sm" aria-hidden="true"></i>
+                <span>4K Verified<br><span class="text-gray-600">print quality</span></span>
+              </div>
             </div>
 
-            <!-- Trust Mini Strip -->
-            <div class="grid grid-cols-3 gap-2 text-center text-[10px] text-gray-500">
-              <div><i class="fas fa-lock text-brand-gold block mb-1" aria-hidden="true"></i>Secure Checkout</div>
-              <div><i class="fas fa-exchange-alt text-brand-gold block mb-1" aria-hidden="true"></i>Free Replacement</div>
-              <div><i class="fas fa-shield-check text-brand-gold block mb-1" aria-hidden="true"></i>Verified Print</div>
+            <!-- BLOCK 7: Verified & Upscaled badge -->
+            <div class="flex items-start gap-2 bg-brand-gold/5 border border-brand-gold/20 rounded-xl p-3 text-xs text-gray-300">
+              <i class="fas fa-shield-check text-brand-gold mt-0.5 flex-shrink-0" aria-hidden="true"></i>
+              <span><strong class="text-brand-gold">Manually Verified &amp; AI-Upscaled:</strong> Every design is reviewed by our team and upscaled to 4K print resolution before dispatch.</span>
             </div>
 
             <!-- Poster Add-on (hidden unless admin enables) -->
             ${state.config.poster_enabled === 'true' ? `
-            <div class="bg-brand-card border border-gray-800 rounded-xl p-4 mt-2" id="poster-addon-section">
+            <div class="bg-brand-card border border-gray-800 rounded-xl p-4" id="poster-addon-section">
               <div class="flex items-center justify-between mb-2">
                 <div><strong class="text-sm">Add Print-Only Poster</strong> <span class="text-[10px] text-gray-500">(No frame)</span></div>
                 <span class="text-brand-gold text-sm font-bold">+₹199</span>
               </div>
-              <p class="text-xs text-gray-500 mb-3">Same high-res print, rolled &amp; shipped separately. Great for gifting or extra copy.</p>
+              <p class="text-xs text-gray-500 mb-3">Same high-res print, rolled &amp; shipped separately.</p>
               <label class="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" id="poster-addon-cb" class="accent-yellow-400 w-4 h-4" aria-label="Add poster print add-on">
                 <span class="text-xs text-gray-300">Yes, add a poster print (+₹199)</span>
@@ -903,82 +906,103 @@
           </div>
         </div>
 
-        <!-- Why Buy -->
-        <section class="mt-16 pt-12 border-t border-gray-800" aria-labelledby="why-buy-heading">
-          <h2 id="why-buy-heading" class="section-header">Why PhotoFrameIn?</h2>
-          <div class="grid md:grid-cols-2 gap-8">
-            <ul class="space-y-4" role="list">
-              ${[
-                ['High-Res Fine Art Print', 'UV-resistant inks on 300gsm museum paper'],
-                ['Solid Wood Frame', 'Kiln-dried hardwood — no plastic, no compromise'],
-                ['Glass Protection', 'Anti-glare, scratch-resistant tempered glass'],
-                ['Ready to Hang', 'Pre-drilled hanger + mounting kit included']
-              ].map(([t, d]) => `
-              <li class="flex items-start gap-3">
-                <i class="fas fa-check-circle text-brand-gold mt-1 flex-shrink-0" aria-hidden="true"></i>
-                <div><strong class="text-white">${escapeHTML(t)}</strong><br><span class="text-gray-400 text-sm">${escapeHTML(d)}</span></div>
-              </li>`).join('')}
-            </ul>
-            <div>
-              <div id="size-guide" class="bg-brand-card border border-gray-800 rounded-xl p-4">
-                <h3 class="text-xs font-bold text-white uppercase mb-3 flex items-center gap-2"><i class="fas fa-ruler-horizontal text-brand-gold" aria-hidden="true"></i>Size Guide</h3>
-                <table class="w-full text-xs text-gray-400" aria-label="Frame size guide">
-                  <thead><tr class="border-b border-gray-800"><th scope="col" class="text-left py-1 text-gray-500">Size</th><th scope="col" class="text-left py-1 text-gray-500">Inches</th><th scope="col" class="text-left py-1 text-gray-500">CM</th><th scope="col" class="text-left py-1 text-gray-500">Best For</th></tr></thead>
-                  <tbody>
-                    <tr class="border-b border-gray-900"><td class="py-2 text-white font-bold">Small</td><td>8×12"</td><td>20×30</td><td>Desk, shelves</td></tr>
-                    <tr class="border-b border-gray-900"><td class="py-2 text-white font-bold">Medium</td><td>12×18"</td><td>30×45</td><td>Bedroom, office</td></tr>
-                    <tr class="border-b border-gray-900"><td class="py-2 text-white font-bold">Large</td><td>18×24"</td><td>45×60</td><td>Living room</td></tr>
-                    <tr><td class="py-2 text-white font-bold">XL</td><td>24×36"</td><td>60×90</td><td>Feature wall</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </section>
+        <!-- ===== BELOW THE FOLD — Full width sections ===== -->
 
-        <!-- Design Previews (admin can add via product images) -->
-        ${images.length > 1 ? `
-        <section class="mt-12 pt-12 border-t border-gray-800" aria-labelledby="design-previews-heading">
-          <h2 id="design-previews-heading" class="section-header">Design Previews</h2>
-          <p class="text-xs text-gray-500 mb-4">Each design is manually reviewed and AI-upscaled to 4K print quality.</p>
-          <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-            ${images.map(img => `
-            <button class="relative overflow-hidden rounded-xl border border-gray-800 hover:border-brand-gold transition group" onclick="window.pfi.setMainImage('${escapeAttr(img.image_url)}', document.getElementById('main-image'))" aria-label="View design preview">
-              <img src="${escapeAttr(img.image_url)}" alt="${safeName} design preview" class="w-full h-40 object-cover group-hover:scale-105 transition duration-300" loading="lazy">
-              <div class="absolute inset-0 bg-brand-gold/0 group-hover:bg-brand-gold/10 transition rounded-xl"></div>
-            </button>`).join('')}
-          </div>
-        </section>` : ''}
-
-        <!-- Volume Upsell -->
-        <section class="mt-12" aria-labelledby="bundle-heading">
-          <h2 id="bundle-heading" class="section-header">Buy More, Save More</h2>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Buy More Save More (moved above fold for visibility) -->
+        <section class="mt-10 pt-8 border-t border-gray-800" aria-labelledby="bundle-heading">
+          <h2 id="bundle-heading" class="section-header">🎁 Buy More, Save More</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             ${[
-              { qty: 2, label: 'Buy 2', save: '₹100 OFF', badge: 'Good Deal', active: false },
-              { qty: 3, label: 'Buy 3', save: '₹250 OFF', badge: 'Best Value ⭐', active: true },
-              { qty: 5, label: 'Buy 5+', save: '20% OFF', badge: 'Wholesale', active: false }
+              { qty: 2, label: 'Buy Any 2', save: '₹100 OFF', desc: 'Perfect pair for two rooms', badge: 'Good Deal', active: false },
+              { qty: 3, label: 'Buy Any 3', save: '₹250 OFF', desc: 'Most popular bundle choice', badge: 'Best Value ⭐', active: true },
+              { qty: 5, label: 'Buy 5+', save: '20% OFF', desc: 'Ideal for office or gifting', badge: 'Bulk Saver', active: false }
             ].map(b => `
             <div class="bundle-volume-card ${b.active?'active':''}" onclick="window.pfi.applyBundle(${b.qty})" role="button" tabindex="0" aria-label="${b.label}, save ${b.save}">
-              <div class="text-2xl font-bold text-brand-gold">${b.label}</div>
+              <div class="text-xl font-bold text-brand-gold">${b.label}</div>
               <div class="text-brand-green font-bold text-sm mt-1">${b.save}</div>
+              <div class="text-[10px] text-gray-500 mt-1">${b.desc}</div>
               <div class="mt-3"><span class="text-[10px] ${b.active?'bg-brand-gold text-black':'bg-white/5 text-gray-400'} px-3 py-1 rounded-full font-bold uppercase tracking-widest">${b.badge}</span></div>
             </div>`).join('')}
           </div>
         </section>
 
+        <!-- Why Buy -->
+        <section class="mt-10 pt-8 border-t border-gray-800" aria-labelledby="why-buy-heading">
+          <h2 id="why-buy-heading" class="section-header">Why PhotoFrameIn?</h2>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            ${[
+              ['fa-print', 'Fine Art Print', '300gsm museum paper, UV-resistant pigment inks. Fade-proof 75+ years.'],
+              ['fa-tree', 'Solid Wood Frame', 'Kiln-dried hardwood. No plastic, no MDF, no compromise.'],
+              ['fa-shield-alt', 'Glass Protection', 'Anti-glare tempered glass, scratch-resistant.'],
+              ['fa-thumbtack', 'Ready to Hang', 'Pre-drilled + mounting hardware included.']
+            ].map(([icon, t, d]) => `
+            <div class="bg-brand-card border border-gray-800 rounded-xl p-4 text-center">
+              <i class="fas ${icon} text-brand-gold text-xl mb-2 block" aria-hidden="true"></i>
+              <div class="font-bold text-sm text-white mb-1">${escapeHTML(t)}</div>
+              <div class="text-xs text-gray-500 leading-relaxed">${escapeHTML(d)}</div>
+            </div>`).join('')}
+          </div>
+        </section>
+
+        <!-- Size Guide -->
+        <section class="mt-10 pt-8 border-t border-gray-800" id="size-guide" aria-labelledby="size-guide-heading">
+          <h2 id="size-guide-heading" class="section-header"><i class="fas fa-ruler-horizontal text-brand-gold mr-2" aria-hidden="true"></i>Size Guide</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-gray-400 border-separate border-spacing-0" aria-label="Frame size guide">
+              <thead>
+                <tr class="text-left">
+                  <th class="py-2 px-3 text-gray-500 text-xs font-bold uppercase bg-black/30 rounded-tl-lg">Size</th>
+                  <th class="py-2 px-3 text-gray-500 text-xs font-bold uppercase bg-black/30">Inches</th>
+                  <th class="py-2 px-3 text-gray-500 text-xs font-bold uppercase bg-black/30">CM</th>
+                  <th class="py-2 px-3 text-gray-500 text-xs font-bold uppercase bg-black/30 rounded-tr-lg">Best For</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${[
+                  ['Small', '8×12"', '20×30 cm', 'Desk, bedside table, shelves'],
+                  ['Medium', '12×18"', '30×45 cm', 'Bedroom wall, study, office'],
+                  ['Large', '18×24"', '45×60 cm', 'Living room, hallway feature'],
+                  ['XL', '24×36"', '60×90 cm', 'Feature wall, gallery display']
+                ].map(([s, i, c, b], idx, arr) => `
+                <tr class="border-b ${idx < arr.length-1 ? 'border-gray-800' : 'border-transparent'}">
+                  <td class="py-3 px-3 font-bold text-white">${s}</td>
+                  <td class="py-3 px-3">${i}</td>
+                  <td class="py-3 px-3">${c}</td>
+                  <td class="py-3 px-3 text-gray-500">${b}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Design Previews -->
+        ${images.length > 1 ? `
+        <section class="mt-10 pt-8 border-t border-gray-800" aria-labelledby="design-previews-heading">
+          <h2 id="design-previews-heading" class="section-header">Design Previews</h2>
+          <p class="text-xs text-gray-500 mb-4">Each design is manually reviewed and AI-upscaled to 4K print quality before dispatch.</p>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+            ${images.map(img => `
+            <button class="relative overflow-hidden rounded-xl border border-gray-800 hover:border-brand-gold transition group" onclick="window.pfi.setMainImage('${escapeAttr(img.image_url)}', document.getElementById('main-image'));window.scrollTo({top:0,behavior:'smooth'})" aria-label="View this design">
+              <img src="${escapeAttr(img.image_url)}" alt="${safeName} design preview" class="w-full h-36 object-cover group-hover:scale-105 transition duration-300" loading="lazy">
+              <div class="absolute inset-0 bg-brand-gold/0 group-hover:bg-brand-gold/10 transition rounded-xl flex items-center justify-center">
+                <span class="opacity-0 group-hover:opacity-100 text-xs font-bold text-white bg-black/60 px-2 py-1 rounded transition">Select ↑</span>
+              </div>
+            </button>`).join('')}
+          </div>
+        </section>` : ''}
+
         <!-- Reviews -->
         ${reviews.length > 0 ? `
-        <section class="mt-12 pt-12 border-t border-gray-800" aria-labelledby="reviews-heading">
-          <h2 id="reviews-heading" class="section-header">Customer Reviews (${reviews.length})</h2>
-          <div class="space-y-4">
-            ${reviews.slice(0, 5).map(r => {
+        <section class="mt-10 pt-8 border-t border-gray-800" aria-labelledby="reviews-heading">
+          <h2 id="reviews-heading" class="section-header">⭐ Customer Reviews (${reviews.length})</h2>
+          <div class="grid md:grid-cols-2 gap-4">
+            ${reviews.slice(0, 6).map(r => {
               const safeName2 = escapeHTML(r.customer_name || 'Customer');
               const safeTitle = escapeHTML(r.title || '');
               const safeBody = escapeHTML(r.body || '');
               const safeRating = Math.min(5, Math.max(0, Number(r.rating)||0));
               return `
-              <article class="bg-brand-card border border-gray-800 rounded-xl p-5" aria-label="Review by ${safeName2}">
+              <article class="bg-brand-card border border-gray-800 rounded-xl p-4" aria-label="Review by ${safeName2}">
                 <div class="flex justify-between items-start mb-2">
                   <div>
                     <span class="font-bold text-sm text-white">${safeName2}</span>
@@ -987,43 +1011,44 @@
                   <span class="text-xs text-gray-600">${new Date(r.created_at).toLocaleDateString('en-IN',{month:'short',year:'numeric'})}</span>
                 </div>
                 ${safeTitle ? `<p class="font-semibold text-sm mb-1">${safeTitle}</p>` : ''}
-                ${safeBody ? `<p class="text-sm text-gray-400">${safeBody}</p>` : ''}
+                ${safeBody ? `<p class="text-sm text-gray-400 leading-relaxed">${safeBody}</p>` : ''}
               </article>`;
             }).join('')}
           </div>
         </section>` : ''}
 
         <!-- FAQ -->
-        <section class="mt-12 pt-12 border-t border-gray-800" aria-labelledby="faq-heading">
-          <h2 id="faq-heading" class="section-header">Frequently Asked Questions</h2>
+        <section class="mt-10 pt-8 border-t border-gray-800" aria-labelledby="faq-heading">
+          <h2 id="faq-heading" class="section-header">Questions? Answered.</h2>
           <div class="space-y-2">
             ${[
-              ['Will it break in delivery?', 'No. Every frame is wrapped with corner protectors and bubble wrap for maximum protection. If damaged — film the unboxing and contact us on WhatsApp for a free replacement.'],
-              ['How long does delivery take?', '3-5 business days across India. 1-2 days in Hyderabad metro area.'],
-              ['Is COD available?', 'Yes, for orders between ₹899-₹1995. ₹49 COD handling fee applies. WhatsApp confirmation required within 24 hours.'],
-              ['What paper/ink is used?', '300gsm museum-grade fine art paper with 12-colour professional pigment inks. UV-resistant, fade-proof for 75+ years.'],
-              ['Can I return it?', 'Damaged items are replaced free with unboxing video. Custom/personalized frames are non-returnable.']
+              ['Will it break during delivery?', 'No. Every frame is packed with corner protectors and double-layer bubble wrap. If it arrives damaged — record the unboxing and WhatsApp us for a free replacement within 24 hours.'],
+              ['How long does delivery take?', '3–5 business days across India. 1–2 days in Hyderabad metro. You get a tracking link once dispatched.'],
+              ['Is COD available?', 'Yes, for orders ₹899–₹1995. ₹49 handling fee applies. We\u2019ll call to confirm your order within 24 hours.'],
+              ['What paper and ink is used?', '300gsm museum-grade fine art paper with 12-colour professional pigment inks. UV-resistant and fade-proof for 75+ years.'],
+              ['What if I don\u2019t like it?', 'We do not accept returns on custom prints. But if there\u2019s a damage or print error, we replace it free — just WhatsApp us with the unboxing video.'],
+              ['Can I upload my own photo?', 'Yes! Use our Custom Frame option — upload your photo, choose size and frame, and we\u2019ll print and deliver it to you.']
             ].map(([q, a]) => `
-            <details class="bg-brand-card border border-gray-800 rounded-lg">
-              <summary class="p-4 cursor-pointer font-bold text-sm hover:text-brand-gold transition list-none flex justify-between items-center">
-                ${escapeHTML(q)}<i class="fas fa-chevron-down text-gray-500 text-xs" aria-hidden="true"></i>
+            <details class="bg-brand-card border border-gray-800 rounded-lg group">
+              <summary class="p-4 cursor-pointer font-semibold text-sm hover:text-brand-gold transition list-none flex justify-between items-center">
+                <span>${escapeHTML(q)}</span><i class="fas fa-chevron-down text-gray-500 text-xs group-open:rotate-180 transition-transform" aria-hidden="true"></i>
               </summary>
-              <div class="px-4 pb-4 text-sm text-gray-400 leading-relaxed">${escapeHTML(a)}</div>
+              <div class="px-4 pb-4 text-sm text-gray-400 leading-relaxed border-t border-gray-800 pt-3">${escapeHTML(a)}</div>
             </details>`).join('')}
           </div>
         </section>
 
-        <!-- Urgency Widget -->
+        <!-- Urgency -->
         <section class="mt-8" aria-label="Limited stock notice">
           <div class="bg-gradient-to-r from-red-900/30 to-brand-card border border-red-800/50 rounded-xl p-5 text-center">
             <p class="text-base font-bold text-brand-red"><i class="fas fa-fire mr-2" aria-hidden="true"></i>${escapeHTML(state.config.urgency_text || 'Limited Stock — Order Today')}</p>
-            <p class="text-xs text-gray-400 mt-1">${escapeHTML(state.config.urgency_subtext || 'Prices may increase soon')}</p>
+            <p class="text-xs text-gray-400 mt-1">${escapeHTML(state.config.urgency_subtext || 'Prices may increase soon. Lock in your price now.')}</p>
           </div>
         </section>
 
         <!-- You May Also Like -->
         ${data.youMayAlsoLike?.length ? `
-        <section class="mt-12 pt-12 border-t border-gray-800" aria-labelledby="ymal-heading">
+        <section class="mt-10 pt-8 border-t border-gray-800" aria-labelledby="ymal-heading">
           <h2 id="ymal-heading" class="section-header">You May Also Like</h2>
           <div class="product-grid">${data.youMayAlsoLike.map(yp => renderProductCard(yp)).join('')}</div>
         </section>` : ''}
@@ -2349,7 +2374,7 @@
         });
         const d = await res.json();
         if (d.success || res.ok) {
-          $('#suggest-result').innerHTML = '<div class="bg-brand-green/10 border border-brand-green/30 rounded-xl p-4 text-brand-green text-sm font-bold text-center mt-2"><i class="fas fa-check-circle mr-2"></i>Thank you! We\'ll review your suggestion.</div>';
+          $('#suggest-result').innerHTML = '<div class="bg-brand-green/10 border border-brand-green/30 rounded-xl p-4 text-brand-green text-sm font-bold text-center mt-2"><i class="fas fa-check-circle mr-2"></i>Thank you! We\u2019ll review your suggestion.</div>';
           ['suggest-msg','suggest-name','suggest-email','suggest-phone'].forEach(id => { const el = $('#'+id); if(el) el.value=''; });
           btn.innerHTML = '<i class="fas fa-check mr-2"></i>Sent!';
         } else { throw new Error(d.error||'Failed'); }
