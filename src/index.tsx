@@ -42,6 +42,7 @@ export type Bindings = {
   CLOUDINARY_CLOUD_NAME: string;   // preferred individual key
   CLOUDINARY_API_KEY: string;      // preferred individual key
   CLOUDINARY_API_SECRET: string;   // preferred individual key
+  OPENROUTER_API_KEY: string;      // OpenRouter AI for SEO generation
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -627,4 +628,3 @@ app.get('/admin/:section', async (c) => {
 });
 
 export default app;
-// (OPENROUTER_API_KEY is accessed via c.env as any in admin routes)
