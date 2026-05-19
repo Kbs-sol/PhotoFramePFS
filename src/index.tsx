@@ -496,7 +496,7 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
       theme: {
         extend: {
           colors: {
-            brand: { bg: '#050505', card: '#121212', gold: '#C5A059', red: '#CC0000', saffron: '#E8670A', green: '#22C55E', purple: '#7C3AED' }
+            brand: { bg: '#050505', card: '#121212', gold: '#C5A059', red: '#CC0000', saffron: '#FF7A1A', green: '#22C55E', purple: '#7C3AED' }
           }
         }
       }
@@ -609,7 +609,7 @@ app.get('/admin/:section', async (c) => {
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      theme: { extend: { colors: { brand: { bg: '#050505', card: '#121212', gold: '#C5A059', red: '#CC0000', saffron: '#E8670A', green: '#22C55E', purple: '#7C3AED' } } } }
+      theme: { extend: { colors: { brand: { bg: '#050505', card: '#121212', gold: '#C5A059', red: '#CC0000', saffron: '#FF7A1A', green: '#22C55E', purple: '#7C3AED' } } } }
     }
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">

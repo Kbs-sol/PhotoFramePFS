@@ -9,7 +9,10 @@
   --gold-dim: #A68444;
   --gold-glow: rgba(197,160,89,0.08);
   --red: #CC0000;
-  --saffron: #E8670A;
+  --red-bright: #E53E3E;
+  --saffron: #FF7A1A;          /* upgraded: 4.6:1 on dark vs old 3.1:1 */
+  --saffron-bright: #FF8C38;   /* hover/accent variant */
+  --auto-red: #FF4444;         /* Automotive category red — vibrant, high contrast */
   --green: #22C55E;
   --purple: #7C3AED;
   --text: #E5E5E5;
@@ -230,7 +233,17 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; line-hei
   letter-spacing: 1px;
   margin-bottom: 8px;
 }
-.bundle-tag.saffron { color: var(--saffron); }
+.bundle-tag.saffron { color: var(--saffron); text-shadow: 0 0 12px rgba(255,122,26,0.4); }
+.bundle-tag.auto-red { color: var(--auto-red); text-shadow: 0 0 12px rgba(255,68,68,0.4); }
+/* Automotive bundle card accent */
+.bundle-card.auto-themed { border-color: rgba(255,68,68,0.25); }
+.bundle-card.auto-themed:hover, .bundle-card.auto-themed:focus { border-color: var(--auto-red); box-shadow: 0 12px 32px rgba(255,68,68,0.12); }
+/* Divine bundle card accent */
+.bundle-card.divine-themed { border-color: rgba(255,122,26,0.2); }
+.bundle-card.divine-themed:hover, .bundle-card.divine-themed:focus { border-color: var(--saffron); box-shadow: 0 12px 32px rgba(255,122,26,0.1); }
+/* Category spotlight — saffron label with glow */
+.spotlight-label-saffron { color: var(--saffron) !important; text-shadow: 0 0 10px rgba(255,122,26,0.35); }
+.spotlight-label-auto { color: var(--auto-red) !important; text-shadow: 0 0 10px rgba(255,68,68,0.35); }
 .bundle-title { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 8px; }
 .bundle-price { color: var(--gold); font-weight: 700; font-size: 15px; }
 
@@ -246,6 +259,41 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; line-hei
 }
 .bundle-volume-card:hover, .bundle-volume-card:focus { border-color: var(--gold); }
 .bundle-volume-card.active { border-color: var(--gold); background: rgba(197,160,89,0.08); }
+
+/* ─── Poster Add-on Upsell Card ─────────────────────────────────────────────── */
+.poster-addon-upsell {
+  background: linear-gradient(135deg, rgba(197,160,89,0.06) 0%, rgba(197,160,89,0.02) 100%);
+  border: 1.5px solid rgba(197,160,89,0.35);
+  border-radius: 14px;
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.poster-addon-upsell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 60%, rgba(197,160,89,0.04) 100%);
+  pointer-events: none;
+}
+.poster-addon-header { position: relative; z-index: 1; }
+.poster-addon-badge {
+  display: inline-block;
+  background: var(--gold);
+  color: #000;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+}
+.poster-addon-upsell input[type="checkbox"]:checked + div {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.poster-addon-upsell input[type="checkbox"]:checked + div i { display: block !important; }
 
 /* ─── Buttons ───────────────────────────────────────────────────────────────── */
 .btn-buy {

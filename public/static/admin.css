@@ -214,7 +214,10 @@
   letter-spacing: 0.1em;
 }
 
-.sidebar-nav { flex: 1; padding: 8px 0; }
+.sidebar-nav { flex: 1; padding: 8px 0; overflow-y: auto; overflow-x: hidden; min-height: 0; }
+.sidebar-nav::-webkit-scrollbar { width: 3px; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: var(--admin-border); border-radius: 4px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
 
 .nav-item {
   display: flex;

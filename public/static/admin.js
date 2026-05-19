@@ -118,9 +118,9 @@
     const app = $('#admin-app');
     app.innerHTML = `
     <div class="admin-sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <h1>🖼️ PhotoFrameIn</h1>
-        <p>Admin Panel</p>
+      <div class="sidebar-header" id="sidebar-logo-area" onclick="admin.go('settings')" style="cursor:pointer" title="Click to edit logo in Settings">
+        <h1 id="sidebar-logo-display">🖼️ PhotoFrameIn</h1>
+        <p>Admin Panel <span style="font-size:9px;opacity:0.4;margin-left:4px">(click to edit logo)</span></p>
       </div>
       <nav class="sidebar-nav">
         ${sections.map(s => `<div class="nav-item ${s.id === currentSection ? 'active' : ''}" onclick="admin.go('${s.id}')"><i class="fas ${s.icon}" style="width:18px;text-align:center"></i><span>${s.label}</span></div>`).join('')}
@@ -139,6 +139,17 @@
       <div id="section-content"></div>
     </div>`;
     loadSection(currentSection);
+    // Load sidebar logo from settings
+    api('GET', '/settings').then(d => {
+      const cfg = d.settings || {};
+      const logoEl = document.getElementById('sidebar-logo-display');
+      if (!logoEl) return;
+      if (cfg.site_logo_url) {
+        logoEl.innerHTML = `<img src="${cfg.site_logo_url}" style="height:28px;max-width:180px;object-fit:contain;" alt="Logo" onerror="this.parentElement.textContent='${cfg.site_logo_emoji||'🖼️'} ${cfg.site_logo_text||'PhotoFrameIn'}'">`;
+      } else {
+        logoEl.textContent = `${cfg.site_logo_emoji||'🖼️'} ${cfg.site_logo_text||'PhotoFrameIn'}`;
+      }
+    }).catch(() => {});
   }
 
   async function loadSection(id) {
@@ -762,6 +773,9 @@
     const data = await api('GET', '/settings');
     const s = data.settings || {};
     const fields = [
+      { key: 'site_logo_url', label: '🖼️ Logo Image URL (Cloudinary/CDN link)', type: 'text' },
+      { key: 'site_logo_text', label: '✏️ Logo Text (shown if no image, e.g. "PhotoFrameIn")', type: 'text' },
+      { key: 'site_logo_emoji', label: '🎨 Logo Emoji (prefix, e.g. 🖼️)', type: 'text' },
       { key: 'checkout_mode', label: 'Checkout Mode', type: 'select', options: ['shiprocket', 'custom'] },
       { key: 'cod_enabled', label: 'COD Enabled', type: 'toggle' },
       { key: 'free_shipping_threshold', label: 'Free Shipping Threshold (₹)', type: 'number' },
@@ -803,6 +817,38 @@
 
     el.innerHTML = `
     <h2 class="text-2xl font-bold mb-6">Settings</h2>
+
+    <!-- Logo Editor Card -->
+    <div class="stat-card mb-6 bg-brand-gold/5 border border-brand-gold/20" id="logo-editor-card">
+      <h3 class="font-bold text-base mb-4 text-brand-gold"><i class="fas fa-image mr-2"></i>Site Logo Editor</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Live Preview -->
+        <div>
+          <p class="text-xs text-gray-500 mb-2 uppercase tracking-wider">Live Preview</p>
+          <div id="logo-preview-box" style="background:#121212;border:1px solid #2A2A2A;border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:10px;min-height:60px;">
+            <span id="logo-preview-img-wrap" style="display:${s['site_logo_url'] ? 'block' : 'none'}">
+              <img id="logo-preview-img" src="${s['site_logo_url'] || ''}" style="height:32px;object-fit:contain;max-width:140px;" onerror="this.style.display='none'" alt="Logo preview">
+            </span>
+            <span id="logo-preview-text" style="font-size:17px;font-weight:800;color:#F2CA50;display:${s['site_logo_url'] ? 'none' : 'flex'};align-items:center;gap:6px;">
+              <span id="logo-preview-emoji">${s['site_logo_emoji'] || '🖼️'}</span>
+              <span id="logo-preview-name">${s['site_logo_text'] || 'PhotoFrameIn'}</span>
+            </span>
+          </div>
+          <p class="text-[10px] text-gray-600 mt-1">This is how your logo appears in the sidebar &amp; nav.</p>
+        </div>
+        <!-- Upload from Cloudinary -->
+        <div>
+          <p class="text-xs text-gray-500 mb-2 uppercase tracking-wider">Upload Logo Image</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" onclick="admin.uploadLogoCloudinary()" class="admin-btn admin-btn-primary" style="font-size:12px;"><i class="fas fa-cloud-upload-alt mr-1"></i>Upload via Cloudinary</button>
+            <button type="button" onclick="admin.clearLogo()" class="admin-btn admin-btn-ghost" style="font-size:12px;"><i class="fas fa-times mr-1"></i>Use Text Logo</button>
+          </div>
+          <p class="text-[10px] text-gray-600 mt-2">PNG/SVG recommended. Max 200×60px for best fit.</p>
+          <p class="text-[10px] text-gray-500 mt-1">Or paste a URL in the "Logo Image URL" field below.</p>
+        </div>
+      </div>
+    </div>
+
     <form id="settings-form" class="space-y-4 max-w-2xl">
       ${fields.map(f => `
         <div class="flex items-center justify-between bg-gray-900 rounded-lg p-3">
@@ -815,7 +861,7 @@
           ` : f.type === 'select' ? `
             <select name="${f.key}" class="admin-input" style="width:auto">${f.options.map(o => `<option value="${o}" ${s[f.key] === o ? 'selected' : ''}>${o || '(none)'}</option>`).join('')}</select>
           ` : `
-            <input type="${f.type}" name="${f.key}" value="${s[f.key] || ''}" class="admin-input" style="width:300px">
+            <input type="${f.type}" name="${f.key}" value="${escapeHTML(s[f.key] || '')}" class="admin-input" style="width:300px" ${f.key === 'site_logo_url' ? 'oninput="admin.previewLogoUrl(this.value)"' : ''} ${f.key === 'site_logo_text' ? 'oninput="document.getElementById(\'logo-preview-name\').textContent=this.value"' : ''} ${f.key === 'site_logo_emoji' ? 'oninput="document.getElementById(\'logo-preview-emoji\').textContent=this.value"' : ''}>
           `}
         </div>
       `).join('')}
@@ -860,6 +906,58 @@
   // ========== ADMIN ACTIONS ==========
   window.admin = {
     go(id) { currentSection = id; loadSection(id); document.getElementById('sidebar')?.classList.remove('open'); },
+
+    // ---- Logo Upload helpers ----
+    previewLogoUrl(url) {
+      const imgWrap = document.getElementById('logo-preview-img-wrap');
+      const img = document.getElementById('logo-preview-img');
+      const textEl = document.getElementById('logo-preview-text');
+      if (!img || !imgWrap || !textEl) return;
+      if (url && url.trim()) {
+        img.src = url.trim();
+        imgWrap.style.display = 'block';
+        textEl.style.display = 'none';
+      } else {
+        imgWrap.style.display = 'none';
+        textEl.style.display = 'flex';
+      }
+    },
+    clearLogo() {
+      const urlInput = document.querySelector('input[name="site_logo_url"]');
+      if (urlInput) { urlInput.value = ''; admin.previewLogoUrl(''); }
+    },
+    async uploadLogoCloudinary() {
+      try {
+        const cfgRes = await api('GET', '/settings');
+        const cfg = cfgRes.settings || {};
+        const cloudName = cfg.cloudinary_cloud_name;
+        const uploadPreset = cfg.cloudinary_upload_preset;
+        if (!cloudName || !uploadPreset) {
+          toast('Set Cloudinary Cloud Name & Upload Preset in Media Settings first', 'error');
+          admin.go('media'); return;
+        }
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = 'image/png,image/svg+xml,image/webp,image/jpeg';
+        input.onchange = async () => {
+          const file = input.files[0];
+          if (!file) return;
+          if (file.size > 1024 * 1024) { toast('Logo must be under 1MB', 'error'); return; }
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('upload_preset', uploadPreset);
+          fd.append('folder', 'pfi/logo');
+          try {
+            const r = await axios.post(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, fd);
+            const url = r.data.secure_url;
+            const urlInput = document.querySelector('input[name="site_logo_url"]');
+            if (urlInput) { urlInput.value = url; admin.previewLogoUrl(url); }
+            toast('Logo uploaded! Click "Save Settings" to apply.', 'success');
+          } catch { toast('Upload failed. Check Cloudinary config.', 'error'); }
+        };
+        input.click();
+      } catch { toast('Could not connect. Are you logged in?', 'error'); }
+    },
+
     async viewOrder(orderId) {
       const data = await api('GET', `/orders/${orderId}`);
       const o = data.order;

@@ -242,7 +242,7 @@
           </a>
           <nav class="hidden md:flex items-center gap-5" aria-label="Main navigation">
             <a href="/category/divine" onclick="window.pfi.nav('/category/divine');return false;" class="nav-link">🕉️ Divine</a>
-            <a href="/category/automotive" onclick="window.pfi.nav('/category/automotive');return false;" class="nav-link text-brand-saffron">🏎️ Automotive</a>
+            <a href="/category/automotive" onclick="window.pfi.nav('/category/automotive');return false;" class="nav-link" style="color:#FF7A1A">🏎️ Automotive</a>
             <a href="/shop" onclick="window.pfi.nav('/shop');return false;" class="nav-link">All Frames</a>
             <a href="/customize" onclick="window.pfi.nav('/customize');return false;" class="nav-link text-brand-gold border-b border-brand-gold pb-0.5">✨ Custom</a>
           </nav>
@@ -416,12 +416,12 @@
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto">
             <div class="spotlight-card" onclick="window.pfi.nav('/category/divine')" role="button" tabindex="0" aria-label="Shop Divine Art frames">
               <div class="text-2xl mb-1" aria-hidden="true">🕉️</div>
-              <div class="text-xs font-bold text-brand-saffron uppercase tracking-widest">Divine</div>
+              <div class="text-xs font-bold spotlight-label-saffron uppercase tracking-widest">Divine</div>
               <div class="text-[10px] text-gray-400">Ganesha, Shiva &amp; More</div>
             </div>
             <div class="spotlight-card" onclick="window.pfi.nav('/category/automotive')" role="button" tabindex="0" aria-label="Shop Automotive art frames">
               <div class="text-2xl mb-1" aria-hidden="true">🏎️</div>
-              <div class="text-xs font-bold text-brand-saffron uppercase tracking-widest">Automotive</div>
+              <div class="text-xs font-bold spotlight-label-auto uppercase tracking-widest">Automotive</div>
               <div class="text-[10px] text-gray-400">Porsche, Ferrari &amp; More</div>
             </div>
             <div class="spotlight-card" onclick="window.pfi.nav('/category/motivation')" role="button" tabindex="0" aria-label="Shop Motivation frames">
@@ -477,8 +477,8 @@
       <section class="max-w-7xl mx-auto px-4 py-12" aria-labelledby="bundles-heading">
         <h2 id="bundles-heading" class="section-header text-center"><i class="fas fa-gift text-brand-gold mr-2" aria-hidden="true"></i>Best Value Bundles</h2>
         <div id="bundles-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-          <article class="bundle-card" onclick="window.pfi.nav('/category/divine')" role="button" tabindex="0" aria-label="Divine Art Bundle">
-            <div class="bundle-tag" style="color:#E8670A;border-color:#E8670A33">🕉️ DIVINE BUNDLE</div>
+          <article class="bundle-card divine-themed" onclick="window.pfi.nav('/category/divine')" role="button" tabindex="0" aria-label="Divine Art Bundle">
+            <div class="bundle-tag" style="color:var(--saffron,#FF7A1A);text-shadow:0 0 12px rgba(255,122,26,0.4)">🕉️ DIVINE BUNDLE</div>
             <h3 class="bundle-title">Sacred Art Collection Pack</h3>
             <p class="bundle-desc text-gray-400 text-sm">3 divine frames (Ganesha, Shiva, Krishna). Perfect for home mandir, living room or gifting.</p>
             <div class="flex items-center gap-4 mt-4">
@@ -486,8 +486,8 @@
               <span class="badge-express text-xs">🎁 Gift Favourite</span>
             </div>
           </article>
-          <article class="bundle-card" onclick="window.pfi.nav('/category/automotive')" role="button" tabindex="0" aria-label="Automotive Bundle">
-            <div class="bundle-tag saffron">🏎️ AUTO BUNDLE</div>
+          <article class="bundle-card auto-themed" onclick="window.pfi.nav('/category/automotive')" role="button" tabindex="0" aria-label="Automotive Bundle">
+            <div class="bundle-tag auto-red">🏎️ AUTO BUNDLE</div>
             <h3 class="bundle-title">Automotive Dream Pack</h3>
             <p class="bundle-desc text-gray-400 text-sm">2 cinematic Porsche/Ferrari frames. Upgrade any man-cave, office or garage wall.</p>
             <div class="flex items-center gap-4 mt-4">
@@ -794,6 +794,7 @@
               <div class="flex items-center gap-2 mb-1 flex-wrap">
                 <span class="badge-express text-xs"><i class="fas fa-check-circle mr-1" aria-hidden="true"></i>In Stock</span>
                 ${p.category?.name ? `<span class="text-brand-gold text-xs font-bold uppercase tracking-widest">${escapeHTML(p.category.name)}</span>` : ''}
+                ${p.total_orders > 5 ? `<span class="text-[10px] text-gray-500 font-medium"><i class="fas fa-fire text-orange-400 mr-1" aria-hidden="true"></i>${p.total_orders}+ ordered</span>` : ''}
               </div>
               <h1 class="text-2xl md:text-3xl font-bold font-display mb-2 leading-tight">${safeName}</h1>
               ${avgRating ? `
@@ -804,7 +805,12 @@
               <div class="flex items-center gap-3 mb-2">
                 <div id="current-price" class="text-3xl font-bold text-brand-gold" aria-live="polite">${formatPrice(dv?.price||0)}</div>
                 ${dv?.compare_at_price ? `<div id="compare-price" class="text-lg text-gray-500 line-through" aria-label="Was ${formatPrice(dv.compare_at_price)}">${formatPrice(dv.compare_at_price)}</div>
-                <span class="bg-brand-green/20 text-brand-green text-xs font-bold px-2 py-1 rounded">SALE</span>` : '<div id="compare-price"></div>'}
+                <span class="bg-brand-green/20 text-brand-green text-xs font-bold px-2 py-1 rounded">SAVE ${Math.round(((dv.compare_at_price-dv.price)/dv.compare_at_price)*100)}%</span>` : '<div id="compare-price"></div>'}
+              </div>
+              <!-- Dispatch urgency line -->
+              <div class="flex items-center gap-2 mt-1 mb-2 text-xs" id="dispatch-urgency">
+                <span class="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse inline-block flex-shrink-0" aria-hidden="true"></span>
+                <span class="text-gray-400">Order in next <strong class="text-white" id="dispatch-timer">loading...</strong> for <strong class="text-brand-green">Today's Dispatch</strong></span>
               </div>
               <p class="text-gray-400 text-sm leading-relaxed">${safeDesc}</p>
             </div>
@@ -850,6 +856,31 @@
               </div>
             </div>
 
+            <!-- BLOCK 3.5: Poster Add-on — shown right after frame selection for max AOV (admin-enabled only) -->
+            ${state.config.poster_enabled === 'true' ? `
+            <div class="poster-addon-upsell" id="poster-addon-section" role="group" aria-label="Optional poster add-on">
+              <div class="poster-addon-header">
+                <div class="poster-addon-badge">POPULAR ADD-ON</div>
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-sm text-white">🎨 Add a Print-Only Poster</div>
+                    <div class="text-xs text-gray-400 mt-0.5">Same high-res art, rolled &amp; shipped separately — no frame</div>
+                  </div>
+                  <span class="text-brand-gold font-black text-base">+₹199</span>
+                </div>
+              </div>
+              <label class="flex items-center gap-3 cursor-pointer mt-3 p-2 rounded-lg hover:bg-white/5 transition-colors" for="poster-addon-cb">
+                <div class="relative">
+                  <input type="checkbox" id="poster-addon-cb" class="sr-only peer" aria-label="Add poster print add-on for ₹199">
+                  <div class="w-5 h-5 border-2 border-gray-600 rounded peer-checked:bg-brand-gold peer-checked:border-brand-gold transition-all flex items-center justify-center">
+                    <i class="fas fa-check text-black text-[10px] hidden peer-checked:block"></i>
+                  </div>
+                </div>
+                <span class="text-xs text-gray-300">Yes, add a poster print <span class="text-brand-gold font-bold">(+₹199)</span> — great for gifting!</span>
+              </label>
+              <p class="text-[10px] text-gray-600 mt-2 pl-1"><i class="fas fa-info-circle mr-1" aria-hidden="true"></i>Rolled in protective tube · Delivered same time as your frame</p>
+            </div>` : ''}
+
             <!-- BLOCK 4: Delivery Check -->
             <div class="flex items-center gap-2">
               <label for="pincode-input" class="sr-only">Check delivery pincode</label>
@@ -866,6 +897,12 @@
               <button onclick="window.pfi.buyNow()" class="btn-cart py-3.5 text-sm" aria-label="Buy ${safeName} now — direct checkout">
                 <i class="fas fa-bolt mr-2" aria-hidden="true"></i>Buy Now — Skip to Checkout
               </button>
+              <!-- Social proof nudge below CTA -->
+              ${p.total_orders > 3 ? `
+              <div class="flex items-center justify-center gap-2 text-[10px] text-gray-500 pt-0.5" aria-label="Popularity indicator">
+                <i class="fas fa-users text-brand-gold opacity-60" aria-hidden="true"></i>
+                <span><strong class="text-gray-400">${p.total_orders}+ people</strong> have this on their wall</span>
+              </div>` : ''}
             </div>
 
             <!-- BLOCK 6: Trust Bar -->
@@ -889,20 +926,6 @@
               <i class="fas fa-shield-check text-brand-gold mt-0.5 flex-shrink-0" aria-hidden="true"></i>
               <span><strong class="text-brand-gold">Manually Verified &amp; AI-Upscaled:</strong> Every design is reviewed by our team and upscaled to 4K print resolution before dispatch.</span>
             </div>
-
-            <!-- Poster Add-on (hidden unless admin enables) -->
-            ${state.config.poster_enabled === 'true' ? `
-            <div class="bg-brand-card border border-gray-800 rounded-xl p-4" id="poster-addon-section">
-              <div class="flex items-center justify-between mb-2">
-                <div><strong class="text-sm">Add Print-Only Poster</strong> <span class="text-[10px] text-gray-500">(No frame)</span></div>
-                <span class="text-brand-gold text-sm font-bold">+₹199</span>
-              </div>
-              <p class="text-xs text-gray-500 mb-3">Same high-res print, rolled &amp; shipped separately.</p>
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" id="poster-addon-cb" class="accent-yellow-400 w-4 h-4" aria-label="Add poster print add-on">
-                <span class="text-xs text-gray-300">Yes, add a poster print (+₹199)</span>
-              </label>
-            </div>` : ''}
           </div>
         </div>
 
@@ -1059,6 +1082,34 @@
       updateCartBadge();
       trackFunnelEvent('view_product', p.id, null, { name: p.name, slug: p.slug });
 
+      // ── Dispatch countdown timer ──────────────────────────────────────
+      (function initDispatchTimer() {
+        const el = document.getElementById('dispatch-timer');
+        if (!el) return;
+        // Cutoff: 5:30 PM IST = 12:00 UTC. If past cutoff, show "tomorrow"
+        function update() {
+          const now = new Date();
+          const istOffsetMs = 5.5 * 3600 * 1000;
+          const ist = new Date(now.getTime() + istOffsetMs - (now.getTimezoneOffset() * 60000));
+          const cutoffH = 17, cutoffM = 30;
+          const cutoffMs = (cutoffH * 3600 + cutoffM * 60) * 1000;
+          const nowMs = (ist.getUTCHours() * 3600 + ist.getUTCMinutes() * 60 + ist.getUTCSeconds()) * 1000;
+          const remaining = cutoffMs - nowMs;
+          if (remaining <= 0) {
+            el.textContent = 'tomorrow morning';
+            const urgEl = document.getElementById('dispatch-urgency');
+            if (urgEl) { const dot = urgEl.querySelector('.bg-brand-green'); if (dot) { dot.classList.remove('bg-brand-green'); dot.classList.add('bg-yellow-500'); } }
+          } else {
+            const h = Math.floor(remaining / 3600000);
+            const m = Math.floor((remaining % 3600000) / 60000);
+            const s = Math.floor((remaining % 60000) / 1000);
+            el.textContent = h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+          }
+        }
+        update();
+        const t = setInterval(() => { if (!document.getElementById('dispatch-timer')) { clearInterval(t); return; } update(); }, 1000);
+      })();
+
     } catch (e) {
       console.error('Product page error:', e);
       app.innerHTML = renderHeader() + `<main class="max-w-4xl mx-auto px-4 py-20 text-center"><h1 class="text-2xl">Error loading product</h1><button onclick="location.reload()" class="btn-buy mt-6 max-w-xs">Retry</button></main>` + renderFooter();
@@ -1205,7 +1256,7 @@
       title: 'Divine Art Frames',
       subtitle: 'Sacred art for sacred spaces — Ganesha, Shiva, Hanuman, Krishna & Rama',
       emoji: '🕉️',
-      color: '#E8670A',
+      color: '#FF7A1A',
       gradient: 'from-orange-950/60 via-brand-card to-brand-card',
       border: 'border-orange-900/40',
       tags: ['Ganesha', 'Shiva', 'Hanuman', 'Krishna', 'Rama'],
@@ -1219,7 +1270,7 @@
       title: 'Automotive Art Frames',
       subtitle: 'Cinematic car art — Porsche, Ferrari, hypercars & legends',
       emoji: '🏎️',
-      color: '#CC0000',
+      color: '#FF4444',
       gradient: 'from-red-950/60 via-brand-card to-brand-card',
       border: 'border-red-900/40',
       tags: ['Porsche', 'Ferrari', 'Lamborghini', 'Hypercars', 'McLaren'],
@@ -1433,9 +1484,24 @@
                 <div class="text-xs text-gray-400 mt-0.5">₹${state.config.cod_fee||49} COD fee · Orders ₹${state.config.cod_min_value||899}–₹${state.config.cod_max_value||1995} · WhatsApp confirmation within 24h</div>
               </div>
             </label>` : state.cart.some(i=>i.is_custom_frame) ? `
-            <div class="p-3 border border-gray-800 rounded-lg bg-gray-900/50 text-sm text-brand-saffron">
-              <i class="fas fa-exclamation-triangle mr-2" aria-hidden="true"></i>Custom frames require prepaid payment only.
-            </div>` : ''}
+            <div id="cod-unavailable-msg" class="p-3.5 border border-brand-saffron/30 rounded-xl bg-brand-saffron/5 text-sm">
+              <div class="font-bold text-brand-saffron mb-1"><i class="fas fa-exclamation-triangle mr-2" aria-hidden="true"></i>COD not available for Custom Frames</div>
+              <div class="text-xs text-gray-400">Custom orders require prepaid payment — already selected above.</div>
+            </div>` : `
+            <div id="cod-unavailable-msg" class="p-4 border border-brand-gold/25 rounded-xl bg-brand-gold/5">
+              <div class="font-bold text-white text-sm mb-1"><i class="fas fa-info-circle text-brand-gold mr-2" aria-hidden="true"></i>COD not available for this order</div>
+              <div class="text-xs text-gray-400 mb-3">Cash on Delivery is available for orders between ₹${state.config.cod_min_value||899}–₹${state.config.cod_max_value||1995}.</div>
+              <div class="flex items-center gap-3 bg-brand-green/10 border border-brand-green/30 rounded-lg px-3 py-2.5">
+                <div class="w-8 h-8 rounded-full bg-brand-green/20 flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-tag text-brand-green text-sm" aria-hidden="true"></i>
+                </div>
+                <div class="flex-1">
+                  <div class="text-xs font-bold text-brand-green">Pay via Prepaid &amp; Get ₹50 Instant Discount</div>
+                  <div class="text-[10px] text-gray-400 mt-0.5">UPI · Card · Net Banking — already applied above ✓</div>
+                </div>
+                <span class="text-brand-green text-sm font-black">–₹50</span>
+              </div>
+            </div>`}
           </div>
         </fieldset>
 
@@ -1452,9 +1518,8 @@
           <i class="fas fa-truck mr-1 text-brand-gold" aria-hidden="true"></i>
           <strong class="text-gray-300">Delivery:</strong> 3–5 business days via Shiprocket/DTDC/Delhivery. Delivery timelines are estimates and subject to carrier operations. PhotoFrameIn is not liable for delays caused by the carrier. Tracking link will be shared after dispatch.
         </div>
-        <div class="flex items-start gap-3">
-          <input type="checkbox" id="agree-policy" required class="mt-1 accent-yellow-400" aria-required="true">
-          <label for="agree-policy" class="text-sm text-gray-400">I agree to the <a href="/policy/returns" onclick="window.pfi.nav('/policy/returns');return false;" class="text-brand-gold hover:underline">Returns &amp; COD Policy</a> and <a href="/policy/privacy" onclick="window.pfi.nav('/policy/privacy');return false;" class="text-brand-gold hover:underline">Privacy Policy</a></label>
+        <div class="text-center text-xs text-gray-500 px-2 mt-1">
+          By placing this order you agree to our <a href="/policy/returns" onclick="window.pfi.nav('/policy/returns');return false;" class="text-gray-400 hover:text-brand-gold underline underline-offset-2">Returns &amp; COD Policy</a> and <a href="/policy/privacy" onclick="window.pfi.nav('/policy/privacy');return false;" class="text-gray-400 hover:text-brand-gold underline underline-offset-2">Privacy Policy</a>.
         </div>
 
         <button type="submit" id="place-order-btn" class="btn-buy py-5 text-lg" aria-label="Place your order">
@@ -1488,7 +1553,22 @@
           const data = await res.json();
           const codLabel = $('#cod-label');
           if (codLabel && !data.available) {
-            codLabel.style.display = 'none';
+            // Replace COD label with a nudge card instead of silently hiding
+            codLabel.outerHTML = `
+              <div id="cod-unavailable-msg" class="p-4 border border-brand-gold/25 rounded-xl bg-brand-gold/5">
+                <div class="font-bold text-white text-sm mb-1"><i class="fas fa-map-marker-alt text-brand-gold mr-2"></i>COD not available for this pincode</div>
+                <div class="text-xs text-gray-400 mb-3">Your delivery area doesn't support Cash on Delivery right now.</div>
+                <div class="flex items-center gap-3 bg-brand-green/10 border border-brand-green/30 rounded-lg px-3 py-2.5">
+                  <div class="w-8 h-8 rounded-full bg-brand-green/20 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-tag text-brand-green text-sm"></i>
+                  </div>
+                  <div class="flex-1">
+                    <div class="text-xs font-bold text-brand-green">Pay via Prepaid &amp; Get ₹50 Instant Discount</div>
+                    <div class="text-[10px] text-gray-400 mt-0.5">UPI · Card · Net Banking — already selected ✓</div>
+                  </div>
+                  <span class="text-brand-green text-sm font-black">–₹50</span>
+                </div>
+              </div>`;
             const prepaid = $('input[value="prepaid"]');
             if (prepaid) prepaid.checked = true;
             const prepaidLabel = $('#prepaid-label');
