@@ -134,6 +134,125 @@ Login: `ADMIN_PASSWORD` env var (set as Cloudflare secret)
 
 Sections: Dashboard · Products · Categories · Orders · Media · Logistics · Customers · Leads · Analytics · Coupons · Reviews · Content · Combos & Bundles · Ad Performance · Settings
 
+**Logo Editor (Settings → Site Logo Editor):**  
+Upload logo image via Cloudinary or set text/emoji logo. Supports image URL, upload, or emoji+text fallback.
+
 ---
 
-*Maintained by vijayprasadvvp@gmail.com · v2.2 · Updated 2026-04-30*
+## API Service Setup & Connections
+
+### 1. Supabase (PostgreSQL Database)
+- **Signup:** https://supabase.com → New project
+- **Get credentials:** Project Settings → API → `URL` and `service_role` key
+- **Cloudflare Secrets to set:**
+  ```
+  SUPABASE_URL = https://xxxx.supabase.co
+  SUPABASE_SERVICE_KEY = eyJ...
+  ```
+- **Run schema:** Copy `supabase/master.sql` → Supabase SQL Editor → Run
+
+### 2. Cloudinary (Image Storage & CDN)
+- **Signup:** https://cloudinary.com → Free plan (25GB)
+- **Get credentials:** Dashboard → Cloud Name, API Key, API Secret
+- **Create unsigned upload preset:** Settings → Upload → Add upload preset → Signing mode: Unsigned → name it `pfi_unsigned`
+- **Cloudflare Secrets to set:**
+  ```
+  CLOUDINARY_CLOUD_NAME = your-cloud-name
+  CLOUDINARY_API_KEY = 123456789
+  CLOUDINARY_API_SECRET = xxxx
+  CLOUDINARY_UPLOAD_PRESET = pfi_unsigned
+  ```
+- **Admin Settings fields:** `cloudinary_cloud_name`, `cloudinary_upload_preset` (stored in Supabase config table)
+
+### 3. Razorpay (Payment Gateway)
+- **Signup:** https://razorpay.com → Create account → Activate
+- **Get credentials:** Settings → API Keys → Generate Key ID & Secret
+- **Cloudflare Secrets to set:**
+  ```
+  RAZORPAY_KEY_ID = rzp_live_xxxx
+  RAZORPAY_KEY_SECRET = xxxx
+  ```
+- **Test mode:** Use `rzp_test_xxxx` keys for development
+- **Webhook:** Dashboard → Webhooks → Add URL `https://your-domain.pages.dev/api/payments/webhook`
+
+### 4. Google OAuth (Login with Google)
+- **Console:** https://console.cloud.google.com → New Project
+- **Enable:** APIs & Services → OAuth consent screen → External → Fill details
+- **Create credentials:** APIs & Services → Credentials → OAuth 2.0 Client ID → Web application
+- **Authorized redirect URIs:** `https://your-domain.pages.dev/api/auth/google/callback`
+- **Cloudflare Secrets to set:**
+  ```
+  GOOGLE_CLIENT_ID = xxxx.apps.googleusercontent.com
+  GOOGLE_CLIENT_SECRET = xxxx
+  ```
+
+### 5. Shiprocket (Logistics & Shipping)
+- **Signup:** https://app.shiprocket.in → Create account
+- **Get credentials:** Settings → API → Generate Token
+- **Cloudflare Secrets to set:**
+  ```
+  SHIPROCKET_EMAIL = your@email.com
+  SHIPROCKET_PASSWORD = your-password
+  ```
+- **Pickup location:** Admin → Settings → `pickup_pincode`
+
+### 6. OpenRouter (AI / SEO Content Generation)
+- **Signup:** https://openrouter.ai → Create account
+- **Get API key:** Keys → Create key
+- **Cloudflare Secret to set:**
+  ```
+  OPENROUTER_API_KEY = sk-or-xxxx
+  ```
+- **Model config:** Admin → Settings → `openrouter_model` (e.g. `openai/gpt-4o-mini`)
+
+### 7. Microsoft Clarity (Heatmaps & Session Recordings)
+- **Signup:** https://clarity.microsoft.com → New project → Web
+- **Get ID:** Project Settings → Copy the Clarity Project ID
+- **Cloudflare Secret to set:**
+  ```
+  MICROSOFT_CLARITY_ID = xxxxxxxxxx
+  ```
+
+### 8. Google Analytics 4 (GA4)
+- **Setup:** https://analytics.google.com → New Property → Web Stream
+- **Get Measurement ID:** Admin → Data Streams → your stream → Measurement ID (G-XXXXXXXX)
+- **Cloudflare Secret to set:**
+  ```
+  GA4_MEASUREMENT_ID = G-XXXXXXXXXX
+  ```
+
+### 9. Brevo / Resend (Transactional Email)
+- **Brevo signup:** https://app.brevo.com → SMTP & API → API Keys
+- **OR Resend:** https://resend.com → API Keys → Create
+- **Cloudflare Secrets to set:**
+  ```
+  BREVO_API_KEY = xkeysib-xxxx    (if using Brevo)
+  RESEND_API_KEY = re_xxxx        (if using Resend)
+  ```
+
+### Setting all Cloudflare Secrets at once
+```bash
+# Run these from /home/user/webapp after wrangler login
+npx wrangler pages secret put SUPABASE_URL --project-name photoframepfs
+npx wrangler pages secret put SUPABASE_SERVICE_KEY --project-name photoframepfs
+npx wrangler pages secret put CLOUDINARY_CLOUD_NAME --project-name photoframepfs
+npx wrangler pages secret put CLOUDINARY_API_KEY --project-name photoframepfs
+npx wrangler pages secret put CLOUDINARY_API_SECRET --project-name photoframepfs
+npx wrangler pages secret put RAZORPAY_KEY_ID --project-name photoframepfs
+npx wrangler pages secret put RAZORPAY_KEY_SECRET --project-name photoframepfs
+npx wrangler pages secret put GOOGLE_CLIENT_ID --project-name photoframepfs
+npx wrangler pages secret put GOOGLE_CLIENT_SECRET --project-name photoframepfs
+npx wrangler pages secret put SHIPROCKET_EMAIL --project-name photoframepfs
+npx wrangler pages secret put SHIPROCKET_PASSWORD --project-name photoframepfs
+npx wrangler pages secret put OPENROUTER_API_KEY --project-name photoframepfs
+npx wrangler pages secret put MICROSOFT_CLARITY_ID --project-name photoframepfs
+npx wrangler pages secret put GA4_MEASUREMENT_ID --project-name photoframepfs
+npx wrangler pages secret put ADMIN_PASSWORD --project-name photoframepfs
+npx wrangler pages secret put JWT_SECRET --project-name photoframepfs
+```
+
+**After setting secrets:** Redeploy `npm run deploy` — all 5 live-site 404 errors will resolve.
+
+---
+
+*Maintained by vijayprasadvvp@gmail.com · v2.3 · Updated 2026-05-19*
