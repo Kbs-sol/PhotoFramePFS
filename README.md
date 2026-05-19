@@ -255,4 +255,62 @@ npx wrangler pages secret put JWT_SECRET --project-name photoframepfs
 
 ---
 
-*Maintained by vijayprasadvvp@gmail.com · v2.3 · Updated 2026-05-19*
+## Razorpay Client-Side SDK Integration (Step-by-Step)
+
+The backend API (`/api/checkout/create-razorpay-order` and `/api/checkout/verify-payment`) is already live. The client-side flow in `public/static/app.js` works as follows:
+
+### Flow
+1. Customer fills checkout form → selects **Prepaid** → clicks **PAY NOW**
+2. `POST /api/orders/create` → creates order with `status: pending_payment` → returns `orderId`
+3. `POST /api/checkout/create-razorpay-order` → returns `{ orderId (rzp), amount, currency, key }`
+4. Razorpay JS SDK (`checkout.razorpay.com/v1/checkout.js`) is loaded dynamically
+5. `new Razorpay({ ... }).open()` shows the payment modal
+6. On success handler → `POST /api/checkout/verify-payment` with HMAC signature
+7. Server verifies signature → marks order `paid` → sends manager email → syncs Shiprocket
+8. Client clears cart → shows success page
+
+### Test Keys (Development)
+- Use `rzp_test_XXXXXXXX` key in `.dev.vars` as `RAZORPAY_KEY_ID`
+- Test UPI: `success@razorpay` | Test card: `4111 1111 1111 1111` / any future date / any CVV
+
+### Go Live
+1. Complete Razorpay KYC at https://dashboard.razorpay.com → Settings → Business Profile
+2. Replace test keys with live keys (`rzp_live_xxx`) in Cloudflare secrets
+3. Set webhook URL: Razorpay Dashboard → Webhooks → `https://photoframepfs.pages.dev/api/payments/webhook`
+4. Enable events: `payment.captured`, `payment.failed`, `refund.created`
+
+---
+
+## Editable Pricing Table
+
+Prices are stored in Supabase `site_config` table and editable from **Admin → Pricing**.
+
+| Config Key | Description | Default |
+|------------|-------------|---------|
+| `price_small` | Small frame (8×12") | ₹499 |
+| `price_medium` | Medium frame (12×18") | ₹799 |
+| `price_large` | Large frame (18×24") | ₹1,149 |
+| `price_xl` | XL frame (24×36") | ₹1,749 |
+| `price_premium_addon` | Premium white mount add-on | ₹250 |
+| `price_poster` | A3 poster print add-on | ₹199 |
+| `price_acrylic_addon` | Acrylic glass upgrade | ₹350 |
+| `price_cod_fee` | COD handling fee | ₹49 |
+| `price_prepaid_discount` | Prepaid instant discount | ₹50 |
+| `price_free_shipping_threshold` | Minimum for free shipping | ₹799 |
+
+Changes take effect immediately on the live site (no rebuild needed).
+
+---
+
+## Custom Frame Page Features (v2.4)
+
+- **File Upload** — drag/drop or click, JPG/PNG/WebP up to 50MB
+- **Image URL Input** — paste any direct image link (Google Drive public, Dropbox, CDN)
+- **Crop Tool** — canvas-based cropper appears after upload; drag to reposition crop box locked to selected frame ratio; Apply/Skip
+- **Visualizer** — preview mockup always shows correct frame aspect ratio (Small/Medium/XL = 2:3, Large = 3:4), not the uploaded image's natural ratio
+- **Optional Notes** — textarea for customer to give cropping/colour/mount instructions to print team
+- **Copyright Notice** — prominent amber notice: customer confirms they own/have rights to the image; PhotoFrameIn not liable for violations
+
+---
+
+*Maintained by vijayprasadvvp@gmail.com · v2.4 · Updated 2026-05-19*
