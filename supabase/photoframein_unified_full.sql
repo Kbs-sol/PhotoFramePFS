@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS products (
   average_rating NUMERIC(2,1) DEFAULT 0,
   review_count INTEGER DEFAULT 0,
   is_hidden BOOLEAN DEFAULT FALSE,
+  allowed_sizes TEXT DEFAULT NULL,
+  allowed_frames TEXT DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -590,10 +592,13 @@ FROM system_config
 WHERE key = 'owner_email' AND value <> ''
 ON CONFLICT (email) DO NOTHING;
 
--- If system_config owner_email is empty, we'll manually add a placeholder that the owner can replace
-INSERT INTO admin_users (email, role)
-VALUES ('admin@photoframein.com', 'superadmin')
-ON CONFLICT (email) DO NOTHING;
+-- If system_config owner_email is empty, we'll manually add a
+-- Admin users table for panel access
+CREATE TABLE IF NOT EXISTS public.admin_users (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  email text NOT NULL UNIQUE,
+  role text NOT NULL DEFAULT 'admin'
+);
 
 -- ==========================================
 -- INCLUDED FILE: add_is_hidden.sql
@@ -689,17 +694,17 @@ WHERE name ILIKE '%A4%' AND price < 150;
 INSERT INTO system_config (key, value, description) VALUES
   ('checkout_mode', 'shiprocket', 'Primary checkout: shiprocket or custom'),
   ('cod_enabled', 'true', 'Global COD toggle'),
-  ('cod_min_value', '499', 'Minimum order for COD'),
+  ('cod_min_value', '899', 'Minimum order for COD'),
   ('cod_max_value', '1995', 'Maximum order for COD'),
   ('cod_fee', '49', 'COD fee charged to customer'),
-  ('free_shipping_threshold', '799', 'Free shipping above this amount (prepaid)'),
+  ('free_shipping_threshold', '899', 'Free shipping above this amount (prepaid)'),
   ('pickup_pincode', '501504', 'Warehouse pickup pincode'),
   ('acrylic_enabled', 'true', 'Acrylic upgrade toggle'),
   ('combos_enabled', 'true', 'Global combos toggle'),
   ('a4_oos_threshold', '10', 'Auto OOS if A4 exceeds % of daily orders'),
   ('exit_intent_enabled', 'true', 'Exit intent popup toggle'),
   ('festival_mode', '', 'Active festival: diwali, navratri, etc.'),
-  ('announcement_text', 'Free Delivery on orders above Rs.799 | COD Available', 'Top bar text'),
+  ('announcement_text', 'Free Delivery on orders above Rs.899 | COD Available', 'Top bar text'),
   ('announcement_link', '/shop', 'Top bar link'),
   ('announcement_bg', '#CC0000', 'Top bar background color'),
   ('announcement_active', 'true', 'Show announcement bar'),
@@ -724,7 +729,7 @@ INSERT INTO system_config (key, value, description) VALUES
   ('contact_address', 'Hyderabad, Telangana, India', 'Store address'),
   ('maps_embed', '', 'Google Maps embed URL'),
   ('seo_title', 'PhotoFrameIn | Premium Wall Art & Photo Frames in India', 'Homepage SEO title'),
-  ('seo_description', 'Buy premium poster frames, wall art & custom photo frames online. Fast delivery across India. Starting Rs.199. Free delivery on Rs.799+', 'Homepage SEO desc'),
+  ('seo_description', 'Buy premium poster frames, wall art & custom photo frames online. Fast delivery across India. Starting Rs.199. Free delivery on Rs.899+', 'Homepage SEO desc'),
   ('og_image', '', 'Homepage OG image'),
   ('gtm_container_id', '', 'Google Tag Manager container ID'),
   ('shipping_prepaid_below_floor', '79', 'Shipping floor for prepaid below threshold'),
@@ -935,7 +940,7 @@ INSERT INTO faq (question, answer, display_order) VALUES
   ('What is your return policy?', 'Damaged items are replaced free — unboxing video required. Custom frames are non-returnable. Full policy on our Returns page.', 4),
   ('What if I want to cancel?', 'Cancellations are accepted within 24 hours if the order is not yet dispatched. After dispatch, cancellations are not possible.', 5),
   ('Do you offer custom frames?', 'Yes! Upload your own photo and we will frame it for you. Custom frames are prepaid only and non-returnable. Minimum resolution: 1500x2000px.', 6),
-  ('What payment methods do you accept?', 'We accept all UPI apps, credit/debit cards, net banking, and Cash on Delivery (for orders Rs.499-Rs.1,995).', 7),
+  ('What payment methods do you accept?', 'We accept all UPI apps, credit/debit cards, net banking, and Cash on Delivery (for orders Rs.899-Rs.1,995).', 7),
   ('How do I track my order?', 'Visit our Track page and enter your Order ID (PS-XXXXXX) or registered phone number. You will also receive tracking updates via email.', 8)
 ON CONFLICT DO NOTHING;
 
@@ -944,8 +949,8 @@ ON CONFLICT DO NOTHING;
 -- ============================================
 INSERT INTO pages (slug, title, content) VALUES
   ('returns', 'Returns & Refund Policy', '<h2>Returns & Refund Policy</h2><p>At PhotoFrameIn, we want you to be completely happy with your purchase.</p><h3>Damage Claims</h3><p>If your order arrives damaged, we will replace it free of charge. <strong>An unboxing video is mandatory</strong> for all damage claims. No video = no claim.</p><h3>Custom Frames</h3><p><strong>Custom frame orders are final — no returns or cancellations allowed.</strong></p><h3>Cancellations</h3><p>Orders can be cancelled within 24 hours of placing if not yet dispatched. After dispatch, cancellations are not possible.</p><h3>Refund Timeline</h3><ul><li>Prepaid, not dispatched, within 24h: 5-7 business days via original payment method</li><li>COD, not dispatched, within 24h: 2-3 business days via bank/UPI transfer</li><li>Damaged with video: Free replacement in 3-5 days</li><li>Wrong item: Free replacement + return pickup</li></ul>'),
-  ('terms', 'Terms & Conditions', '<h2>Terms & Conditions</h2><p>By using PhotoFrameIn, you agree to these terms.</p><h3>Orders</h3><p>All orders are made-to-order. Delivery timeline is 3-5 business days across India.</p><h3>COD Policy</h3><p>COD is available for orders between Rs.499 and Rs.1,995. A non-refundable Rs.49 COD fee applies. Orders must be confirmed via WhatsApp within 24 hours or they will be auto-cancelled.</p><h3>Custom Frames</h3><p>Custom frame orders are prepaid only. No returns, refunds, or cancellations.</p>'),
-  ('shipping', 'Shipping Policy', '<h2>Shipping Policy</h2><p>We dispatch orders within 12 hours of confirmation.</p><h3>Delivery Timeline</h3><ul><li>Hyderabad (500xxx): 1-3 business days</li><li>Rest of India: 3-5 business days</li></ul><h3>Shipping Charges</h3><ul><li>Prepaid orders above Rs.799: FREE</li><li>Prepaid orders below Rs.799: Rs.79</li><li>COD Small/Medium: Rs.99</li><li>COD Large/XL: Rs.149</li></ul><h3>Packaging</h3><p>Every frame is packed with 5-layer protection including corner protectors to ensure safe delivery.</p>'),
+  ('terms', 'Terms & Conditions', '<h2>Terms & Conditions</h2><p>By using PhotoFrameIn, you agree to these terms.</p><h3>Orders</h3><p>All orders are made-to-order. Delivery timeline is 3-5 business days across India.</p><h3>COD Policy</h3><p>COD is available for orders between Rs.899 and Rs.1,995. A non-refundable Rs.49 COD fee applies. Orders must be confirmed via WhatsApp within 24 hours or they will be auto-cancelled.</p><h3>Custom Frames</h3><p>Custom frame orders are prepaid only. No returns, refunds, or cancellations.</p>'),
+  ('shipping', 'Shipping Policy', '<h2>Shipping Policy</h2><p>We dispatch orders within 12 hours of confirmation.</p><h3>Delivery Timeline</h3><ul><li>Hyderabad (500xxx): 1-3 business days</li><li>Rest of India: 3-5 business days</li></ul><h3>Shipping Charges</h3><ul><li>Prepaid orders above Rs.899: FREE</li><li>Prepaid orders below Rs.899: Rs.79</li><li>COD Small/Medium: Rs.99</li><li>COD Large/XL: Rs.149</li></ul><h3>Packaging</h3><p>Every frame is packed with 5-layer protection including corner protectors to ensure safe delivery.</p>'),
   ('privacy', 'Privacy Policy', '<h2>Privacy Policy</h2><p>PhotoFrameIn respects your privacy. We collect only essential information to process orders.</p><h3>What We Collect</h3><ul><li>Name, email, phone for order processing</li><li>Address for delivery</li><li>Payment information (processed securely by Razorpay)</li></ul><h3>How We Use It</h3><p>Your information is used solely for order processing, delivery, and customer support. We never sell your data to third parties.</p>')
 ON CONFLICT (slug) DO NOTHING;
 
@@ -973,10 +978,10 @@ INSERT INTO system_config (key, value, description)
 VALUES 
   ('checkout_mode', 'shiprocket', 'Options: shiprocket, custom'),
   ('cod_enabled', 'true', 'Enable Cash on Delivery'),
-  ('free_shipping_threshold', '799', 'Order subtotal for free shipping'),
+  ('free_shipping_threshold', '899', 'Order subtotal for free shipping'),
   ('prepaid_discount', '50', 'Flat discount for prepaid orders'),
   ('announcement_active', 'true', 'Show top announcement bar'),
-  ('announcement_text', 'Free Delivery on orders above ₹799 | COD Available', 'Banner text')
+  ('announcement_text', 'Free Delivery on orders above ₹899 | COD Available', 'Banner text')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 -- ==========================================
@@ -1041,15 +1046,42 @@ CREATE INDEX IF NOT EXISTS idx_orders_customer_email ON public.orders(customer_e
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders(created_at DESC);
 
 -- 6. Sales Funnel Events
-CREATE TABLE IF NOT EXISTS public.funnel_events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    session_id TEXT,
-    email TEXT,
-    event_type TEXT CHECK (event_type IN ('identify', 'add_to_cart', 'checkout_start', 'payment_success', 'view')),
-    product_id TEXT,
-    metadata JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS public.sales_funnel_events (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type   TEXT NOT NULL,
+  product_id   UUID,
+  order_id     TEXT,
+  session_id   TEXT,
+  utm_source   TEXT,
+  utm_medium   TEXT,
+  utm_campaign TEXT,
+  metadata     JSONB DEFAULT '{}',
+  created_at   TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 6b. Ad Performance
+CREATE TABLE IF NOT EXISTS public.ad_performance (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  date        DATE NOT NULL,
+  platform    TEXT NOT NULL,       -- 'instagram', 'google', 'facebook', 'organic'
+  campaign    TEXT,
+  category    TEXT,                -- 'divine', 'automotive', 'general'
+  ad_spend    INTEGER DEFAULT 0,   -- in paise (₹1 = 100 paise)
+  impressions INTEGER DEFAULT 0,
+  clicks      INTEGER DEFAULT 0,
+  orders      INTEGER DEFAULT 0,
+  revenue     INTEGER DEFAULT 0,
+  cac         INTEGER DEFAULT 0,   -- cost per acquisition in ₹
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for funnel and ad performance
+CREATE INDEX IF NOT EXISTS idx_sfunnel_type        ON public.sales_funnel_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_sfunnel_created     ON public.sales_funnel_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sfunnel_utm         ON public.sales_funnel_events(utm_source);
+CREATE INDEX IF NOT EXISTS idx_ad_perf_date        ON public.ad_performance(date DESC);
+CREATE INDEX IF NOT EXISTS idx_ad_perf_platform    ON public.ad_performance(platform);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ad_perf_uniq   ON public.ad_performance (date, platform, COALESCE(campaign, ''));
 
 -- 7. Coupon usage tracking columns (run if upgrading from v15.2)
 ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS current_uses INTEGER DEFAULT 0;
@@ -1064,13 +1096,15 @@ GRANT EXECUTE ON FUNCTION increment_view(TEXT) TO service_role;
 
 -- Row Level Security (ensure tables allow service-key writes)
 ALTER TABLE public.view_stats ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.funnel_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sales_funnel_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ad_performance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.email_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
 
 -- Policies: allow service_role full access, anon can read coupons/view_stats
 CREATE POLICY IF NOT EXISTS "service_role_all_view_stats" ON public.view_stats FOR ALL TO service_role USING (true);
-CREATE POLICY IF NOT EXISTS "service_role_all_funnel_events" ON public.funnel_events FOR ALL TO service_role USING (true);
+CREATE POLICY IF NOT EXISTS "service_role_all_sales_funnel_events" ON public.sales_funnel_events FOR ALL TO service_role USING (true);
+CREATE POLICY IF NOT EXISTS "service_role_all_ad_performance" ON public.ad_performance FOR ALL TO service_role USING (true);
 CREATE POLICY IF NOT EXISTS "service_role_all_email_logs" ON public.email_logs FOR ALL TO service_role USING (true);
 CREATE POLICY IF NOT EXISTS "service_role_all_coupons" ON public.coupons FOR ALL TO service_role USING (true);
 CREATE POLICY IF NOT EXISTS "anon_read_coupons" ON public.coupons FOR SELECT TO anon USING (is_active = true);

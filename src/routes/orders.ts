@@ -87,7 +87,7 @@ orders.post('/create', async (c) => {
     if (paymentMethod === 'cod') {
       if (config.cod_enabled !== 'true') return c.json({ error: 'COD is currently disabled' }, 400);
       if (hasCustomFrame) return c.json({ error: 'Custom frames are prepaid only' }, 400);
-      if (subtotal < parseInt(config.cod_min_value || '499')) return c.json({ error: `COD minimum is Rs.${config.cod_min_value}` }, 400);
+      if (subtotal < parseInt(config.cod_min_value || '899')) return c.json({ error: `COD minimum is Rs.${config.cod_min_value}` }, 400);
       if (subtotal > parseInt(config.cod_max_value || '1995')) return c.json({ error: `COD not available above Rs.${config.cod_max_value}` }, 400);
     }
 

@@ -304,7 +304,7 @@ checkout.post('/cod-check', async (c) => {
     return c.json({ available: false, reason: 'COD is currently unavailable' });
   }
 
-  if (cartTotal < parseInt(config.cod_min_value || '499')) {
+  if (cartTotal < parseInt(config.cod_min_value || '899')) {
     return c.json({ available: false, reason: `COD available for orders above Rs.${config.cod_min_value}` });
   }
 

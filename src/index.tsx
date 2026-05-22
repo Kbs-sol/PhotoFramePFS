@@ -309,7 +309,7 @@ app.get('/api/config/public', async (c) => {
         announcement_text: 'Free Delivery on orders above ₹899 | COD Available',
         announcement_link: '/shop',
         announcement_bg: '#CC0000',
-        cod_enabled: 'true', cod_min_value: '499', cod_max_value: '1995', cod_fee: '49',
+        cod_enabled: 'true', cod_min_value: '899', cod_max_value: '1995', cod_fee: '49',
         free_shipping_threshold: '899', prepaid_discount: '50',
         urgency_text: 'Limited Stock Available', urgency_subtext: 'Offer Ends Soon',
         combos_enabled: 'true', exit_intent_enabled: 'true',

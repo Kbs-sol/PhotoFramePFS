@@ -79,6 +79,12 @@ admin.post('/auth', async (c) => {
       return c.json({ error: authError?.message || 'Authentication failed' }, 401);
     }
 
+    // Upsert admin_users table (ensure user exists and is up to date)
+    await sb.from('admin_users').upsert({
+      email: authData.user.email,
+      role: 'admin' // Default role for new sign-ins
+    }, { onConflict: 'email' });
+
     // 3. Verify authorization in admin_users table
     const { data: adminUser, error: adminError } = await sb
       .from('admin_users')
@@ -100,6 +106,7 @@ admin.post('/auth', async (c) => {
         role: adminUser.role
       }
     });
+    // End of modified block
   } catch (e: any) {
     return c.json({ success: false, error: e.message || 'Auth failed' }, 500);
   }
@@ -299,7 +306,7 @@ admin.get('/dashboard', async (c) => {
 admin.get('/products', async (c) => {
   const sb = getSupabase(c.env);
   const { data } = await sb.from('products')
-    .select(`*, category:categories(name, slug), images:product_images(id, image_url, alt_text, display_order), variants:product_variants(*)`)
+      .select(`*, category:categories(name, slug), images, variants:product_variants(*)`)
     .order('created_at', { ascending: false });
   return c.json({ products: data || [] });
 });
@@ -368,21 +375,70 @@ admin.put('/variants/:id', async (c) => {
 });
 
 // Product images
-admin.post('/products/:id/images', async (c) => {
-  const productId = c.req.param('id');
-  const body = await c.req.json();
+// New endpoint: POST /products/:id/batch-images – uploads, optimizes, stores URLs, max 6 images
+admin.post('/products/:id/batch-images', async (c) => {
   const sb = getSupabase(c.env);
-  const { data, error } = await sb.from('product_images').insert({ ...body, product_id: productId }).select().single();
-  if (error) return c.json({ error: error.message }, 400);
-  return c.json({ image: data });
+  const productId = c.req.param('id');
+
+  // Verify product exists
+  const { data: product, error: prodError } = await sb.from('products').select('id').eq('id', productId).single();
+  if (prodError || !product) return c.json({ error: 'Product not found' }, 404);
+
+  // Parse multipart form data
+  const formData = await c.req.formData();
+  const files = formData.getAll('files') as File[];
+  if (!files.length) return c.json({ error: 'No files uploaded' }, 400);
+
+  // Enforce max 6 images per product (new batch replaces old ones)
+  if (files.length > 6) return c.json({ error: 'Maximum 6 images allowed per product' }, 400);
+
+  // Delete existing images for this product
+  await sb.from('product_images').delete().eq('product_id', productId);
+
+  // Configure Cloudinary
+  const cloudinaryUrl = c.env.CLOUDINARY_URL;
+  if (!cloudinaryUrl) return c.json({ error: 'Cloudinary not configured' }, 500);
+  const match = cloudinaryUrl.match(/^cloudinary:\/\/(.+?):(.+?)@(.+)$/);
+  if (!match) return c.json({ error: 'Invalid CLOUDINARY_URL format' }, 500);
+  const [, apiKey, apiSecret, cloudName] = match;
+  const cloudinary = require('cloudinary').v2;
+  cloudinary.config({ cloud_name: cloudName, api_key: apiKey, api_secret: apiSecret });
+
+  const results: { filename: string; url: string }[] = [];
+
+  for (const [index, file] of files.entries()) {
+    // Optimize image using Sharp (convert to WebP, quality 80)
+    const inputBuffer = Buffer.from(await file.arrayBuffer());
+    const optimizedBuffer = await (await import('sharp')).default(inputBuffer)
+      .rotate()
+      .resize({ width: 2000, withoutEnlargement: true })
+      .toFormat('webp', { quality: 80 })
+      .toBuffer();
+
+    // Upload to Cloudinary via stream
+    const uploaded = await new Promise<any>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream({ resource_type: 'image', folder: 'product_images' }, (error: any, result: any) => {
+        if (error) reject(error);
+        else resolve(result);
+      });
+      uploadStream.end(optimizedBuffer);
+    });
+
+    const url = uploaded.secure_url;
+    results.push({ filename: file.name, url });
+
+    // Insert record into product_images table
+    await sb.from('product_images').insert({
+      product_id: productId,
+      image_url: url,
+      alt_text: file.name,
+      display_order: index + 1
+    });
+  }
+
+  return c.json({ uploaded: results });
 });
 
-admin.delete('/images/:id', async (c) => {
-  const id = c.req.param('id');
-  const sb = getSupabase(c.env);
-  await sb.from('product_images').delete().eq('id', id);
-  return c.json({ success: true });
-});
 
 // ==========================================
 // CATEGORIES CRUD
