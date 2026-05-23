@@ -10,13 +10,14 @@
   --admin-card-hover: #1C1C1C;
   --admin-border: #252525;
   --admin-border-hover: #333333;
-  --admin-gold: #F2CA50;
-  --admin-gold-dim: #D4AF37;
-  --admin-gold-glow: rgba(242, 202, 80, 0.12);
-  --admin-green: #22C55E;
+  --admin-gold: #DAA520; /* warm gold */
+  --admin-gold-dim: #A68444;
+  --admin-gold-glow: rgba(218, 165, 32, 0.12);
+  --admin-green: #2E8B57; /* emerald */
   --admin-red: #EF4444;
   --admin-yellow: #EAB308;
   --admin-blue: #3B82F6;
+  --admin-purple: #7C3AED; /* dark mode purple accent */
   --admin-text: #E5E2E1;
   --admin-text-muted: #8B8B8B;
   --admin-text-dim: #5A5A5A;
@@ -214,7 +215,10 @@
   letter-spacing: 0.1em;
 }
 
-.sidebar-nav { flex: 1; padding: 8px 0; }
+.sidebar-nav { flex: 1; padding: 8px 0; overflow-y: auto; overflow-x: hidden; min-height: 0; }
+.sidebar-nav::-webkit-scrollbar { width: 3px; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: var(--admin-border); border-radius: 4px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
 
 .nav-item {
   display: flex;

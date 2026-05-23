@@ -37,12 +37,14 @@ export type Bindings = {
   GTM_CONTAINER_ID: string;
   GA4_MEASUREMENT_ID: string;
   MICROSOFT_CLARITY_ID: string;
+  NODE_ENV?: string;
+  ADMIN_EMAIL?: string;
   // Cloudinary — set all four OR just CLOUDINARY_URL
   CLOUDINARY_URL: string;          // cloudinary://API_KEY:API_SECRET@CLOUD_NAME
   CLOUDINARY_CLOUD_NAME: string;   // preferred individual key
   CLOUDINARY_API_KEY: string;      // preferred individual key
   CLOUDINARY_API_SECRET: string;   // preferred individual key
-  OPENROUTER_API_KEY: string;      // for SEO AI
+  OPENROUTER_API_KEY: string;      // OpenRouter AI for SEO generation
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -90,7 +92,7 @@ app.use('/api/*', cors({
 }));
 
 app.notFound((c) => {
-  return c.html(`<!DOCTYPE html><html><head><title>404 - Not Found</title><link href="/static/styles.css" rel="stylesheet"></head><body style="background:#050505;color:#E5E5E5;text-align:center;padding-top:100px;font-family:Inter,sans-serif"><h1>404</h1><p>Page Not Found</p><a href="/" style="color:#C5A059;text-decoration:none">Return Home</a></body></html>`, 404);
+  return c.html(`<!DOCTYPE html><html><head><title>404 - Not Found</title><link href="/static/styles.css" rel="stylesheet"></head><body style="background:#050505;color:#E5E5E5;text-align:center;padding-top:100px;font-family:Inter,sans-serif"><h1>404</h1><p>Page Not Found</p><a href="/" style="color:#DAA520;text-decoration:none">Return Home</a></body></html>`, 404);
 });
 
 app.onError(async (err, c) => {
@@ -112,7 +114,7 @@ app.onError(async (err, c) => {
   }
   // refId is safe (alphanumeric only) but we escape it anyway for defence-in-depth
   const safeRef = refId.replace(/[^A-Z0-9\-]/g, '');
-  return c.html(`<!DOCTYPE html><html><head><title>500 - System Error</title><link href="/static/styles.css" rel="stylesheet"></head><body style="background:#050505;color:#E5E5E5;text-align:center;padding-top:100px;font-family:Inter,sans-serif"><h1>500 System Error</h1><p>Something went wrong. Our team has been notified.</p><p style="font-size:12px;color:#666">Ref: ${safeRef}</p><a href="/" style="color:#C5A059;text-decoration:none;margin-top:20px;display:inline-block">← Return Home</a></body></html>`, 500);
+  return c.html(`<!DOCTYPE html><html><head><title>500 - System Error</title><link href="/static/styles.css" rel="stylesheet"></head><body style="background:#050505;color:#E5E5E5;text-align:center;padding-top:100px;font-family:Inter,sans-serif"><h1>500 System Error</h1><p>Something went wrong. Our team has been notified.</p><p style="font-size:12px;color:#666">Ref: ${safeRef}</p><a href="/" style="color:#DAA520;text-decoration:none;margin-top:20px;display:inline-block">← Return Home</a></body></html>`, 500);
 });
 
 // ==========================================
@@ -314,7 +316,9 @@ app.get('/api/config/public', async (c) => {
         urgency_text: 'Limited Stock Available', urgency_subtext: 'Offer Ends Soon',
         combos_enabled: 'true', exit_intent_enabled: 'true',
         seo_title: 'PhotoFrameIn | Buy Photo Frames & Custom Wall Art Online in India',
-        seo_description: 'Buy photo frames online, wall art, and custom poster frames. Fast delivery across India. Starting ₹199.'
+        seo_description: 'Buy photo frames online, wall art, and custom poster frames. Fast delivery across India. Starting ₹199.',
+        brand_name: 'PhotoFrameIn',
+        poster_addon_price: '199'
       }});
     }
     const config = await getConfigs(c.env, [
@@ -329,7 +333,8 @@ app.get('/api/config/public', async (c) => {
       'festival_mode', 'seo_title', 'seo_description', 'og_image',
       'gtm_container_id', 'whatsapp_number',
       'bulk_order_phone1', 'bulk_order_phone2', 'poster_enabled',
-      'review_photo_enabled', 'whatsapp_disputes'
+      'review_photo_enabled', 'whatsapp_disputes', 'brand_name',
+      'poster_addon_price'
     ]);
     return c.json({ config });
   } catch (e) {
@@ -441,10 +446,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->`;
 }
 
-function pageShell(title: string, description: string, gtmId?: string, ogImage?: string, jsonLd?: string, analytics?: { ga4?: string, clarity?: string }, canonicalPath?: string): string {
-  // SECURITY: Sanitize title and description to prevent HTML injection
+function pageShell(title: string, description: string, gtmId?: string, ogImage?: string, jsonLd?: string, analytics?: { ga4?: string, clarity?: string }, canonicalPath?: string, brandName = 'PhotoFrameIn'): string {
+  // SECURITY: Sanitize title, description and brand name to prevent HTML injection
   const safeTitle = title.replace(/[<>"]/g, '').slice(0, 120);
   const safeDesc = description.replace(/[<>"]/g, '').slice(0, 320);
+  const safeBrand = brandName.replace(/[<>"]/g, '').slice(0, 100);
   const safeOgImage = ogImage && /^https?:\/\//.test(ogImage) ? ogImage : '';
   const canonical = canonicalPath ? `https://photoframein.com${canonicalPath}` : 'https://photoframein.com';
 
@@ -453,7 +459,7 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
   const ldTag = jsonLd ? `\n  ${jsonLd}` : '';
 
   // Business Schema (always present)
-  const businessSchema = `\n  <script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"PhotoFrameIn","url":"https://photoframein.com","logo":"https://photoframein.com/static/images/logo.png","description":"Buy premium photo frames and custom wall art online in India. Dive art, automotive frames, custom photo frames. Fast delivery across India.","address":{"@type":"PostalAddress","addressLocality":"Hyderabad","addressRegion":"Telangana","addressCountry":"IN"},"telephone":"+91-79895-31818","priceRange":"₹₹","openingHours":"Mo-Sa 09:00-19:00","sameAs":["https://instagram.com/photoframein","https://facebook.com/photoframein"]}</script>`;
+  const businessSchema = `\n  <script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"${safeBrand}","url":"https://photoframein.com","logo":"https://photoframein.com/static/images/logo.png","description":"Buy premium photo frames and custom wall art online in India. Dive art, automotive frames, custom photo frames. Fast delivery across India.","address":{"@type":"PostalAddress","addressLocality":"Hyderabad","addressRegion":"Telangana","addressCountry":"IN"},"telephone":"+91-79895-31818","priceRange":"₹₹","openingHours":"Mo-Sa 09:00-19:00","sameAs":["https://instagram.com/photoframein","https://facebook.com/photoframein"]}</script>`;
   
   const ga4Tag = analytics?.ga4 ? `
   <script async src="https://www.googletagmanager.com/gtag/js?id=${analytics.ga4}"></script>
@@ -473,6 +479,8 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
     })(window, document, "clarity", "script", "${analytics.clarity}");
   </script>` : '';
 
+  const twitterHandle = safeBrand.toLowerCase().replace(/\s+/g, '');
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -485,8 +493,8 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
   <meta property="og:description" content="${safeDesc}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="${canonical}">
-  <meta property="og:site_name" content="PhotoFrameIn">
-  <meta name="twitter:site" content="@photoframein">
+  <meta property="og:site_name" content="${safeBrand}">
+  <meta name="twitter:site" content="@${twitterHandle}">
   <meta name="twitter:title" content="${safeTitle}">
   <meta name="twitter:description" content="${safeDesc}">${imageTag}${canonicalTag}${businessSchema}${ldTag}
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼️</text></svg>">
@@ -496,7 +504,7 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
       theme: {
         extend: {
           colors: {
-            brand: { bg: '#050505', card: '#121212', gold: '#C5A059', red: '#CC0000', saffron: '#E8670A', green: '#22C55E', purple: '#7C3AED' }
+            brand: { bg: '#050505', card: '#121212', gold: '#DAA520', red: '#CC0000', saffron: '#FF7A1A', green: '#2E8B57', purple: '#7C3AED' }
           }
         }
       }
@@ -523,10 +531,11 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
 // All customer-facing routes serve the SPA shell
 const customerRoutes = ['/', '/shop', '/product/:slug', '/category/:slug', '/cart', '/checkout', '/customize',
   '/track', '/returns', '/policy', '/policy/:section', '/about', '/contact', '/blog',
-  '/blog/:slug', '/review', '/wishlist', '/account', '/account/:section', '/login', '/auth/callback'];
+  '/blog/:slug', '/review', '/suggest', '/wishlist', '/account', '/account/:section', '/login', '/auth/callback'];
 
 for (const route of customerRoutes) {
   app.get(route, async (c) => {
+    let brandName = 'PhotoFrameIn';
     let title = 'PhotoFrameIn | Buy Photo Frames & Custom Wall Art Online';
     let description = 'Buy photo frames online, wall art & custom frames online. Fast delivery across India.';
     let ogImage = '';
@@ -536,16 +545,17 @@ for (const route of customerRoutes) {
     try {
       if (c.env.SUPABASE_URL) {
         const sb = getSupabase(c.env);
-        const config = await getConfigs(c.env, ['seo_title', 'seo_description', 'gtm_container_id']);
+        const config = await getConfigs(c.env, ['seo_title', 'seo_description', 'gtm_container_id', 'brand_name']);
         gtmId = config.gtm_container_id;
-        title = config.seo_title || title;
+        brandName = config.brand_name || 'PhotoFrameIn';
+        title = config.seo_title || `${brandName} | Buy Photo Frames & Custom Wall Art Online`;
         description = config.seo_description || description;
 
         if (route === '/product/:slug') {
           const slug = c.req.param('slug');
           const { data: product } = await sb.from('products').select('*').eq('slug', slug).eq('is_active', true).single();
           if (product) {
-            title = product.seo_title || `${product.name} | PhotoFrameIn`;
+            title = product.seo_title || `${product.name} | ${brandName}`;
             description = product.seo_description || product.description?.replace(/<[^>]*>?/gm, '').substring(0, 160) || description;
             
             const { data: imgData } = await sb.from('product_images').select('image_url').eq('product_id', product.id).order('display_order').limit(1).single();
@@ -563,7 +573,7 @@ for (const route of customerRoutes) {
   "description": "${description.replace(/"/g, '&quot;')}",
   "brand": {
     "@type": "Brand",
-    "name": "PhotoFrameIn"
+    "name": "${brandName}"
   },
   "offers": {
     "@type": "AggregateOffer",
@@ -579,7 +589,7 @@ for (const route of customerRoutes) {
           const slug = c.req.param('slug');
           const { data: cat } = await sb.from('categories').select('*').eq('slug', slug).single();
           if (cat) {
-            title = `${cat.name} | PhotoFrameIn`;
+            title = `${cat.name} | ${brandName}`;
             description = cat.description || `Browse our gorgeous collection of ${cat.name} custom photo frames and wall art online.`;
             if (cat.image_url) ogImage = cat.image_url;
           }
@@ -590,7 +600,7 @@ for (const route of customerRoutes) {
     return c.html(pageShell(title, description, gtmId, ogImage, jsonLd, {
       ga4: c.env.GA4_MEASUREMENT_ID,
       clarity: c.env.MICROSOFT_CLARITY_ID
-    }));
+    }, undefined, brandName));
   });
 }
 
@@ -609,7 +619,7 @@ app.get('/admin/:section', async (c) => {
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      theme: { extend: { colors: { brand: { bg: '#050505', card: '#121212', gold: '#C5A059', red: '#CC0000', saffron: '#E8670A', green: '#22C55E', purple: '#7C3AED' } } } }
+      theme: { extend: { colors: { brand: { bg: '#050505', card: '#121212', gold: '#DAA520', red: '#CC0000', saffron: '#FF7A1A', green: '#2E8B57', purple: '#7C3AED' } } } }
     }
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -628,4 +638,3 @@ app.get('/admin/:section', async (c) => {
 });
 
 export default app;
-// (OPENROUTER_API_KEY is accessed via c.env as any in admin routes)

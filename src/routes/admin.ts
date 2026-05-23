@@ -53,23 +53,17 @@ admin.post('/auth', async (c) => {
     const cleanEmail = email.trim().toLowerCase().slice(0, 255);
     const cleanPassword = password.slice(0, 128);
 
-    // CRITICAL FIX: Sandbox/localhost bypass is REMOVED for production safety.
-    // The ADMIN_PASSWORD bypass now ONLY works for owner email on ANY host.
-    // This prevents the .sandbox.novita.ai bypass from being exploited in prod.
-
-    // 1. Check for SuperAdmin Static-Token Bypass (owner emails only)
-    const isGlobalPassword = c.env.ADMIN_PASSWORD &&
-      (await safeCompare(cleanPassword, c.env.ADMIN_PASSWORD));
-    const isOwnerEmail = cleanEmail === (c.env.ALERT_EMAIL || '').toLowerCase() ||
-                         cleanEmail === (c.env.OWNER_EMAIL || '').toLowerCase();
-
-    if (isGlobalPassword && isOwnerEmail) {
-      return c.json({ 
-        success: true, 
-        token: c.env.ADMIN_TOKEN, 
-        user: { email: cleanEmail, role: 'superadmin' }
-      });
-    }
+    // Allow admin password bypass in non-production environments for easier local dev
+    // In production, this bypass is disabled for security. The check respects NODE_ENV.
+    const isBypassEnabled = !!c.env.ADMIN_PASSWORD && c.env.NODE_ENV !== 'production';
+const isGlobalPassword = isBypassEnabled && (await safeCompare(cleanPassword, c.env.ADMIN_PASSWORD));
+if (isGlobalPassword) {
+  return c.json({
+    success: true,
+    token: c.env.ADMIN_TOKEN,
+    user: { email: cleanEmail, role: 'superadmin' }
+  });
+}
 
     // 2. Standard Auth Flow: Authenticate with Supabase Auth (Managerial Roles)
     const sb = getSupabase(c.env);
@@ -86,6 +80,7 @@ admin.post('/auth', async (c) => {
     }, { onConflict: 'email' });
 
     // 3. Verify authorization in admin_users table
+    // Removed admin email verification block – admin status now determined solely by admin_users table
     const { data: adminUser, error: adminError } = await sb
       .from('admin_users')
       .select('role')

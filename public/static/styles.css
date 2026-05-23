@@ -5,12 +5,15 @@
   --bg: #050505;
   --card: #121212;
   --card-hover: #1A1A1A;
-  --gold: #C5A059;
+  --gold: #DAA520; /* warm gold */
   --gold-dim: #A68444;
-  --gold-glow: rgba(197,160,89,0.08);
+  --gold-glow: rgba(218,165,32,0.08);
   --red: #CC0000;
-  --saffron: #E8670A;
-  --green: #22C55E;
+  --red-bright: #E53E3E;
+  --saffron: #FF7A1A;
+  --saffron-bright: #FF8C38;
+  --auto-red: #FF4444;
+  --green: #2E8B57; /* emerald */
   --purple: #7C3AED;
   --text: #E5E5E5;
   --text-muted: #9CA3AF;
@@ -96,8 +99,9 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; line-hei
 .hero-bg-pattern {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle at 20% 50%, rgba(197,160,89,0.05) 0%, transparent 50%),
-                    radial-gradient(circle at 80% 20%, rgba(204,0,0,0.04) 0%, transparent 40%);
+  background-image: radial-gradient(circle at 20% 50%, rgba(218,165,32,0.06) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 20%, rgba(204,0,0,0.05) 0%, transparent 40%),
+                    radial-gradient(circle at 60% 80%, rgba(124,58,237,0.04) 0%, transparent 40%);
   pointer-events: none;
 }
 
@@ -117,7 +121,7 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; line-hei
 }
 .trust-badge i { color: var(--gold); }
 .trust-badge.green { border-color: rgba(34,197,94,0.3); color: var(--green); }
-.trust-badge.gold { border-color: rgba(197,160,89,0.4); color: var(--gold); }
+.trust-badge.gold { border-color: rgba(218,165,32,0.4); color: var(--gold); }
 
 /* ─── Spotlight Cards (Hero) ────────────────────────────────────────────────── */
 .spotlight-card {
@@ -168,7 +172,7 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; line-hei
 .product-card:hover, .product-card:focus {
   border-color: var(--gold);
   transform: translateY(-5px);
-  box-shadow: 0 16px 48px rgba(197,160,89,0.12), 0 0 0 1px rgba(197,160,89,0.05);
+  box-shadow: 0 16px 48px rgba(218,165,32,0.14), 0 0 0 1px rgba(218,165,32,0.06);
 }
 .product-card img {
   width: 100%;
@@ -220,7 +224,7 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; line-hei
 .bundle-card:hover, .bundle-card:focus {
   border-color: var(--gold);
   transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(197,160,89,0.1);
+  box-shadow: 0 12px 32px rgba(218,165,32,0.12);
 }
 .bundle-tag {
   font-size: 11px;
@@ -230,7 +234,17 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; line-hei
   letter-spacing: 1px;
   margin-bottom: 8px;
 }
-.bundle-tag.saffron { color: var(--saffron); }
+.bundle-tag.saffron { color: var(--saffron); text-shadow: 0 0 12px rgba(255,122,26,0.4); }
+.bundle-tag.auto-red { color: var(--auto-red); text-shadow: 0 0 12px rgba(255,68,68,0.4); }
+/* Automotive bundle card accent */
+.bundle-card.auto-themed { border-color: rgba(255,68,68,0.25); }
+.bundle-card.auto-themed:hover, .bundle-card.auto-themed:focus { border-color: var(--auto-red); box-shadow: 0 12px 32px rgba(255,68,68,0.12); }
+/* Divine bundle card accent */
+.bundle-card.divine-themed { border-color: rgba(255,122,26,0.2); }
+.bundle-card.divine-themed:hover, .bundle-card.divine-themed:focus { border-color: var(--saffron); box-shadow: 0 12px 32px rgba(255,122,26,0.1); }
+/* Category spotlight — saffron label with glow */
+.spotlight-label-saffron { color: var(--saffron) !important; text-shadow: 0 0 10px rgba(255,122,26,0.35); }
+.spotlight-label-auto { color: var(--auto-red) !important; text-shadow: 0 0 10px rgba(255,68,68,0.35); }
 .bundle-title { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 8px; }
 .bundle-price { color: var(--gold); font-weight: 700; font-size: 15px; }
 
@@ -245,7 +259,42 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; line-hei
   transition: all 0.25s;
 }
 .bundle-volume-card:hover, .bundle-volume-card:focus { border-color: var(--gold); }
-.bundle-volume-card.active { border-color: var(--gold); background: rgba(197,160,89,0.08); }
+.bundle-volume-card.active { border-color: var(--gold); background: rgba(218,165,32,0.09); }
+
+/* ─── Poster Add-on Upsell Card ─────────────────────────────────────────────── */
+.poster-addon-upsell {
+  background: linear-gradient(135deg, rgba(218,165,32,0.07) 0%, rgba(218,165,32,0.02) 100%);
+  border: 1.5px solid rgba(218,165,32,0.35);
+  border-radius: 14px;
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.poster-addon-upsell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 60%, rgba(218,165,32,0.05) 100%);
+  pointer-events: none;
+}
+.poster-addon-header { position: relative; z-index: 1; }
+.poster-addon-badge {
+  display: inline-block;
+  background: var(--gold);
+  color: #000;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+}
+.poster-addon-upsell input[type="checkbox"]:checked + div {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.poster-addon-upsell input[type="checkbox"]:checked + div i { display: block !important; }
 
 /* ─── Buttons ───────────────────────────────────────────────────────────────── */
 .btn-buy {
@@ -333,7 +382,7 @@ select.form-input { appearance: none; cursor: pointer; }
 .size-option:hover, .frame-option:hover { border-color: #555; }
 .size-option.active, .frame-option.active {
   border-color: var(--gold);
-  background: rgba(197,160,89,0.1);
+  background: rgba(218,165,32,0.1);
   color: #fff;
 }
 
@@ -385,8 +434,8 @@ select.form-input { appearance: none; cursor: pointer; }
 
 /* ─── Upsell Card ───────────────────────────────────────────────────────────── */
 .upsell-card {
-  background: rgba(197,160,89,0.08);
-  border: 1px solid rgba(197,160,89,0.25);
+  background: rgba(218,165,32,0.09);
+  border: 1px solid rgba(218,165,32,0.28);
   border-radius: 16px;
   padding: 16px;
   display: flex;
@@ -406,7 +455,7 @@ select.form-input { appearance: none; cursor: pointer; }
   transition: all 0.2s;
 }
 .payment-option:hover { border-color: #555; }
-.payment-option.active { border-color: var(--gold); background: rgba(197,160,89,0.06); }
+.payment-option.active { border-color: var(--gold); background: rgba(218,165,32,0.07); }
 
 /* ─── Custom Frame Option ───────────────────────────────────────────────────── */
 .custom-frame-option {
@@ -420,7 +469,7 @@ select.form-input { appearance: none; cursor: pointer; }
   transition: all 0.2s;
 }
 .custom-frame-option:hover { border-color: #555; }
-.custom-frame-option.active { border-color: var(--gold); background: rgba(197,160,89,0.06); }
+.custom-frame-option.active { border-color: var(--gold); background: rgba(218,165,32,0.07); }
 
 /* ─── Badges ────────────────────────────────────────────────────────────────── */
 .badge-popular { background: var(--gold); color: #0D0D0D; font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700; display: inline-block; }
@@ -469,7 +518,7 @@ select.form-input { appearance: none; cursor: pointer; }
   white-space: nowrap;
 }
 .filter-btn:hover { border-color: var(--gold); color: var(--gold); }
-.filter-btn.active { background: rgba(197,160,89,0.1); border-color: var(--gold); color: var(--gold); }
+.filter-btn.active { background: rgba(218,165,32,0.11); border-color: var(--gold); color: var(--gold); }
 
 /* ─── Popup / Exit Intent ───────────────────────────────────────────────────── */
 .popup-overlay {
@@ -707,7 +756,7 @@ select.form-input { appearance: none; cursor: pointer; }
   background-color: #FFFFFF !important;
   box-shadow:
     0 0 0 10px #2a2a2a,          /* outer charcoal frame */
-    0 0 0 11px rgba(197,160,89,0.25), /* gold accent line on frame edge */
+    0 0 0 11px rgba(218,165,32,0.28), /* gold accent line on frame edge */
     0 0 0 12px #1a1a1a,          /* outer shadow cap */
     0 24px 64px rgba(0,0,0,0.55) !important;
   position: relative;
@@ -727,7 +776,7 @@ select.form-input { appearance: none; cursor: pointer; }
   content: '';
   position: absolute;
   inset: -1px;
-  border: 1px solid rgba(197,160,89,0.18);
+  border: 1px solid rgba(218,165,32,0.20);
   pointer-events: none;
   z-index: 3;
 }
@@ -751,17 +800,72 @@ select.form-input { appearance: none; cursor: pointer; }
 
 /* Custom Upload Zone */
 #upload-zone { transition: all 0.3s var(--ease-out); }
-#upload-zone:hover { background: rgba(197,160,89,0.04); }
+#upload-zone:hover { background: rgba(218,165,32,0.05); border-color: rgba(218,165,32,0.3); }
 
 /* ─── Pincode → Checkout form inline ───────────────────────────────────────── */
 #pincode-result { min-height: 20px; }
 
+/* ─── Glassmorphism Card ─────────────────────────────────────────────────────── */
+.glass-card {
+  background: rgba(18,18,18,0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.glass-card:hover {
+  border-color: rgba(218,165,32,0.25);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(218,165,32,0.08), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* Purple accent utilities */
+.text-purple { color: var(--purple); }
+.border-purple { border-color: var(--purple); }
+.bg-purple-glow { background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); }
+
+/* Emerald accent utilities */
+.text-emerald { color: var(--green); }
+.bg-emerald-glow { background: rgba(46,139,87,0.08); border: 1px solid rgba(46,139,87,0.25); }
+
 /* ─── Animations ────────────────────────────────────────────────────────────── */
-.animate-fade-in { animation: fadeIn 0.4s ease-out; }
+.animate-fade-in { animation: fadeIn 0.4s ease-out both; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.animate-fade-up { animation: fadeUp 0.5s var(--ease-out) both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+.animate-scale-in { animation: scaleIn 0.4s var(--ease-out) both; }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
 
 .animate-bounce-once { animation: bounceOnce 0.8s var(--ease-out); }
 @keyframes bounceOnce { 0% { transform: scale(0); } 60% { transform: scale(1.2); } 80% { transform: scale(0.9); } 100% { transform: scale(1); } }
+
+/* Staggered delay utilities */
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+
+/* Gold shimmer on text */
+.text-gold-shimmer {
+  background: linear-gradient(90deg, var(--gold) 0%, #FFF176 50%, var(--gold) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: goldShimmer 3s linear infinite;
+}
+@keyframes goldShimmer { to { background-position: 200% center; } }
+
+/* Pulse glow on CTA elements */
+.pulse-gold {
+  animation: pulseGold 2.5s ease-in-out infinite;
+}
+@keyframes pulseGold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(218,165,32,0); }
+  50% { box-shadow: 0 0 0 8px rgba(218,165,32,0.18); }
+}
 
 /* ─── Product Gallery Nav ────────────────────────────────────────────────────── */
 .product-gallery-nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
@@ -782,7 +886,7 @@ details summary i { transition: transform 0.2s; }
 details[open] summary i.fa-chevron-down { transform: rotate(180deg); }
 
 /* ─── Responsive Utilities ──────────────────────────────────────────────────── */
-.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .scroll-hide { scrollbar-width: none; -ms-overflow-style: none; }
 .scroll-hide::-webkit-scrollbar { display: none; }
 

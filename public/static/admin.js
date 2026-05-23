@@ -109,6 +109,7 @@
     { id: 'combos', icon: 'fa-layer-group', label: 'Combos & Bundles' },
     { id: 'ad_performance', icon: 'fa-chart-bar', label: 'Ad Performance' },
     { id: 'seo_ai', icon: 'fa-robot', label: 'SEO AI' },
+    { id: 'pricing', icon: 'fa-rupee-sign', label: 'Pricing' },
     { id: 'suggestions', icon: 'fa-comment-alt', label: 'Suggestions' },
     { id: 'settings', icon: 'fa-cog', label: 'Settings' }
   ];
@@ -118,9 +119,9 @@
     const app = $('#admin-app');
     app.innerHTML = `
     <div class="admin-sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <h1>🖼️ PhotoFrameIn</h1>
-        <p>Admin Panel</p>
+      <div class="sidebar-header" id="sidebar-logo-area" onclick="admin.go('settings')" style="cursor:pointer" title="Click to edit logo in Settings">
+        <h1 id="sidebar-logo-display">🖼️ PhotoFrameIn</h1>
+        <p>Admin Panel <span style="font-size:9px;opacity:0.4;margin-left:4px">(click to edit logo)</span></p>
       </div>
       <nav class="sidebar-nav">
         ${sections.map(s => `<div class="nav-item ${s.id === currentSection ? 'active' : ''}" onclick="admin.go('${s.id}')"><i class="fas ${s.icon}" style="width:18px;text-align:center"></i><span>${s.label}</span></div>`).join('')}
@@ -139,6 +140,17 @@
       <div id="section-content"></div>
     </div>`;
     loadSection(currentSection);
+    // Load sidebar logo from settings
+    api('GET', '/settings').then(d => {
+      const cfg = d.settings || {};
+      const logoEl = document.getElementById('sidebar-logo-display');
+      if (!logoEl) return;
+      if (cfg.site_logo_url) {
+        logoEl.innerHTML = `<img src="${cfg.site_logo_url}" style="height:28px;max-width:180px;object-fit:contain;" alt="Logo" onerror="this.parentElement.textContent='${cfg.site_logo_emoji||'🖼️'} ${cfg.site_logo_text||'PhotoFrameIn'}'">`;
+      } else {
+        logoEl.textContent = `${cfg.site_logo_emoji||'🖼️'} ${cfg.site_logo_text||'PhotoFrameIn'}`;
+      }
+    }).catch(() => {});
   }
 
   async function loadSection(id) {
@@ -173,6 +185,7 @@
         case 'combos': await renderCombos(content); break;
         case 'ad_performance': await renderAdPerformance(content); break;
         case 'seo_ai': await renderSeoAI(content); break;
+        case 'pricing': await renderPricing(content); break;
         case 'suggestions': await renderSuggestions(content); break;
       }
     } catch (e) {
@@ -707,7 +720,10 @@
     el.innerHTML = `
     <div class="flex items-center justify-between mb-6">
       <h2 class="text-2xl font-bold">Reviews &amp; Ratings</h2>
-      <button onclick="admin.bulkImportReviews()" class="admin-btn admin-btn-ghost text-xs"><i class="fas fa-file-import mr-1"></i>Bulk Import</button>
+      <div class="flex gap-2 flex-wrap justify-end">
+        <button onclick="admin.showPostReviewForm()" class="admin-btn admin-btn-primary text-xs"><i class="fas fa-plus mr-1"></i>Post Custom Review</button>
+        <button onclick="admin.bulkImportReviews()" class="admin-btn admin-btn-ghost text-xs"><i class="fas fa-file-import mr-1"></i>Bulk Import</button>
+      </div>
     </div>
     <div class="flex gap-2 mb-6">
       <button class="tab-btn active" onclick="admin.showReviewTab('pending',this)">Pending (${(pending.reviews||[]).length})</button>
@@ -757,11 +773,109 @@
     </div>`;
   }
 
+  // ========== PRICING ==========
+  async function renderPricing(el) {
+    el.innerHTML = '<div class="text-center py-10"><div class="admin-spinner"></div></div>';
+    let settings = {};
+    try {
+      const d = await api('GET', '/settings');
+      settings = d.settings || {};
+    } catch(e) {}
+
+    const priceFields = [
+      { key: 'price_small',       label: 'Small (8×12 inches)',       default: 499,  note: 'Customer frame product + custom frame page' },
+      { key: 'price_medium',      label: 'Medium (12×18 inches)',      default: 799,  note: 'Default / most popular size' },
+      { key: 'price_large',       label: 'Large (18×24 inches)',       default: 1149, note: '' },
+      { key: 'price_xl',          label: 'XL (24×36 inches)',          default: 1749, note: '' },
+      { key: 'price_premium_addon', label: 'Premium White Mount Add-on', default: 250, note: 'Added on top of base size price' },
+      { key: 'poster_addon_price',      label: 'Poster Print Add-on',        default: 199,  note: 'A3 rolled poster; shown on product + cart pages' },
+      { key: 'price_acrylic_addon', label: 'Acrylic Glass Upgrade',    default: 350,  note: 'Optional upgrade add-on' },
+      { key: 'price_cod_fee',     label: 'COD Fee',                    default: 49,   note: 'Added to order total for COD orders' },
+      { key: 'price_prepaid_discount', label: 'Prepaid Discount',      default: 50,   note: 'Deducted from prepaid order total' },
+      { key: 'price_shipping',    label: 'Shipping (under free threshold)', default: 99, note: 'Standard shipping fee' },
+      { key: 'price_free_shipping_threshold', label: 'Free Shipping Threshold (₹)', default: 799, note: 'Cart subtotal above which shipping is free' }
+    ];
+
+    el.innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-2xl font-bold">Pricing Table</h2>
+        <p class="text-xs text-gray-500 mt-1">Prices are stored in Supabase and reflected live on product pages, custom frame page, and cart.</p>
+      </div>
+      <button onclick="admin.savePricing()" class="admin-btn admin-btn-primary">
+        <i class="fas fa-save mr-2"></i>Save All Prices
+      </button>
+    </div>
+
+    <div class="stat-card mb-6">
+      <div class="flex items-start gap-3 mb-4">
+        <i class="fas fa-info-circle text-blue-400 mt-0.5"></i>
+        <div class="text-sm text-gray-400">
+          <strong class="text-gray-300">How pricing works:</strong> These values are saved as keys in your Supabase <code class="text-blue-300">site_config</code> table.
+          The product page, custom frame page, and cart all fetch these at runtime — so any changes here update the live site within seconds.
+          <strong class="text-yellow-300">Important:</strong> Updating prices here does not automatically update product variant prices in your database.
+          Use the Products section to update per-variant prices for catalog products.
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <h3 class="font-bold text-base mb-5 text-brand-gold"><i class="fas fa-tag mr-2"></i>Frame & Add-on Prices (₹)</h3>
+      <div class="grid md:grid-cols-2 gap-5">
+        ${priceFields.map(f => `
+          <div>
+            <label class="text-xs text-gray-400 block mb-1 font-medium">${f.label}
+              ${f.note ? `<span class="text-gray-600 font-normal"> — ${f.note}</span>` : ''}
+            </label>
+            <div class="flex items-center gap-2">
+              <span class="text-gray-400 text-sm font-bold">₹</span>
+              <input type="number" name="price_field" data-key="${f.key}" 
+                     class="admin-input flex-1" 
+                     value="${settings[f.key] !== undefined ? settings[f.key] : f.default}"
+                     min="0" max="99999" step="1"
+                     placeholder="${f.default}">
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="mt-6 pt-5 border-t border-gray-800 flex justify-between items-center">
+        <button onclick="admin.resetPricingDefaults()" class="admin-btn admin-btn-ghost text-xs">
+          <i class="fas fa-undo mr-1"></i>Reset to Defaults
+        </button>
+        <button onclick="admin.savePricing()" class="admin-btn admin-btn-primary">
+          <i class="fas fa-save mr-2"></i>Save All Prices
+        </button>
+      </div>
+    </div>
+
+    <div class="stat-card mt-6">
+      <h3 class="font-bold text-base mb-3 text-gray-300"><i class="fas fa-eye mr-2 text-brand-gold"></i>Live Price Preview</h3>
+      <div class="text-xs text-gray-500 mb-3">This shows what customers will see based on current saved values from Supabase.</div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${['Small','Medium','Large','XL'].map((s,i) => {
+          const keys = ['price_small','price_medium','price_large','price_xl'];
+          const defaults = [499,799,1149,1749];
+          const val = settings[keys[i]] || defaults[i];
+          const labels = ['8×12"','12×18"','18×24"','24×36"'];
+          return `<div class="bg-gray-900 rounded-xl p-3 text-center">
+            <div class="text-xs text-gray-500 uppercase tracking-widest">${s}</div>
+            <div class="text-lg font-bold text-brand-gold">₹${val}</div>
+            <div class="text-[10px] text-gray-600">${labels[i]}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
   // ========== SETTINGS ==========
   async function renderSettings(el) {
     const data = await api('GET', '/settings');
     const s = data.settings || {};
     const fields = [
+      { key: 'brand_name', label: '🏷️ Brand Name (dynamically updates site headers & meta tags)', type: 'text' },
+      { key: 'site_logo_url', label: '🖼️ Logo Image URL (Cloudinary/CDN link)', type: 'text' },
+      { key: 'site_logo_text', label: '✏️ Logo Text (shown if no image, e.g. "PhotoFrameIn")', type: 'text' },
+      { key: 'site_logo_emoji', label: '🎨 Logo Emoji (prefix, e.g. 🖼️)', type: 'text' },
       { key: 'checkout_mode', label: 'Checkout Mode', type: 'select', options: ['shiprocket', 'custom'] },
       { key: 'cod_enabled', label: 'COD Enabled', type: 'toggle' },
       { key: 'free_shipping_threshold', label: 'Free Shipping Threshold (₹)', type: 'number' },
@@ -803,6 +917,38 @@
 
     el.innerHTML = `
     <h2 class="text-2xl font-bold mb-6">Settings</h2>
+
+    <!-- Logo Editor Card -->
+    <div class="stat-card mb-6 bg-brand-gold/5 border border-brand-gold/20" id="logo-editor-card">
+      <h3 class="font-bold text-base mb-4 text-brand-gold"><i class="fas fa-image mr-2"></i>Site Logo Editor</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Live Preview -->
+        <div>
+          <p class="text-xs text-gray-500 mb-2 uppercase tracking-wider">Live Preview</p>
+          <div id="logo-preview-box" style="background:#121212;border:1px solid #2A2A2A;border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:10px;min-height:60px;">
+            <span id="logo-preview-img-wrap" style="display:${s['site_logo_url'] ? 'block' : 'none'}">
+              <img id="logo-preview-img" src="${s['site_logo_url'] || ''}" style="height:32px;object-fit:contain;max-width:140px;" onerror="this.style.display='none'" alt="Logo preview">
+            </span>
+            <span id="logo-preview-text" style="font-size:17px;font-weight:800;color:#F2CA50;display:${s['site_logo_url'] ? 'none' : 'flex'};align-items:center;gap:6px;">
+              <span id="logo-preview-emoji">${s['site_logo_emoji'] || '🖼️'}</span>
+              <span id="logo-preview-name">${s['site_logo_text'] || s['brand_name'] || 'PhotoFrameIn'}</span>
+            </span>
+          </div>
+          <p class="text-[10px] text-gray-600 mt-1">This is how your logo appears in the sidebar &amp; nav.</p>
+        </div>
+        <!-- Upload from Cloudinary -->
+        <div>
+          <p class="text-xs text-gray-500 mb-2 uppercase tracking-wider">Upload Logo Image</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" onclick="admin.uploadLogoCloudinary()" class="admin-btn admin-btn-primary" style="font-size:12px;"><i class="fas fa-cloud-upload-alt mr-1"></i>Upload via Cloudinary</button>
+            <button type="button" onclick="admin.clearLogo()" class="admin-btn admin-btn-ghost" style="font-size:12px;"><i class="fas fa-times mr-1"></i>Use Text Logo</button>
+          </div>
+          <p class="text-[10px] text-gray-600 mt-2">PNG/SVG recommended. Max 200×60px for best fit.</p>
+          <p class="text-[10px] text-gray-500 mt-1">Or paste a URL in the "Logo Image URL" field below.</p>
+        </div>
+      </div>
+    </div>
+
     <form id="settings-form" class="space-y-4 max-w-2xl">
       ${fields.map(f => `
         <div class="flex items-center justify-between bg-gray-900 rounded-lg p-3">
@@ -815,7 +961,7 @@
           ` : f.type === 'select' ? `
             <select name="${f.key}" class="admin-input" style="width:auto">${f.options.map(o => `<option value="${o}" ${s[f.key] === o ? 'selected' : ''}>${o || '(none)'}</option>`).join('')}</select>
           ` : `
-            <input type="${f.type}" name="${f.key}" value="${s[f.key] || ''}" class="admin-input" style="width:300px">
+            <input type="${f.type}" name="${f.key}" value="${escapeHTML(s[f.key] || '')}" class="admin-input" style="width:300px" ${f.key === 'site_logo_url' ? 'oninput="admin.previewLogoUrl(this.value)"' : ''} ${f.key === 'site_logo_text' ? 'oninput="document.getElementById(\'logo-preview-name\').textContent=this.value"' : ''} ${f.key === 'site_logo_emoji' ? 'oninput="document.getElementById(\'logo-preview-emoji\').textContent=this.value"' : ''} ${f.key === 'brand_name' ? 'oninput="if(!document.getElementsByName(\'site_logo_text\')[0].value){document.getElementById(\'logo-preview-name\').textContent=this.value}"' : ''}>
           `}
         </div>
       `).join('')}
@@ -860,6 +1006,109 @@
   // ========== ADMIN ACTIONS ==========
   window.admin = {
     go(id) { currentSection = id; loadSection(id); document.getElementById('sidebar')?.classList.remove('open'); },
+
+    // ---- Pricing ----
+    async savePricing() {
+      const inputs = document.querySelectorAll('input[name="price_field"]');
+      if (!inputs.length) { toast('No pricing fields found', 'error'); return; }
+      const updates = {};
+      let valid = true;
+      inputs.forEach(inp => {
+        const key = inp.dataset.key;
+        const val = parseInt(inp.value, 10);
+        if (isNaN(val) || val < 0) { toast(`Invalid value for ${key}`, 'error'); valid = false; return; }
+        updates[key] = String(val);
+      });
+      if (!valid) return;
+      try {
+        await api('PUT', '/settings', updates);
+        toast('Pricing saved successfully!', 'success');
+      } catch(e) {
+        toast('Error saving pricing: ' + (e.message||'Unknown'), 'error');
+      }
+    },
+    resetPricingDefaults() {
+      const defaults = { price_small:'499', price_medium:'799', price_large:'1149', price_xl:'1749', price_premium_addon:'250', poster_addon_price:'199', price_acrylic_addon:'350', price_cod_fee:'49', price_prepaid_discount:'50', price_shipping:'99', price_free_shipping_threshold:'799' };
+      document.querySelectorAll('input[name="price_field"]').forEach(inp => {
+        const key = inp.dataset.key;
+        if (defaults[key] !== undefined) inp.value = defaults[key];
+      });
+      toast('Defaults loaded. Click "Save All Prices" to apply.');
+    },
+
+    // ---- Print order image ----
+    printOrderImage(imageUrl, name, orderId) {
+      const win = window.open('', '_blank', 'width=900,height=700');
+      if (!win) { toast('Pop-up blocked. Allow pop-ups and try again.', 'error'); return; }
+      win.document.write(`<!DOCTYPE html><html><head><title>Print — ${orderId}</title>
+        <style>
+          body { margin:0; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; font-family:Arial,sans-serif; }
+          img { max-width:90vw; max-height:80vh; object-fit:contain; border:1px solid #ddd; }
+          .info { margin:12px 0 4px; font-size:13px; color:#333; }
+          @media print { .no-print { display:none; } body { margin:0; } img { max-width:100%; max-height:95vh; border:none; } }
+        </style></head><body>
+        <div class="info"><strong>Order:</strong> ${orderId} &nbsp;·&nbsp; <strong>${name}</strong></div>
+        <img src="${imageUrl}" alt="Print image for ${orderId}">
+        <div class="no-print" style="margin-top:20px;display:flex;gap:12px;">
+          <button onclick="window.print()" style="background:#DAA520;color:#000;border:none;padding:10px 24px;border-radius:6px;font-weight:700;cursor:pointer;font-size:14px;">🖨️ Print</button>
+          <a href="${imageUrl}" download style="background:#222;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-weight:700;cursor:pointer;font-size:14px;text-decoration:none;">⬇ Download</a>
+          <button onclick="window.close()" style="background:#444;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-weight:700;cursor:pointer;font-size:14px;">✕ Close</button>
+        </div>
+      </body></html>`);
+      win.document.close();
+    },
+
+    // ---- Logo Upload helpers ----
+    previewLogoUrl(url) {
+      const imgWrap = document.getElementById('logo-preview-img-wrap');
+      const img = document.getElementById('logo-preview-img');
+      const textEl = document.getElementById('logo-preview-text');
+      if (!img || !imgWrap || !textEl) return;
+      if (url && url.trim()) {
+        img.src = url.trim();
+        imgWrap.style.display = 'block';
+        textEl.style.display = 'none';
+      } else {
+        imgWrap.style.display = 'none';
+        textEl.style.display = 'flex';
+      }
+    },
+    clearLogo() {
+      const urlInput = document.querySelector('input[name="site_logo_url"]');
+      if (urlInput) { urlInput.value = ''; admin.previewLogoUrl(''); }
+    },
+    async uploadLogoCloudinary() {
+      try {
+        const cfgRes = await api('GET', '/settings');
+        const cfg = cfgRes.settings || {};
+        const cloudName = cfg.cloudinary_cloud_name;
+        const uploadPreset = cfg.cloudinary_upload_preset;
+        if (!cloudName || !uploadPreset) {
+          toast('Set Cloudinary Cloud Name & Upload Preset in Media Settings first', 'error');
+          admin.go('media'); return;
+        }
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = 'image/png,image/svg+xml,image/webp,image/jpeg';
+        input.onchange = async () => {
+          const file = input.files[0];
+          if (!file) return;
+          if (file.size > 1024 * 1024) { toast('Logo must be under 1MB', 'error'); return; }
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('upload_preset', uploadPreset);
+          fd.append('folder', 'pfi/logo');
+          try {
+            const r = await axios.post(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, fd);
+            const url = r.data.secure_url;
+            const urlInput = document.querySelector('input[name="site_logo_url"]');
+            if (urlInput) { urlInput.value = url; admin.previewLogoUrl(url); }
+            toast('Logo uploaded! Click "Save Settings" to apply.', 'success');
+          } catch { toast('Upload failed. Check Cloudinary config.', 'error'); }
+        };
+        input.click();
+      } catch { toast('Could not connect. Are you logged in?', 'error'); }
+    },
+
     async viewOrder(orderId) {
       const data = await api('GET', `/orders/${orderId}`);
       const o = data.order;
@@ -873,16 +1122,36 @@
           <div><strong>Payment:</strong> ${o.payment_method?.toUpperCase()}<br>Total: ₹${o.total?.toLocaleString('en-IN')}</div>
           <div><strong>Status:</strong> ${o.status}<br>COD Confirmed: ${o.cod_confirmed ? 'Yes' : 'No'}</div>
         </div>
-        <h4 class="font-bold mb-2">Items:</h4>
-        ${(o.items || []).map(i => `
-          <div class="bg-gray-900 rounded p-3 mb-2 text-sm flex gap-4 items-center">
-            ${i.image_url ? `<img src="${i.image_url}" class="w-16 h-16 object-cover rounded border border-gray-700 cursor-pointer" onclick="window.open('${i.image_url}', '_blank')">` : '<div class="w-16 h-16 bg-gray-800 rounded flex items-center justify-center text-gray-600"><i class="fas fa-image"></i></div>'}
-            <div class="flex-1">
-              <strong class="text-white">${escapeHTML(i.name)}</strong><br>
-              <span class="text-gray-400">${escapeHTML(i.size)} · ${escapeHTML(i.frame_type)} · Qty: ${i.quantity}</span><br>
-              <span class="text-brand-gold font-bold">₹${(i.price * i.quantity).toLocaleString('en-IN')}</span>
+        <h4 class="font-bold mb-2">Items & Print Images:</h4>
+        ${(o.items || []).map((i, idx) => `
+          <div class="bg-gray-900 rounded-xl p-4 mb-3 text-sm">
+            <div class="flex gap-4 items-start">
+              ${i.image_url ? `
+                <div class="flex-shrink-0">
+                  <img src="${i.image_url}" class="w-20 h-20 object-cover rounded-lg border border-gray-700 cursor-pointer shadow-lg" onclick="window.open('${i.image_url}', '_blank')" title="Click to open full size">
+                </div>` : `
+                <div class="w-20 h-20 bg-gray-800 rounded-lg flex flex-col items-center justify-center text-gray-600 flex-shrink-0">
+                  <i class="fas fa-image text-xl mb-1"></i>
+                  <span class="text-[9px]">No image</span>
+                </div>`}
+              <div class="flex-1 min-w-0">
+                <strong class="text-white block">${escapeHTML(i.name)}</strong>
+                <span class="text-gray-400 text-xs">${escapeHTML(i.size)} · ${escapeHTML(i.frame_type)} · Qty: ${i.quantity}</span><br>
+                <span class="text-brand-gold font-bold">₹${(i.price * i.quantity).toLocaleString('en-IN')}</span>
+              </div>
             </div>
-            ${i.image_url ? `<a href="${i.image_url}" target="_blank" class="admin-btn admin-btn-ghost text-[10px]"><i class="fas fa-download mr-1"></i>High-Res</a>` : ''}
+            ${i.image_url ? `
+            <div class="flex gap-2 mt-3 flex-wrap">
+              <a href="${i.image_url}" download="order-${o.order_id}-item${idx+1}.jpg" class="admin-btn admin-btn-primary text-xs">
+                <i class="fas fa-download mr-1"></i>Download Print Image
+              </a>
+              <button onclick="admin.printOrderImage('${i.image_url}', '${escapeHTML(i.name)}', '${o.order_id}')" class="admin-btn admin-btn-ghost text-xs">
+                <i class="fas fa-print mr-1"></i>Print
+              </button>
+              <a href="${i.image_url}" target="_blank" class="admin-btn admin-btn-ghost text-xs">
+                <i class="fas fa-external-link-alt mr-1"></i>Full Size
+              </a>
+            </div>` : ''}
           </div>
         `).join('')}
         ${o.awb_number ? `<div class="mt-4 bg-gray-900 rounded p-3"><strong>AWB:</strong> ${o.awb_number} · <strong>Carrier:</strong> ${o.carrier || '-'}</div>` : ''}
@@ -988,6 +1257,123 @@
     async hideReview(id) {
       await api('PUT', `/reviews/${id}`, { is_hidden: true });
       loadSection('reviews');
+    },
+
+    // ---- Post Custom Review (admin creates verified review as customer) ----
+    showPostReviewForm() {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal-content" style="max-width:520px">
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="font-bold text-lg">Post a Verified Review</h3>
+            <button onclick="this.closest('.modal-overlay').remove()" class="admin-btn admin-btn-ghost text-xs">✕ Close</button>
+          </div>
+          <p class="text-xs text-gray-500 mb-5 p-3 bg-blue-900/20 border border-blue-800 rounded-lg">
+            <i class="fas fa-info-circle text-blue-400 mr-1"></i>
+            This creates a review attributed to a real customer name, published immediately as approved.
+            Use only for genuine reviews you have received offline or via WhatsApp.
+          </p>
+          <div class="space-y-4">
+            <div>
+              <label class="text-xs text-gray-400 block mb-1">Customer Name <span class="text-red-400">*</span></label>
+              <input id="cr-name" class="admin-input w-full" placeholder="e.g. Priya Sharma" maxlength="80">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 block mb-1">Star Rating <span class="text-red-400">*</span></label>
+              <div class="flex gap-2" id="cr-stars-row">
+                ${[1,2,3,4,5].map(n => `
+                  <button type="button" onclick="admin._setCRStar(${n})" id="cr-star-${n}" class="text-2xl text-gray-600 hover:text-yellow-400 transition" title="${n} star${n>1?'s':''}">★</button>
+                `).join('')}
+                <span id="cr-star-label" class="text-xs text-gray-400 self-center ml-2">Select rating</span>
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 block mb-1">Review Title</label>
+              <input id="cr-title" class="admin-input w-full" placeholder="e.g. Beautiful frame, great quality!" maxlength="120">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 block mb-1">Review Body <span class="text-red-400">*</span></label>
+              <textarea id="cr-body" class="admin-input w-full" rows="4" placeholder="Customer's feedback about the product..." maxlength="1200" style="resize:vertical"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-xs text-gray-400 block mb-1">Order ID (optional — adds ✓ Verified badge)</label>
+                <input id="cr-orderid" class="admin-input w-full font-mono" placeholder="PFI-20260519-001" maxlength="40">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400 block mb-1">Product (optional)</label>
+                <input id="cr-product" class="admin-input w-full" placeholder="e.g. Ram Lalla Divine" maxlength="80">
+              </div>
+            </div>
+            <div class="flex items-center gap-3 p-3 bg-gray-900 rounded-lg">
+              <input type="checkbox" id="cr-verified" checked class="w-4 h-4 accent-green-500">
+              <label for="cr-verified" class="text-sm text-gray-300 cursor-pointer">Mark as <strong class="text-green-400">Verified Purchase</strong></label>
+            </div>
+          </div>
+          <div class="flex gap-3 mt-6">
+            <button onclick="admin.submitAdminReview()" class="admin-btn admin-btn-primary flex-1">
+              <i class="fas fa-check mr-2"></i>Publish Review
+            </button>
+            <button onclick="this.closest('.modal-overlay').remove()" class="admin-btn admin-btn-ghost">Cancel</button>
+          </div>
+          <p class="text-xs text-gray-600 text-center mt-3">Review will be published immediately without pending approval.</p>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+      window._crRating = 0;
+    },
+    _setCRStar(n) {
+      window._crRating = n;
+      [1,2,3,4,5].forEach(i => {
+        const s = document.getElementById(`cr-star-${i}`);
+        if (s) s.style.color = i <= n ? '#facc15' : '';
+      });
+      const lbl = document.getElementById('cr-star-label');
+      if (lbl) lbl.textContent = ['','1 star — Poor','2 stars — Fair','3 stars — Good','4 stars — Great','5 stars — Excellent'][n] || '';
+    },
+    async submitAdminReview() {
+      const name = (document.getElementById('cr-name')?.value || '').trim();
+      const rating = window._crRating || 0;
+      const title = (document.getElementById('cr-title')?.value || '').trim();
+      const body = (document.getElementById('cr-body')?.value || '').trim();
+      const orderId = (document.getElementById('cr-orderid')?.value || '').replace(/[^a-zA-Z0-9\-]/g,'').trim();
+      const product = (document.getElementById('cr-product')?.value || '').trim();
+      const verified = document.getElementById('cr-verified')?.checked ?? true;
+
+      if (!name) { toast('Customer name is required', 'error'); return; }
+      if (!rating) { toast('Please select a star rating', 'error'); return; }
+      if (!body) { toast('Review body is required', 'error'); return; }
+
+      const btn = event.target;
+      const orig = btn.innerHTML;
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Publishing...';
+
+      try {
+        const payload = {
+          customer_name: name,
+          rating,
+          title: title || null,
+          body,
+          order_id: orderId || null,
+          product_name: product || null,
+          verified_purchase: verified,
+          is_admin_post: true,
+          is_approved: true,
+          is_hidden: false
+        };
+        const res = await api('POST', '/reviews', payload);
+        if (res.success || res.review || res.id) {
+          toast('Review published successfully!', 'success');
+          document.querySelector('.modal-overlay')?.remove();
+          loadSection('reviews');
+        } else {
+          throw new Error(res.error || 'Failed to post review');
+        }
+      } catch (e) {
+        toast('Error: ' + (e.message || 'Unknown error'), 'error');
+        btn.disabled = false; btn.innerHTML = orig;
+      }
     },
     async syncPending() {
       const btn = event.target;
@@ -1142,6 +1528,19 @@
               <button type="button" onclick="document.getElementById('image-upload-cloudinary').click()" class="admin-btn admin-btn-primary" title="Upload to Cloudinary (click to browse)"><i class="fas fa-upload mr-1"></i>Upload Image</button>
             </div>
             <p class="text-[10px] text-gray-500 mt-1">Recommended: Use Cloudinary for automated sizing and optimization.</p>
+          </div>
+          <div class="border-t border-gray-800 pt-4 mt-4">
+            <h4 class="font-bold text-gray-300 mb-2">Variant Prices</h4>
+            <div class="space-y-2">
+              ${(p.variants || []).map(v => `
+                <div class="flex items-center gap-2">
+                  <span class="w-1/3 text-xs text-gray-400">${v.size} - ${v.frame_type}</span>
+                  <input type="number" class="admin-input flex-1" placeholder="Price" value="${v.price}" onchange="admin.updateVariantPrice('${v.id}', this.value)">
+                </div>
+              `).join('')}
+              ${(!p.variants || !p.variants.length) ? '<div class="text-xs text-gray-500">No variants exist yet.</div>' : ''}
+            </div>
+            <p class="text-[10px] text-gray-500 mt-1">Changes to variant prices are saved instantly.</p>
           </div>
         </form>
       `;
@@ -1351,6 +1750,14 @@
       `;
       document.body.appendChild(modal);
       modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    },
+    async updateVariantPrice(id, price) {
+      try {
+        await api('PUT', `/variants/${id}`, { price: Number(price) });
+        toast('Variant price updated', 'success');
+      } catch (e) {
+        toast('Failed to update variant price', 'error');
+      }
     },
     editProduct(id) { admin.showProductForm(id); },
     editCategory(id) { admin.showCategoryForm(id); },

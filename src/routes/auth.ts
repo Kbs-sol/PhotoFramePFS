@@ -12,7 +12,7 @@ async function sendMagicLinkEmail(env: any, email: string, magicUrl: string): Pr
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#0D0D0D;color:#E5E5E5;padding:32px;border-radius:12px;">
       <div style="text-align:center;margin-bottom:24px;">
         <span style="font-size:36px;">🖼️</span>
-        <h1 style="color:#C5A059;margin:8px 0 4px;font-size:22px;">PhotoFrameIn</h1>
+        <h1 style="color:#DAA520;margin:8px 0 4px;font-size:22px;">PhotoFrameIn</h1>
         <p style="color:#888;font-size:12px;margin:0;">Premium Wall Art &amp; Photo Frames</p>
       </div>
       <h2 style="color:#FFFFFF;font-size:18px;margin-bottom:16px;">Your Sign-In Link</h2>
@@ -25,7 +25,7 @@ async function sendMagicLinkEmail(env: any, email: string, magicUrl: string): Pr
       </div>
       <p style="color:#666;font-size:12px;text-align:center;">If you didn't request this, you can safely ignore this email.</p>
       <hr style="border:none;border-top:1px solid #222;margin:24px 0;">
-      <p style="color:#444;font-size:11px;text-align:center;">PhotoFrameIn · Hyderabad, India · <a href="https://photoframein.com" style="color:#C5A059;">photoframein.com</a></p>
+      <p style="color:#444;font-size:11px;text-align:center;">PhotoFrameIn · Hyderabad, India · <a href="https://photoframein.com" style="color:#DAA520;">photoframein.com</a></p>
     </div>
   `;
 
