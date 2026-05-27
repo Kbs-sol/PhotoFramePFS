@@ -1,6 +1,7 @@
-# PhotoFrameIn
+# ChitraFrame
 
-> Dark-luxury D2C e-commerce for premium photo frames & custom wall art — India.
+> Premium photo frames with **real glass & solid wood** — not cheap acrylic.  
+> Dark-luxury D2C e-commerce · chitraframe.in + bestphotoframe.in · India.
 
 **Stack:** Hono.js + Cloudflare Pages/Workers · Supabase (PostgreSQL) · Cloudinary · Razorpay · Shiprocket · Brevo/Resend
 
@@ -9,9 +10,23 @@
 ## Live URLs
 | Environment | URL |
 |-------------|-----|
-| Production | https://photoframein.pages.dev _(deploy via wrangler)_ |
+| Production | https://photoframepfs.pages.dev _(Cloudflare Pages — project: photoframepfs)_ |
+| Primary Domain | https://chitraframe.in |
+| Secondary Domain | https://bestphotoframe.in |
 | Admin Panel | `/admin/dashboard` |
 | Sitemap | `/sitemap.xml` |
+
+## Brand
+
+| Item | Value |
+|------|-------|
+| Brand Name | ChitraFrame |
+| Primary Domain | chitraframe.in |
+| Secondary Domain | bestphotoframe.in |
+| Contact Email | support@chitraframe.in |
+| Brand Gold | `#B8860B` (dark goldenrod) |
+| Brand Green | `#16A34A` (emerald) |
+| Favicon | `/favicon.svg` — Devanagari `च` in dark frame |
 
 ---
 
@@ -281,6 +296,29 @@ The backend API (`/api/checkout/create-razorpay-order` and `/api/checkout/verify
 
 ---
 
+## Palette (v3.0 — Warm Gold & Emerald)
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| `--gold` | `#B8860B` | Primary brand gold — headers, prices, CTAs |
+| `--gold-light` | `#D4A017` | Hover/highlight state |
+| `--gold-dim` | `#8B6914` | Dimmed/disabled gold |
+| `--green` | `#16A34A` | Emerald — success, free shipping, stock |
+| `--green-light` | `#22C55E` | Hover/success state |
+| `--red` | `#CC0000` | CTA buttons, warnings |
+| `--saffron` | `#FF7A1A` | Secondary accent (divine/automotive categories) |
+
+### Glassmorphism Utility Classes
+- `.glass` — dark frosted glass background + blur
+- `.glass-gold` — gold-tinted glass panel
+- `.glass-emerald` — emerald-tinted glass panel
+- `.card-lift` — hover lift + gold glow shadow
+- `.shimmer-gold` — animated glint effect on gold elements
+- `.pulse-ring` — green pulse ring (live/stock indicator)
+- `.btn-gold-glow` — gradient gold CTA with box-shadow glow
+- `.promise-card` — glass card for "Glass Promise" conversion section
+- `.animate-slide-up`, `.animate-pop`, `.gold-flash` — micro-animations
+
 ## Editable Pricing Table
 
 Prices are stored in Supabase `site_config` table and editable from **Admin → Pricing**.
@@ -293,12 +331,51 @@ Prices are stored in Supabase `site_config` table and editable from **Admin → 
 | `price_xl` | XL frame (24×36") | ₹1,749 |
 | `price_premium_addon` | Premium white mount add-on | ₹250 |
 | `price_poster` | A3 poster print add-on | ₹199 |
+| **`poster_addon_price`** | **Poster print upsell price (separate quick-save field in Admin → Pricing)** | **₹199** |
 | `price_acrylic_addon` | Acrylic glass upgrade | ₹350 |
 | `price_cod_fee` | COD handling fee | ₹49 |
 | `price_prepaid_discount` | Prepaid instant discount | ₹50 |
-| `price_free_shipping_threshold` | Minimum for free shipping | ₹799 |
+| `price_free_shipping_threshold` | Minimum for free shipping | ₹899 |
+| **`brand_name`** | **Brand name — propagates to header, footer, emails, SEO** | **ChitraFrame** |
 
 Changes take effect immediately on the live site (no rebuild needed).
+
+### Admin → Pricing: poster_addon_price
+A dedicated **Poster Print Add-On Price** card (emerald accent) appears at the bottom of the Pricing page.  
+- Input field with quick **Save Poster Price** button
+- Saves `poster_addon_price` key to `site_config`
+- Animated `price-field-saved` CSS feedback + "Saved" badge on success
+
+### Admin → Settings: brand_name
+A **Brand Name** card appears at the top of the Settings page (gold-tinted glassmorphism).  
+- `brand_name` field with quick **Save Brand Name** button
+- Propagates to: site header, site footer, SEO `<title>`, JSON-LD `sameAs` schema, all transactional emails
+- Updates live without page reload (reads from `state.config.brand_name` at runtime)
+
+## Dynamic SEO per Product
+
+Each product page now injects:
+- `document.title` → `"{Product Name} | Buy Photo Frame Online India — {brand_name}"`
+- `<meta name="description">` → product description + brand + free shipping threshold
+- Open Graph tags: `og:title`, `og:description`, `og:image`, `og:url`, `og:type`, `og:site_name`
+- `<link rel="canonical">` → `https://chitraframe.in/product/{slug}`
+- Product JSON-LD schema: `@type: Product` with `AggregateRating` if reviews exist
+
+Category pages also append `— {brand_name}` to their `document.title` dynamically.
+
+## Frame Type Handling
+
+- Frame style selector on product pages is **shown only when a product has ≥2 frame types** — hidden for single-type products
+- Allowed `frame_type` values: `Standard`, `Premium`, `Direct Frame`, `Mount Frame`, `Custom`
+- UI labels: `Standard → "Standard Frame"`, `Premium → "Premium + White Mount"`, `Direct Frame → "Direct Frame"`, `Mount Frame → "Mount + White Mat"`
+- "no frame" renamed to **"Poster"** throughout UI (poster-addon description)
+
+## Supabase Migrations
+
+Run in order via Supabase SQL Editor:
+
+1. **`supabase/chitraframe_complete_config.sql`** — Full `site_config` upsert (brand, SEO, pricing). **Run this first to fix live site.**
+2. **`supabase/migrations_consolidated.sql`** — Adds `brand_name` + `poster_addon_price` keys, fixes `frame_type` constraint to allow `Direct Frame` / `Mount Frame`.
 
 ---
 
@@ -313,4 +390,16 @@ Changes take effect immediately on the live site (no rebuild needed).
 
 ---
 
-*Maintained by vijayprasadvvp@gmail.com · v2.4 · Updated 2026-05-19*
+---
+
+## Deployment Status
+
+| Build | `dist/_worker.js 329.83 kB` ✅ |
+|-------|------|
+| Deploy | `https://photoframepfs.pages.dev` ✅ |
+| Project | `photoframepfs` (Cloudflare Pages) |
+| Last Build | 2026-05-27 |
+
+---
+
+*Maintained by vijayprasadvvp@gmail.com · ChitraFrame v3.0 · Updated 2026-05-27*

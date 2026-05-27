@@ -1,29 +1,55 @@
 /* ===================================================
-   PhotoFrameIn Admin Panel — Premium Dark Gold Theme
+   ChitraFrame Admin Panel — Warm Gold & Emerald Theme
+   v3.0 — Glassmorphism · Micro-animations · High-density
    =================================================== */
 
 /* ---- CSS Variables ---- */
 :root {
-  --admin-bg: #0A0A0A;
-  --admin-surface: #111111;
-  --admin-card: #161616;
-  --admin-card-hover: #1C1C1C;
-  --admin-border: #252525;
-  --admin-border-hover: #333333;
-  --admin-gold: #F2CA50;
-  --admin-gold-dim: #D4AF37;
-  --admin-gold-glow: rgba(242, 202, 80, 0.12);
-  --admin-green: #22C55E;
+  --admin-bg: #070707;
+  --admin-surface: #0E0E0E;
+  --admin-card: #141414;
+  --admin-card-hover: #1A1A1A;
+  --admin-border: #222222;
+  --admin-border-hover: #2E2E2E;
+
+  /* Brand Gold — matches storefront #B8860B */
+  --admin-gold: #B8860B;
+  --admin-gold-light: #D4A017;
+  --admin-gold-bright: #E8C040;    /* table header accent, chart highlight     */
+  --admin-gold-dim: #8B6914;
+  --admin-gold-glow: rgba(184, 134, 11, 0.12);
+  --admin-gold-glow-md: rgba(184, 134, 11, 0.22);
+
+  /* Brand Emerald — matches storefront #16A34A */
+  --admin-green: #16A34A;
+  --admin-green-light: #22C55E;
+  --admin-green-glow: rgba(22, 163, 74, 0.14);
+
+  /* Status */
   --admin-red: #EF4444;
+  --admin-red-glow: rgba(239, 68, 68, 0.14);
   --admin-yellow: #EAB308;
   --admin-blue: #3B82F6;
-  --admin-text: #E5E2E1;
-  --admin-text-muted: #8B8B8B;
-  --admin-text-dim: #5A5A5A;
+
+  /* Text */
+  --admin-text: #E8E2D9;           /* warm white — matches storefront */
+  --admin-text-muted: #A09890;
+  --admin-text-dim: #5A5450;
+
+  /* Layout */
   --admin-sidebar-w: 260px;
   --admin-radius: 12px;
   --admin-radius-sm: 8px;
-  --admin-transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --admin-radius-lg: 18px;
+
+  /* Motion */
+  --admin-transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  --admin-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Glassmorphism */
+  --admin-glass-bg: rgba(14, 14, 14, 0.75);
+  --admin-glass-border: rgba(255, 255, 255, 0.06);
+  --admin-glass-blur: blur(14px);
 }
 
 /* ---- Login Screen ---- */
@@ -61,7 +87,7 @@
   max-width: 420px;
   position: relative;
   z-index: 1;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(242, 202, 80, 0.05);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(184, 134, 11, 0.06);
   animation: loginSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes loginSlideUp {
@@ -138,7 +164,7 @@
 }
 .login-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(212, 175, 55, 0.3);
+  box-shadow: 0 8px 24px rgba(184, 134, 11, 0.35);
 }
 .login-btn:active { transform: translateY(0); }
 .login-btn:disabled {
@@ -357,7 +383,7 @@
   transition: background 0.15s;
 }
 .data-table tbody tr:hover {
-  background: rgba(242, 202, 80, 0.03);
+  background: rgba(184, 134, 11, 0.04);
 }
 
 /* ---- Inputs ---- */
@@ -428,7 +454,7 @@
   color: #1A1A00;
 }
 .admin-btn-primary:hover {
-  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3);
+  box-shadow: 0 4px 16px rgba(184, 134, 11, 0.35);
   transform: translateY(-1px);
 }
 .admin-btn-danger { background: var(--admin-red); color: #fff; }
@@ -749,7 +775,7 @@
 }
 .funnel-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, rgba(242, 202, 80, 0.1), var(--admin-gold-dim));
+  background: linear-gradient(90deg, rgba(184, 134, 11, 0.12), var(--admin-gold-dim));
   border-right: 2px solid var(--admin-gold);
   transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
   width: 0;
@@ -771,7 +797,7 @@
   font-weight: 800;
   padding: 2px 8px;
   border-radius: 4px;
-  border: 1px solid rgba(242, 202, 80, 0.2);
+  border: 1px solid rgba(184, 134, 11, 0.22);
   min-width: 50px;
   text-align: center;
 }
@@ -812,4 +838,113 @@
   border-radius: 10px;
   min-width: 20px;
   text-align: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ChitraFrame Admin v3 — Glassmorphism + Micro-Animations
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Glassmorphism Admin Card ────────────────────────────────────────────── */
+.stat-card {
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(184, 134, 11, 0.10);
+  border-color: rgba(184, 134, 11, 0.25) !important;
+}
+
+/* ─── Admin Input Focus Glow ──────────────────────────────────────────────── */
+.admin-input:focus,
+.admin-select:focus,
+.admin-textarea:focus {
+  border-color: var(--admin-gold) !important;
+  box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.15);
+  outline: none;
+}
+
+/* ─── Admin Button Micro-anim ─────────────────────────────────────────────── */
+.admin-btn {
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.18s ease,
+              background-color 0.18s ease;
+}
+.admin-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.admin-btn:active:not(:disabled) { transform: scale(0.97); }
+.admin-btn-primary {
+  box-shadow: 0 3px 12px rgba(184, 134, 11, 0.25);
+}
+.admin-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(184, 134, 11, 0.38);
+}
+
+/* ─── Sidebar nav item hover ─────────────────────────────────────────────── */
+.sidebar-item {
+  transition: background 0.18s ease, color 0.18s ease, padding-left 0.18s ease;
+}
+.sidebar-item:hover,
+.sidebar-item.active {
+  padding-left: 20px;
+}
+
+/* ─── Gold shimmer on brand-gold text labels ──────────────────────────────── */
+.text-brand-gold {
+  color: var(--admin-gold);
+  transition: color 0.2s;
+}
+
+/* ─── Pricing field highlight animation ───────────────────────────────────── */
+@keyframes priceFieldSaved {
+  0%   { border-color: var(--admin-gold); box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.30); }
+  60%  { border-color: var(--admin-green); box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.25); }
+  100% { border-color: var(--admin-border); box-shadow: none; }
+}
+.price-field-saved { animation: priceFieldSaved 1.2s var(--admin-ease-spring) forwards; }
+
+/* ─── Toast (admin) ───────────────────────────────────────────────────────── */
+.admin-toast-success { border-left: 3px solid var(--admin-green); }
+.admin-toast-error   { border-left: 3px solid var(--admin-red); }
+.admin-toast-info    { border-left: 3px solid var(--admin-gold); }
+
+/* ─── Emerald success badge ────────────────────────────────────────────────── */
+.badge-emerald {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--admin-green-glow);
+  border: 1px solid rgba(22, 163, 74, 0.30);
+  color: var(--admin-green-light);
+  font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 999px;
+}
+
+/* ─── Poster add-on pricing card (admin pricing panel) ───────────────────── */
+.poster-price-card {
+  background: rgba(22, 163, 74, 0.05);
+  border: 1px solid rgba(22, 163, 74, 0.20);
+  border-radius: 12px;
+  padding: 16px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.poster-price-card::before {
+  content: '';
+  position: absolute;
+  top: -20px; right: -20px;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(22, 163, 74, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ─── Brand name field highlight ─────────────────────────────────────────── */
+.brand-name-field {
+  background: rgba(184, 134, 11, 0.05);
+  border: 1px solid rgba(184, 134, 11, 0.25) !important;
+  border-radius: 8px;
+}
+.brand-name-field:focus {
+  background: rgba(184, 134, 11, 0.08);
+  border-color: var(--admin-gold) !important;
+  box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.15);
 }

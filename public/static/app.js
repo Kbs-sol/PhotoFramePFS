@@ -754,6 +754,75 @@
       const reviews = (data.reviews || []);
       const avgRating = reviews.length ? (reviews.reduce((s, r) => s + (r.rating||0), 0) / reviews.length).toFixed(1) : null;
 
+      // ── Dynamic SEO — product page ────────────────────────────────────────
+      const brandName = state.config.brand_name || 'ChitraFrame';
+      const productSeoTitle = `${p.name || slug} | Buy Photo Frame Online India — ${brandName}`;
+      const productSeoDesc = p.seo_description ||
+        `Buy "${p.name}" photo frame online. ${(p.description||'').substring(0,120).replace(/\s+/g,' ')}. Real glass, solid wood. Free delivery above ₹${state.config.free_shipping_threshold||'899'}. Shop now at ${brandName}.`;
+      const canonicalUrl = `https://chitraframe.in/product/${slug}`;
+      const productImage = images[0]?.image_url || '';
+
+      // Set document title
+      document.title = productSeoTitle;
+
+      // Upsert <meta name="description">
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (!metaDesc) { metaDesc = document.createElement('meta'); metaDesc.name = 'description'; document.head.appendChild(metaDesc); }
+      metaDesc.content = productSeoDesc.substring(0, 300);
+
+      // Upsert Open Graph tags
+      const ogTags = {
+        'og:title':       productSeoTitle,
+        'og:description': productSeoDesc.substring(0, 200),
+        'og:url':         canonicalUrl,
+        'og:image':       productImage,
+        'og:type':        'product',
+        'og:site_name':   brandName,
+      };
+      Object.entries(ogTags).forEach(([prop, content]) => {
+        let el = document.querySelector(`meta[property="${prop}"]`);
+        if (!el) { el = document.createElement('meta'); el.setAttribute('property', prop); document.head.appendChild(el); }
+        el.content = content;
+      });
+
+      // Canonical link
+      let canonEl = document.querySelector('link[rel="canonical"]');
+      if (!canonEl) { canonEl = document.createElement('link'); canonEl.rel = 'canonical'; document.head.appendChild(canonEl); }
+      canonEl.href = canonicalUrl;
+
+      // Product JSON-LD schema
+      const existingProdSchema = document.getElementById('product-jsonld');
+      if (existingProdSchema) existingProdSchema.remove();
+      const prodSchema = document.createElement('script');
+      prodSchema.type = 'application/ld+json';
+      prodSchema.id = 'product-jsonld';
+      const schemaPrice = dv?.price || 799;
+      prodSchema.textContent = JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: p.name,
+        description: (p.description || '').substring(0, 500),
+        image: productImage,
+        brand: { '@type': 'Brand', name: brandName },
+        url: canonicalUrl,
+        offers: {
+          '@type': 'Offer',
+          priceCurrency: 'INR',
+          price: schemaPrice,
+          availability: 'https://schema.org/InStock',
+          seller: { '@type': 'Organization', name: brandName }
+        },
+        ...(avgRating ? {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: avgRating,
+            reviewCount: reviews.length
+          }
+        } : {})
+      });
+      document.head.appendChild(prodSchema);
+      // ── End Dynamic SEO ───────────────────────────────────────────────────
+
       app.innerHTML = renderHeader() + `
       <main id="main-content" class="max-w-6xl mx-auto px-4 py-6">
         <!-- Breadcrumb -->
@@ -834,27 +903,29 @@
               </button>
             </div>
 
-            <!-- BLOCK 3: Frame Style Selector -->
-            <div>
-              <label class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 block" id="frame-label">2. Choose Frame Style</label>
-              <div id="frame-selector" class="grid grid-cols-2 gap-2" role="group" aria-labelledby="frame-label">
-                ${['Standard','Premium'].map(f => {
-                  const v = variants.find(v => v.size===(dv?.size||'Medium') && v.frame_type===f);
-                  if (!v) return '';
-                  const labels = { Standard: 'Standard Frame', Premium: 'Premium + White Mount' };
-                  const badge = f === 'Premium'
-                    ? '<span class="text-brand-gold text-[10px] font-bold">+₹250</span>'
-                    : '<span class="text-brand-green text-[10px] font-bold">Best Value</span>';
-                  return `<button class="frame-option ${f===(dv?.frame_type||'Standard')?'active':''}" data-frame="${f}" onclick="window.pfi.selectFrame('${f}')" aria-pressed="${f===(dv?.frame_type||'Standard')}" aria-label="${labels[f]||f}${f==='Premium'?' +₹250':''}">
-                    <div class="font-bold text-xs">${labels[f]||f}</div>
-                    ${badge}
-                  </button>`;
-                }).join('')}
-              </div>
-              <div id="premium-mount-info" class="mt-2 p-2.5 bg-black/30 border border-brand-gold/20 rounded-lg text-xs text-gray-400 ${dv?.frame_type==='Premium' ? '' : 'hidden'}">
-                <i class="fas fa-check-circle text-brand-gold mr-1"></i><strong class="text-white">Premium White Mount</strong> — pure white archival mat, gallery-ready. <span class="text-brand-gold font-bold">+₹250</span>
-              </div>
-            </div>
+            <!-- BLOCK 3: Frame Style Selector — shown only when product has multiple frame types -->
+            ${(function renderFrameSelector() {
+              var frameTypes = [...new Set(variants.map(function(v){ return v.frame_type; }).filter(Boolean))];
+              if (frameTypes.length <= 1) return '';
+              var frameLabels = { Standard: 'Standard Frame', Premium: 'Premium + White Mount', 'Direct Frame': 'Direct Frame', 'Mount Frame': 'Mount + White Mat' };
+              var mountAddonPrice = state.config.price_premium_addon || '250';
+              var dvFrameType = dv ? dv.frame_type : frameTypes[0];
+              var defaultFrame = dvFrameType || frameTypes[0];
+              var showMountInfo = (dvFrameType === 'Premium' || dvFrameType === 'Mount Frame') ? '' : 'hidden';
+              var frameButtons = frameTypes.map(function(f) {
+                var fv = variants.find(function(v){ return v.size === (dv ? dv.size : 'Medium') && v.frame_type === f; });
+                if (!fv) return '';
+                var isPremium = (f === 'Premium' || f === 'Mount Frame');
+                var badge = isPremium
+                  ? '<span class="text-brand-gold text-[10px] font-bold">+\u20B9' + mountAddonPrice + '</span>'
+                  : '<span class="text-brand-green text-[10px] font-bold">Best Value</span>';
+                var isActive = (f === defaultFrame) ? 'active' : '';
+                var isPressed = (f === defaultFrame).toString();
+                var ariaLabel = (frameLabels[f] || f) + (isPremium ? ' +\u20B9' + mountAddonPrice : '');
+                return '<button class="frame-option ' + isActive + '" data-frame="' + f + '" onclick="window.pfi.selectFrame(\'' + f + '\')" aria-pressed="' + isPressed + '" aria-label="' + ariaLabel + '"><div class="font-bold text-xs">' + (frameLabels[f] || f) + '</div>' + badge + '</button>';
+              }).join('');
+              return '<div><label class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 block" id="frame-label">2. Choose Frame Style</label><div id="frame-selector" class="grid grid-cols-2 gap-2" role="group" aria-labelledby="frame-label">' + frameButtons + '</div><div id="premium-mount-info" class="mt-2 p-2.5 bg-black/30 border border-brand-gold/20 rounded-lg text-xs text-gray-400 ' + showMountInfo + '"><i class="fas fa-check-circle text-brand-gold mr-1"></i><strong class="text-white">Premium White Mount</strong> \u2014 pure white archival mat, gallery-ready. <span class="text-brand-gold font-bold">+\u20B9' + mountAddonPrice + '</span></div></div>';
+            })()}
 
             <!-- BLOCK 3.5: Poster Add-on — shown right after frame selection for max AOV (admin-enabled only) -->
             ${state.config.poster_enabled === 'true' ? `
@@ -864,7 +935,7 @@
                 <div class="flex items-center justify-between">
                   <div>
                     <div class="font-bold text-sm text-white">🎨 Add a Print-Only Poster</div>
-                    <div class="text-xs text-gray-400 mt-0.5">Same high-res art, rolled &amp; shipped separately — no frame</div>
+                    <div class="text-xs text-gray-400 mt-0.5">Poster print only — rolled &amp; shipped separately, no frame included</div>
                   </div>
                   <span class="text-brand-gold font-black text-base">+₹199</span>
                 </div>
@@ -1292,7 +1363,7 @@
       border: 'border-orange-900/40',
       tags: ['Ganesha', 'Shiva', 'Hanuman', 'Krishna', 'Rama'],
       desc: 'Premium framed divine art — perfect for home mandir, living room blessings or gifting.',
-      seoTitle: 'Divine Art Frames | Ganesha, Shiva, Hanuman, Krishna, Rama — PhotoFrameIn',
+      seoTitle: 'Divine Art Frames | Ganesha, Shiva, Hanuman, Krishna, Rama',
       badge: '🙏 Pooja Room Essential',
       cta: 'Gift a Blessing',
       trustMsg: '📦 Special occasion gift packaging available'
@@ -1306,7 +1377,7 @@
       border: 'border-red-900/40',
       tags: ['Porsche', 'Ferrari', 'Lamborghini', 'Hypercars', 'McLaren'],
       desc: 'High-detail automotive prints for man-caves, offices and garages. Cars that belong on your wall.',
-      seoTitle: 'Automotive Art Frames | Porsche, Ferrari, Hypercars — PhotoFrameIn',
+      seoTitle: 'Automotive Art Frames | Porsche, Ferrari, Hypercars',
       badge: '🏆 Office & Man-Cave Bestseller',
       cta: 'Build Your Gallery Wall',
       trustMsg: '🚀 12-hour dispatch · Premium frames from ₹749'
@@ -1320,7 +1391,7 @@
       border: 'border-yellow-900/30',
       tags: ['Hustle', 'Success', 'Mindset', 'Quotes', 'Minimal'],
       desc: 'Motivational art for study rooms, home offices and gym walls.',
-      seoTitle: 'Motivation Frames | Hustle & Mindset Wall Art — PhotoFrameIn',
+      seoTitle: 'Motivation Frames | Hustle & Mindset Wall Art',
       badge: '🔥 Study Room Favourite',
       cta: 'Fuel Your Ambition',
       trustMsg: '⚡ Free delivery on orders above ₹799'
@@ -1334,7 +1405,7 @@
       border: 'border-green-900/30',
       tags: ['Cricket', 'Football', 'F1', 'Basketball', 'Champions'],
       desc: 'Sports wall art for fans, locker rooms and gaming setups.',
-      seoTitle: 'Sports Art Frames | Cricket, Football, F1 — PhotoFrameIn',
+      seoTitle: 'Sports Art Frames | Cricket, Football, F1',
       badge: '🏅 Fan Room Must-Have',
       cta: 'Celebrate Your Sport',
       trustMsg: '🎁 Perfect birthday gift for sports fans'
@@ -1352,14 +1423,18 @@
       border: 'border-gray-800',
       tags: [],
       desc: 'Premium framed art delivered across India.',
-      seoTitle: slug + ' Frames — PhotoFrameIn',
+      seoTitle: slug + ' Frames',
       badge: '✅ In Stock',
       cta: 'Shop Now',
       trustMsg: '📦 Free delivery above ₹799'
     };
 
-    // Update page meta
-    document.title = meta.seoTitle;
+    // Update page meta — append brand_name dynamically
+    const catBrand = state.config.brand_name || 'ChitraFrame';
+    document.title = meta.seoTitle + ' — ' + catBrand;
+    let catMetaDesc = document.querySelector('meta[name="description"]');
+    if (!catMetaDesc) { catMetaDesc = document.createElement('meta'); catMetaDesc.name = 'description'; document.head.appendChild(catMetaDesc); }
+    catMetaDesc.content = (meta.desc + ' Shop online at ' + catBrand + '. Free delivery above ₹' + (state.config.free_shipping_threshold || '899') + '.').substring(0, 300);
 
     app.innerHTML = renderHeader() + `
     <main id="main-content">
