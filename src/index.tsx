@@ -74,6 +74,8 @@ app.use('*', async (c, next) => {
 app.use('/api/*', cors({
   origin: (origin) => {
     const allowed = [
+      'https://chitraframe.in',
+      'https://www.chitraframe.in',
       'https://photoframein.com',
       'https://www.photoframein.com',
       'http://localhost:5173',
@@ -565,11 +567,11 @@ for (const route of customerRoutes) {
   "description": "${description.replace(/"/g, '&quot;')}",
   "brand": {
     "@type": "Brand",
-    "name": "PhotoFrameIn"
+    "name": "ChitraFrame"
   },
   "offers": {
     "@type": "AggregateOffer",
-    "url": "https://photoframein.com/product/${slug}",
+    "url": "https://chitraframe.in/product/${slug}",
     "priceCurrency": "INR",
     "lowPrice": "${price}",
     "offerCount": "${variants ? variants.length : 1}"
@@ -581,8 +583,8 @@ for (const route of customerRoutes) {
           const slug = c.req.param('slug');
           const { data: cat } = await sb.from('categories').select('*').eq('slug', slug).single();
           if (cat) {
-            title = `${cat.name} | PhotoFrameIn`;
-            description = cat.description || `Browse our gorgeous collection of ${cat.name} custom photo frames and wall art online.`;
+            title = `${cat.name} | ChitraFrame`;
+            description = cat.description || `Shop ${cat.name} art prints — museum-quality, framed and delivered across India. ChitraFrame.`;
             if (cat.image_url) ogImage = cat.image_url;
           }
         }

@@ -56,5 +56,5 @@ public/static/images/
 # Supabase CLI temp files
 supabase/.temp/
 
-# One-off migration / helper scripts
-scripts/
+# One-off migration / helper scripts — tracked now
+# scripts/

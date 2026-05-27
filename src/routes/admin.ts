@@ -71,6 +71,15 @@ admin.post('/auth', async (c) => {
       });
     }
 
+    // 1b. If bypass fails (wrong email/password) AND Supabase is not configured → reject gracefully
+    // Without this guard, calling getSupabase(env) with undefined SUPABASE_URL throws a hard crash
+    if (!c.env.SUPABASE_URL) {
+      return c.json({ 
+        error: 'Authentication failed. Check your credentials or configure Supabase.',
+        hint: isOwnerEmail ? 'Password mismatch. Verify ADMIN_PASSWORD env var.' : 'Only the owner email can log in without Supabase configured.'
+      }, 401);
+    }
+
     // 2. Standard Auth Flow: Authenticate with Supabase Auth (Managerial Roles)
     const sb = getSupabase(c.env);
     const { data: authData, error: authError } = await sb.auth.signInWithPassword({ email, password });
@@ -120,8 +129,13 @@ admin.use('/*', async (c, next) => {
 
   // 1. Check for Static SuperAdmin Token Bypass
   if (c.env.ADMIN_TOKEN && token === c.env.ADMIN_TOKEN) {
-    (c as any).set('user', { email: 'superadmin@photoframein.com', role: 'superadmin' });
+    (c as any).set('user', { email: c.env.OWNER_EMAIL || c.env.ALERT_EMAIL || 'admin@chitraframe.in', role: 'superadmin' });
     return next();
+  }
+
+  // If ADMIN_TOKEN bypass failed AND Supabase is not configured → reject without crashing
+  if (!c.env.SUPABASE_URL) {
+    return c.json({ error: 'Unauthorized: Supabase not configured and token invalid.' }, 401);
   }
 
   // 2. Standard Supabase Session Verification
