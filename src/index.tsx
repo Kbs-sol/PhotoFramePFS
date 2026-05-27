@@ -10,6 +10,7 @@ import adminRoutes from './routes/admin';
 import analyticsRoutes from './routes/analytics';
 import uploadRoutes from './routes/upload';
 import authRoutes from './routes/auth';
+import marketingRoutes from './routes/marketing';
 import { getSupabase, getConfigs } from './lib/supabase';
 
 export type Bindings = {
@@ -125,6 +126,7 @@ app.route('/api/admin', adminRoutes);
 app.route('/api/analytics', analyticsRoutes);
 app.route('/api/upload', uploadRoutes);
 app.route('/api/auth', authRoutes);
+app.route('/', marketingRoutes);
 
 // ==========================================
 // PUBLIC API ENDPOINTS

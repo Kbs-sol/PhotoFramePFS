@@ -392,14 +392,71 @@ Run in order via Supabase SQL Editor:
 
 ---
 
-## Deployment Status
+## Product Catalog (v1 — May 2025)
 
-| Build | `dist/_worker.js 329.83 kB` ✅ |
-|-------|------|
-| Deploy | `https://photoframepfs.pages.dev` ✅ |
-| Project | `photoframepfs` (Cloudflare Pages) |
-| Last Build | 2026-05-27 |
+### 51 Designs Across 6 Categories
+| Category | Designs | Starting Price |
+|----------|---------|---------------|
+| 🕉️ Spiritual & Devotional | 19 | ₹499 |
+| 🏎️ Automotive | 12 | ₹299 (poster) |
+| ⚽ Sports Legends | 6 | ₹499 |
+| ⭐ Legend & Pop Culture (Anime) | 6 | ₹499 |
+| 🦁 Wildlife & Nature | 6 | ₹499 |
+| 💪 Motivational | 2 | ₹499 |
+
+**Total variants**: 408 (51 designs × 4 sizes × 2 types)  
+**Supabase SQL**: `supabase/products_catalog.sql` (36KB — run in SQL Editor)  
+**Image CDN**: Cloudinary at `chitraframe/products/{category}/{slug}.jpg`
 
 ---
 
-*Maintained by vijayprasadvvp@gmail.com · ChitraFrame v3.0 · Updated 2026-05-27*
+## Content & SEO
+
+### Blog Posts (`/static/blog/`)
+| Post | Keyword | URL |
+|------|---------|-----|
+| Photo Frame Gift Ideas India | `photo frame gift ideas india` | `/static/blog/photo-frame-gift-ideas-india.html` |
+| Mahadev Wall Art India | `mahadev wall art india` | `/static/blog/mahadev-wall-art-india.html` |
+| Sports Poster Framing India | `sports poster framing india` | `/static/blog/sports-poster-framing-india.html` |
+| Decorate Living Room with Art | `decorate living room framed art` | `/static/blog/decorate-living-room-framed-art.html` |
+| Anime Wall Art India | `anime wall art india` | `/static/blog/anime-wall-art-india.html` |
+
+### FAQ Page
+- Static HTML: `/static/faq.html` — 23 Q&As with FAQPage JSON-LD + accordion UI
+- API: `GET /api/faq` — JSON endpoint returning same 23 Q&As
+
+### AI Discoverability
+- `GET /static/llms.txt` — Plain-text product guide for AI crawlers (5.7KB)
+- `GET /.well-known/ai-plugin.json` — OpenAI plugin manifest
+
+---
+
+## Marketing API Routes (`src/routes/marketing.ts`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/promotions` | Active promos from `site_config` with fallback |
+| `POST` | `/api/admin/promotions` | Admin update promo banner (Bearer ADMIN_TOKEN) |
+| `GET` | `/api/faq` | 23 FAQ Q&As |
+| `GET` | `/api/categories` | 6 categories with counts + emojis |
+
+---
+
+## Marketing Documents
+- `INSTAGRAM_STRATEGY.md` — 30-day content calendar, 6 Reels scripts, audience targeting, KPIs
+- `MARKETING_STRATEGY.md` — Go-to-market plan, competitor analysis (Candid Apricot), 6-month roadmap
+
+---
+
+## Deployment Status
+
+| Build | `dist/_worker.js 329.83 kB` — last verified build (session prior to May 2025) |
+|-------|------|
+| Deploy | `https://photoframepfs.pages.dev` ✅ |
+| Project | `photoframepfs` (Cloudflare Pages) |
+| Last Build | 2025-05-27 (pending verification) |
+| Pending | `npm run build` to verify marketing.ts compiles cleanly |
+
+---
+
+*Maintained by vijayprasadvvp@gmail.com · ChitraFrame v4.0 · Updated 2025-05-27*

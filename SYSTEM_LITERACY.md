@@ -1,6 +1,6 @@
-# PhotoFrameIn — System Literacy Guide
+# ChitraFrame (formerly PhotoFrameIn) — System Literacy Guide
 **For AI Assistants, Developers & Future Maintainers**
-**Admin Contact:** vijayprasadvvp@gmail.com | Version: 3.0 | Updated: 2026-04-26
+**Admin Contact:** vijayprasadvvp@gmail.com | Version: 4.0 | Updated: 2025-05-27
 
 ---
 
@@ -479,4 +479,180 @@ Break-even orders/month:  52  (fixed overhead ~₹15,000)
 
 ---
 
-*Last updated: 2026-04-30 | Maintained by: vijayprasadvvp@gmail.com*
+---
+
+## 19. ChitraFrame Product Catalog (v1 — May 2025)
+
+> **Brand rename**: PhotoFrameIn → **ChitraFrame** (chitraframe.in). All code references updated.
+
+### Catalog Summary
+| Category | Slug | Design Count | Emoji |
+|----------|------|-------------|-------|
+| Spiritual & Devotional | `spiritual` | 19 | 🕉️ |
+| Automotive | `automotive` | 12 | 🏎️ |
+| Sports Legends | `sports` | 6 | ⚽ |
+| Legend & Pop Culture | `legend` | 6 | ⭐ |
+| Wildlife & Nature | `wildlife` | 6 | 🦁 |
+| Motivational | `motivational` | 2 | 💪 |
+| **TOTAL** | | **51** | |
+
+### Variant Matrix
+- **Sizes**: Small (8×12"), Medium (12×18"), Large (18×24"), XL (24×36")
+- **Types**: Framed, Poster
+- **Total variants**: 51 × 4 sizes × 2 types = **408 variants**
+- **White Mount add-on**: +₹250 on any framed variant
+
+### Pricing (ChitraFrame v1)
+| Size | Framed | Poster |
+|------|--------|--------|
+| Small (8×12") | ₹499 | ₹299 |
+| Medium (12×18") | ₹799 | ₹499 |
+| Large (18×24") | ₹1,149 | ₹799 |
+| XL (24×36") | ₹1,749 | ₹1,249 |
+
+**Offers**: Free shipping ≥ ₹899 | Prepaid discount −₹50 | No COD
+
+### Spiritual Category (19 designs)
+| Sub-group | Designs |
+|-----------|---------|
+| Mahadev/Shiva | Cosmic Trance, Galaxy Meditation, Neon Dark Minimal, Adiyogi Blue Flame |
+| Ganesha | Purple Cosmos, Gold Mandala, Sacred Geometry |
+| Hanuman | Bhakti Fire, Warrior of the Peak, Devotion Art |
+| Krishna | Radha Krishna Eternal Love, Krishna Flute Neon |
+| Ram | Ram Darbar Classic, Ram Darbar Royal, Sita Ram Watercolor Bliss, Sita Ram Devotional Art |
+| Other | Durga Shakti, Lakshmi Gold Prosperity, Om Shanti Mandala |
+
+### Automotive Category (12 designs)
+| Sub-group | Designs |
+|-----------|---------|
+| Porsche 911 | 911 Neon Tokyo, 911 Classic White, 911 Carrera Sunset |
+| BMW M4 | M4 Track Drift, M4 Night Blue, M4 Competition |
+| Formula 1 | Monaco Night Race, Verstappen Podium, Hamilton Silver Arrow |
+| SuperBike | 45 Degree Lean, CBR Neon Speed, Ducati Panigale V4 |
+
+### Sports Category (6 designs)
+| Sub-group | Designs |
+|-----------|---------|
+| Messi | World Cup Glory, La Pulga Art, Messi Dribble |
+| CR7 | Siuuu Celebration, CR7 Juventus, Ronaldo Manchester |
+
+### Legend Category (6 designs)
+Goku Ultra Instinct, Naruto Sage Mode, Luffy Pirate King, Midnight Lambo Neon, Woman Line Art Gold, Beach Sunset Oil Paint
+
+### Wildlife Category (6 designs)
+Royal Bengal Tiger, Lion of the Savanna, Eagle Soaring, Snow Leopard, Elephant Majesty, Wolf Moon
+
+### Motivational Category (2 designs)
+Discipline = Freedom, Grind in Silence
+
+---
+
+## 20. Cloudinary Image CDN
+
+### Configuration
+| Key | Value |
+|-----|-------|
+| Cloud Name | `dax4yqumu` |
+| API Key | `329593131774653` |
+| Folder root | `chitraframe/products/` |
+
+### URL Pattern
+```
+# Standard URL (raw):
+https://res.cloudinary.com/dax4yqumu/image/upload/chitraframe/products/{category_slug}/{design_slug}.jpg
+
+# Optimized (web delivery — always use this):
+https://res.cloudinary.com/dax4yqumu/image/upload/f_auto,q_auto:good,w_1200/chitraframe/products/{category_slug}/{design_slug}.jpg
+
+# Thumbnail (product cards):
+https://res.cloudinary.com/dax4yqumu/image/upload/f_auto,q_auto:good,w_400,h_533,c_fill/chitraframe/products/{category_slug}/{design_slug}.jpg
+```
+
+### Public ID Convention
+```
+chitraframe/products/{category_slug}/{design_slug}
+Example: chitraframe/products/automotive/911-neon-tokyo
+```
+
+### Upload Status
+- `cloudinary_results.json` at `/home/user/cloudinary_results.json` — 51 entries with deterministic URLs
+- **Status**: `upload_status: "pending_reupload"` — URLs are established; actual binary upload pending (source PDFs were corrupted in transit; working JPG/PNG files needed)
+- **Upload script**: `/home/user/cloudinary_final_upload.py` — ready with correct SHA-1 signature logic
+
+### Signature Algorithm (CRITICAL)
+```python
+# Only these 3 params are signed — NOT api_key, resource_type, format, file, transformation
+param_str = f"folder={folder}&public_id={pid}&timestamp={timestamp}"
+sig = hashlib.sha1((param_str + API_SECRET).encode()).hexdigest()
+```
+
+---
+
+## 21. Supabase Configuration (ChitraFrame)
+
+| Key | Value |
+|-----|-------|
+| Project URL | `https://lxcustacsvamlrtiqkvi.supabase.co` |
+| Service Key | in `.dev.vars` as `SUPABASE_SERVICE_KEY` |
+
+### Key Tables for ChitraFrame Catalog
+| Table | Contents |
+|-------|---------|
+| `categories` | 6 categories with slug, display_order, emoji |
+| `products` | 51 products with SEO content, descriptions, tags |
+| `product_variants` | 408 rows (51 × 4 sizes × 2 types) with prices |
+| `product_images` | 51 rows with Cloudinary URLs |
+| `site_config` | 14 rows: promo banner, pricing, brand config |
+
+### SQL File
+`supabase/products_catalog.sql` — 36KB, run once to seed entire catalog
+
+---
+
+## 22. New API Routes (May 2025)
+
+### Marketing Routes (`src/routes/marketing.ts`)
+Mounted at root via `app.route('/', marketingRoutes)` in `src/index.tsx`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/promotions` | Public | Active promos from `site_config`; fallback static data |
+| POST | `/api/admin/promotions` | Bearer ADMIN_TOKEN | Update promo banner |
+| GET | `/api/faq` | Public | 23 FAQ Q&As |
+| GET | `/api/categories` | Public | 6 categories with counts + emojis |
+
+---
+
+## 23. Content & SEO Files
+
+### AI Discoverability
+| File | Path | Purpose |
+|------|------|---------|
+| `llms.txt` | `/static/llms.txt` | Plain-text product guide for AI crawlers (LLM-readable) |
+| `ai-plugin.json` | `/.well-known/ai-plugin.json` | OpenAI plugin manifest |
+
+### Blog Posts (`/static/blog/`)
+| Post | Target Keyword | File |
+|------|---------------|------|
+| Photo Frame Gift Ideas India | `photo frame gift ideas india` | `photo-frame-gift-ideas-india.html` |
+| Mahadev Wall Art India | `mahadev wall art india` | `mahadev-wall-art-india.html` |
+| Sports Poster Framing India | `sports poster framing india` | `sports-poster-framing-india.html` |
+| Decorate Living Room India | `decorate living room framed art` | `decorate-living-room-framed-art.html` |
+| Anime Wall Art India | `anime wall art india` | `anime-wall-art-india.html` |
+
+### FAQ Page
+- Static: `/static/faq.html` — 23 Q&As with `FAQPage` JSON-LD, category sections, accordion UI
+- API: `GET /api/faq` — JSON response with same 23 Q&As
+
+---
+
+## 24. Marketing Documents
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `INSTAGRAM_STRATEGY.md` | `/home/user/webapp/` | 30-day content calendar, 6 Reels scripts, story polls, hashtags, KPIs |
+| `MARKETING_STRATEGY.md` | `/home/user/webapp/` | Go-to-market plan, competitor analysis, pricing strategy, 6-month roadmap |
+
+---
+
+*Last updated: 2025-05-27 | Version 4.0 | Maintained by: vijayprasadvvp@gmail.com*
