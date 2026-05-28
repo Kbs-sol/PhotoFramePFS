@@ -1297,14 +1297,14 @@ SELECT
   true AS is_active
 FROM products p
 CROSS JOIN (VALUES
-  ('small',  'framed', 499,  699),
-  ('small',  'poster', 299,  449),
-  ('medium', 'framed', 799,  1099),
-  ('medium', 'poster', 499,  699),
-  ('large',  'framed', 1149, 1499),
-  ('large',  'poster', 799,  1099),
-  ('xl',     'framed', 1749, 2299),
-  ('xl',     'poster', 1249, 1699)
+  ('small',  'Black', 499,  699),
+  ('small',  'Natural Wood', 399,  599),
+  ('medium', 'Black', 799,  1099),
+  ('medium', 'Natural Wood', 699,  999),
+  ('large',  'Black', 1149, 1499),
+  ('large',  'Natural Wood', 999,  1299),
+  ('xl',     'Black', 1749, 2299),
+  ('xl',     'Natural Wood', 1499, 1999)
 ) AS v(size, frame_type, price, compare_price)
 WHERE p.slug IN (
   'mahadev-cosmic-trance','mahadev-galaxy-medit','mahadev-neon-dark','mahadev-adiyogi-blue',
@@ -1538,14 +1538,14 @@ SELECT
   50, true
 FROM products p
 CROSS JOIN (VALUES
-  ('small',  'framed', 499,  699),
-  ('small',  'poster', 299,  449),
-  ('medium', 'framed', 799,  1099),
-  ('medium', 'poster', 499,  699),
-  ('large',  'framed', 1149, 1499),
-  ('large',  'poster', 799,  1099),
-  ('xl',     'framed', 1749, 2299),
-  ('xl',     'poster', 1249, 1699)
+  ('small',  'Black', 499,  699),
+  ('small',  'Natural Wood', 399,  599),
+  ('medium', 'Black', 799,  1099),
+  ('medium', 'Natural Wood', 699,  999),
+  ('large',  'Black', 1149, 1499),
+  ('large',  'Natural Wood', 999,  1299),
+  ('xl',     'Black', 1749, 2299),
+  ('xl',     'Natural Wood', 1499, 1999)
 ) AS v(size, frame_type, price, compare_price)
 WHERE p.slug IN ('cricket-glory-moment','nissan-gtr-r34-osaka-rain','radha-krishna-emerald-dance')
 ON CONFLICT (sku) DO NOTHING;

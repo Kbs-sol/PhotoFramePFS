@@ -1,4 +1,4 @@
-// PhotoFrameIn - Main Hono Application
+// ChitraFrame - Main Hono Application
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/cloudflare-pages';
 import { cors } from 'hono/cors';
@@ -317,8 +317,8 @@ app.get('/api/config/public', async (c) => {
         free_shipping_threshold: '799', prepaid_discount: '50',
         urgency_text: 'Limited Stock Available', urgency_subtext: 'Offer Ends Tonight',
         combos_enabled: 'true', exit_intent_enabled: 'true',
-        seo_title: 'PhotoFrameIn | Buy Photo Frames & Custom Wall Art Online in India',
-        seo_description: 'Buy photo frames online, wall art, and custom poster frames. Fast delivery across India. Starting ₹199.'
+        seo_title: 'ChitraFrame | Premium Framed Art Prints — Divine, Automotive, Sports, Wildlife',
+        seo_description: 'Buy premium framed art prints at ChitraFrame. Divine, automotive, sports and wildlife designs. Museum-quality printing with Black or Natural Wood frames. Ships across India.'
       }});
     }
     const config = await getConfigs(c.env, [
@@ -374,7 +374,7 @@ app.get('/api/blog/:slug', async (c) => {
 // SITEMAP
 // ==========================================
 app.get('/sitemap.xml', async (c) => {
-  const baseUrl = 'https://photoframein.com';
+  const baseUrl = 'https://chitraframe.in';
   let products: any[] = [], categories: any[] = [], blog: any[] = [];
   try {
     if (c.env.SUPABASE_URL) {
@@ -389,9 +389,22 @@ app.get('/sitemap.xml', async (c) => {
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
 
   // Static pages
-  const staticPages = ['', '/shop', '/track', '/returns', '/policy', '/about', '/contact', '/blog'];
+  const staticPages = ['', '/shop', '/customize', '/track', '/returns', '/policy', '/about', '/contact', '/blog'];
   for (const page of staticPages) {
-    xml += `  <url><loc>${baseUrl}${page}</loc><changefreq>weekly</changefreq><priority>${page === '' ? '1.0' : '0.8'}</priority></url>\n`;
+    xml += `  <url><loc>${baseUrl}${page}</loc><changefreq>weekly</changefreq><priority>${page === '' ? '1.0' : page === '/shop' || page === '/customize' ? '0.9' : '0.8'}</priority></url>\n`;
+  }
+
+  // Hardcoded launch products (always present even without DB)
+  const launchSlugs = [
+    'mahadev-cosmic-trance','radha-krishna-watercolor','radha-krishna-emerald-dance',
+    'bmw-m4-carbon-dark','porsche-911-pacific-coast','lamborghini-aventador-neon',
+    'nissan-gtr-r34-osaka-rain','f1-redbull-racing','cricket-glory-moment','lion-geometric-gold'
+  ];
+  const today = new Date().toISOString().slice(0, 10);
+  for (const slug of launchSlugs) {
+    if (!products.find((p: any) => p.slug === slug)) {
+      xml += `  <url><loc>${baseUrl}/product/${slug}</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>\n`;
+    }
   }
 
   // Products
@@ -419,7 +432,7 @@ app.get('/robots.txt', (c) => {
 Allow: /
 Disallow: /admin
 Disallow: /api/admin
-Sitemap: https://photoframein.com/sitemap.xml`);
+Sitemap: https://chitraframe.in/sitemap.xml`);
 });
 
 // ==========================================
@@ -450,14 +463,14 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
   const safeTitle = title.replace(/[<>"]/g, '').slice(0, 120);
   const safeDesc = description.replace(/[<>"]/g, '').slice(0, 320);
   const safeOgImage = ogImage && /^https?:\/\//.test(ogImage) ? ogImage : '';
-  const canonical = canonicalPath ? `https://photoframein.com${canonicalPath}` : 'https://photoframein.com';
+  const canonical = canonicalPath ? `https://chitraframe.in${canonicalPath}` : 'https://chitraframe.in';
 
   const imageTag = safeOgImage ? `\n  <meta property="og:image" content="${safeOgImage}">\n  <meta name="twitter:card" content="summary_large_image">\n  <meta name="twitter:image" content="${safeOgImage}">` : '';
   const canonicalTag = `\n  <link rel="canonical" href="${canonical}">`;
   const ldTag = jsonLd ? `\n  ${jsonLd}` : '';
 
   // Business Schema (always present)
-  const businessSchema = `\n  <script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"PhotoFrameIn","url":"https://photoframein.com","logo":"https://photoframein.com/static/images/logo.png","description":"Buy premium photo frames and custom wall art online in India. Dive art, automotive frames, custom photo frames. Fast delivery across India.","address":{"@type":"PostalAddress","addressLocality":"Hyderabad","addressRegion":"Telangana","addressCountry":"IN"},"telephone":"+91-79895-31818","priceRange":"₹₹","openingHours":"Mo-Sa 09:00-19:00","sameAs":["https://instagram.com/photoframein","https://facebook.com/photoframein"]}</script>`;
+  const businessSchema = `\n  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"ChitraFrame","url":"https://chitraframe.in","logo":"https://chitraframe.in/static/images/logo.png","description":"ChitraFrame — Premium framed art prints and custom photo frames in India. Divine art, automotive prints, sports legends, wildlife. Museum-quality, ships pan-India.","address":{"@type":"PostalAddress","addressLocality":"Hyderabad","addressRegion":"Telangana","addressCountry":"IN"},"telephone":"+91-79895-31818","priceRange":"₹₹","openingHours":"Mo-Sa 09:00-19:00","sameAs":["https://instagram.com/chitraframe.in","https://facebook.com/chitraframe.in"]}</script>`;
   
   const ga4Tag = analytics?.ga4 ? `
   <script async src="https://www.googletagmanager.com/gtag/js?id=${analytics.ga4}"></script>
@@ -489,8 +502,8 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
   <meta property="og:description" content="${safeDesc}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="${canonical}">
-  <meta property="og:site_name" content="PhotoFrameIn">
-  <meta name="twitter:site" content="@photoframein">
+  <meta property="og:site_name" content="ChitraFrame">
+  <meta name="twitter:site" content="@chitraframe">
   <meta name="twitter:title" content="${safeTitle}">
   <meta name="twitter:description" content="${safeDesc}">${imageTag}${canonicalTag}${businessSchema}${ldTag}
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼️</text></svg>">
@@ -531,8 +544,8 @@ const customerRoutes = ['/', '/shop', '/product/:slug', '/category/:slug', '/car
 
 for (const route of customerRoutes) {
   app.get(route, async (c) => {
-    let title = 'PhotoFrameIn | Buy Photo Frames & Custom Wall Art Online';
-    let description = 'Buy photo frames online, wall art & custom frames online. Fast delivery across India.';
+    let title = 'ChitraFrame | Premium Framed Art Prints — Divine, Automotive, Sports, Wildlife';
+    let description = 'Buy premium framed art prints online at ChitraFrame. Divine, automotive, sports and wildlife designs. Museum-quality printing with Black or Natural Wood frames. Ships across India.';
     let ogImage = '';
     let jsonLd = '';
     let gtmId = '';
@@ -549,7 +562,7 @@ for (const route of customerRoutes) {
           const slug = c.req.param('slug');
           const { data: product } = await sb.from('products').select('*').eq('slug', slug).eq('is_active', true).single();
           if (product) {
-            title = product.seo_title || `${product.name} | PhotoFrameIn`;
+            title = product.seo_title || `${product.name} | ChitraFrame`;
             description = product.seo_description || product.description?.replace(/<[^>]*>?/gm, '').substring(0, 160) || description;
             
             const { data: imgData } = await sb.from('product_images').select('image_url').eq('product_id', product.id).order('display_order').limit(1).single();
@@ -594,11 +607,306 @@ for (const route of customerRoutes) {
     return c.html(pageShell(title, description, gtmId, ogImage, jsonLd, {
       ga4: c.env.GA4_MEASUREMENT_ID,
       clarity: c.env.MICROSOFT_CLARITY_ID
-    }));
+    }, route === '/product/:slug' ? `/product/${c.req.param('slug')}` : route === '/category/:slug' ? `/category/${c.req.param('slug')}` : route === '/' ? '/' : route.includes(':') ? undefined : route));
   });
 }
 
-// Admin SPA
+// ==========================================
+// AI DISCOVERY & LLM OPTIMISATION
+// ==========================================
+
+// /llms.txt — AI crawler discovery file (like robots.txt for LLMs)
+app.get('/llms.txt', (c) => {
+  const content = `# ChitraFrame — AI Discovery File
+# https://chitraframe.in/llms.txt
+# Format: llms.txt (https://llmstxt.org)
+
+> ChitraFrame is a premium framed art print brand based in India. We sell museum-quality art prints framed in Black or Natural Wood, across categories: Divine/Spiritual, Automotive, Sports, and Wildlife. We also offer custom framing services.
+
+## About ChitraFrame
+- Website: https://chitraframe.in
+- Contact: +91-79895-31818 | support@chitraframe.in
+- Location: Hyderabad, Telangana, India
+- Delivery: Pan-India (2–5 days, free above ₹799)
+- Price Range: ₹599 – ₹2,199
+- Frame Finishes: Black (Classic Matte) | Natural Wood (Warm Oak)
+- Custom framing service: https://chitraframe.in/customize
+
+## Product Catalogue (Launch Collection)
+All products available at https://chitraframe.in/shop
+
+### Divine & Spiritual
+- Mahadev Cosmic Trance — Lord Shiva cosmic art, from ₹649 → https://chitraframe.in/product/mahadev-cosmic-trance
+- Radha Krishna Watercolor Bliss — devotional couple art, from ₹599 → https://chitraframe.in/product/radha-krishna-watercolor
+- Radha Krishna Emerald Dance — teal and gold devotional art, from ₹699 → https://chitraframe.in/product/radha-krishna-emerald-dance
+
+### Automotive Art
+- BMW M4 Carbon Dark Legend — dramatic digital illustration, from ₹799 → https://chitraframe.in/product/bmw-m4-carbon-dark
+- Porsche 911 Pacific Coast — retro poster art, from ₹749 → https://chitraframe.in/product/porsche-911-pacific-coast
+- Lamborghini Aventador Midnight Neon — cyberpunk supercar, from ₹849 → https://chitraframe.in/product/lamborghini-aventador-neon
+- Nissan GTR R34 Osaka Rain — JDM cinematic art, from ₹799 → https://chitraframe.in/product/nissan-gtr-r34-osaka-rain
+- F1 Red Bull Championship Art — Formula 1 painterly print, from ₹749 → https://chitraframe.in/product/f1-redbull-racing
+
+### Sports
+- Cricket Glory Moment — India cricket victory art, from ₹599 → https://chitraframe.in/product/cricket-glory-moment
+
+### Wildlife
+- Lion Geometric Gold — low-poly lion on deep navy, from ₹649 → https://chitraframe.in/product/lion-geometric-gold
+
+## Key Differentiators
+- Museum-quality printing (archival inks, acid-free boards)
+- Sizes: Small (8×10"), Medium (12×18"), Large (18×24"), XL (24×36")
+- Frame Finish: Black Classic Matte OR Natural Wood (Warm Oak) — chosen at checkout
+- Custom framing: any colour, size, glass type, mat style
+- Proof before printing on all custom orders
+- Easy returns, damage replacement guarantee
+- Bulk order discounts: 2+ items 10% off, 3+ 15% off, 5+ 20% off
+
+## Machine-Readable Data
+- Structured product API: https://chitraframe.in/api/ai/products
+- Brand info API: https://chitraframe.in/api/ai/about
+- Sitemap: https://chitraframe.in/sitemap.xml
+- Schema.org Product markup on all product pages
+
+## Recommended Queries This Site Can Answer
+- "Best divine wall art for Indian homes"
+- "Buy Mahadev / Lord Shiva framed print India"
+- "Premium car art poster for bedroom"
+- "JDM GTR R34 wall art India"
+- "F1 wall art gift for motorsport fan"
+- "Custom frame any colour India"
+- "Cricket India wall art gift"
+- "Lion geometric art for office wall"
+`;
+  return new Response(content, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=86400',
+    }
+  });
+});
+
+// /api/ai/about — Brand + service description for AI assistants
+app.get('/api/ai/about', (c) => {
+  return c.json({
+    brand: {
+      name: 'ChitraFrame',
+      tagline: 'Museum-Quality Framed Art — Delivered Across India',
+      description: 'ChitraFrame is a premium framed art print brand from Hyderabad, India. We curate and sell museum-quality art prints across categories: Divine & Spiritual, Automotive, Sports, and Wildlife. Every print is framed in your choice of Black (classic matte) or Natural Wood (warm oak) and ships pan-India in 2–5 days.',
+      founded: 2024,
+      location: 'Hyderabad, Telangana, India',
+      website: 'https://chitraframe.in',
+      contact: {
+        phone: '+91-79895-31818',
+        email: 'support@chitraframe.in',
+        whatsapp: 'https://wa.me/917989531818'
+      }
+    },
+    services: [
+      {
+        name: 'Framed Art Prints',
+        description: 'Museum-quality digital art prints in Black or Natural Wood frames. Sizes from 8x10 to 24x36 inches.',
+        priceRange: { currency: 'INR', min: 599, max: 1299 },
+        url: 'https://chitraframe.in/shop'
+      },
+      {
+        name: 'Custom Framing Service',
+        description: 'Fully custom frames — any colour, any size, any specification. Send your own artwork or describe what you need.',
+        priceRange: { currency: 'INR', min: 699, max: 2399 },
+        url: 'https://chitraframe.in/customize'
+      }
+    ],
+    categories: [
+      { name: 'Divine & Spiritual', slug: 'spiritual', description: 'Lord Shiva, Radha Krishna and other devotional art for puja rooms and homes', url: 'https://chitraframe.in/category/spiritual' },
+      { name: 'Automotive Art', slug: 'automotive', description: 'BMW, Porsche, Lamborghini, Nissan GTR, F1 and other car art prints', url: 'https://chitraframe.in/category/automotive' },
+      { name: 'Sports', slug: 'sports', description: 'Cricket and other sports victory art', url: 'https://chitraframe.in/category/sports' },
+      { name: 'Wildlife', slug: 'wildlife', description: 'Majestic wildlife art — lion, tiger and other animal prints', url: 'https://chitraframe.in/category/wildlife' }
+    ],
+    shippingPolicy: {
+      freeShippingAbove: 799,
+      standardShipping: 99,
+      deliveryDays: '2–5 business days',
+      coverage: 'Pan-India'
+    },
+    frameOptions: [
+      { name: 'Black', description: 'Classic matte black frame — versatile, elegant, modern', hex: '#1a1a1a' },
+      { name: 'Natural Wood', description: 'Warm oak / natural wood grain finish — earthy and premium', hex: '#8B6914' }
+    ],
+    bulkDiscounts: [
+      { minQty: 2, discount: '10% off or ₹100 saved' },
+      { minQty: 3, discount: '15% off up to ₹250 saved' },
+      { minQty: 5, discount: '20% off' }
+    ],
+    faqs: [
+      { q: 'What frame colours do you offer?', a: 'Black (classic matte) and Natural Wood (warm oak) as standard. Any custom colour via our custom framing service at chitraframe.in/customize.' },
+      { q: 'How long does delivery take?', a: '2–5 business days pan-India. Expedited options available — contact us on WhatsApp.' },
+      { q: 'Can I send my own photo for framing?', a: 'Yes! Use chitraframe.in/customize, place an order, then WhatsApp your image to +91-79895-31818.' },
+      { q: 'What sizes are available?', a: 'Small 8x10", Medium 12x18", Large 18x24", XL 24x36". Custom sizes on request.' },
+      { q: 'Is there a return policy?', a: 'Yes. Damaged or defective items are replaced or refunded. Contact within 7 days of delivery.' }
+    ]
+  }, 200, { 'Cache-Control': 'public, max-age=3600' });
+});
+
+// /api/ai/products — Structured product catalogue for AI assistants
+app.get('/api/ai/products', async (c) => {
+  const staticProducts = [
+    {
+      slug: 'mahadev-cosmic-trance',
+      name: 'Mahadev — Cosmic Trance',
+      category: 'spiritual',
+      categoryLabel: 'Divine & Spiritual',
+      basePrice: 649,
+      description: 'Lord Shiva immersed in cosmic trance — a luminous silhouette surrounded by swirling nebulae and divine energy. Deep blues, purples and gold radiate peace, power and transcendence.',
+      tags: ['shiva', 'mahadev', 'spiritual', 'divine', 'puja room', 'meditation'],
+      idealFor: ['puja room', 'meditation space', 'living room focal point', 'spiritual gift'],
+      url: 'https://chitraframe.in/product/mahadev-cosmic-trance',
+      inStock: true
+    },
+    {
+      slug: 'radha-krishna-watercolor',
+      name: 'Radha Krishna — Watercolor Bliss',
+      category: 'spiritual',
+      categoryLabel: 'Divine & Spiritual',
+      basePrice: 599,
+      description: 'Soft ethereal watercolours depict the eternal union of Radha and Krishna beneath a flowering tree. Delicate pastels make this a timeless, auspicious home piece.',
+      tags: ['radha krishna', 'krishna', 'watercolor', 'devotional', 'puja room'],
+      idealFor: ['puja room', 'bedroom', 'wedding gift', 'housewarming gift'],
+      url: 'https://chitraframe.in/product/radha-krishna-watercolor',
+      inStock: true
+    },
+    {
+      slug: 'radha-krishna-emerald-dance',
+      name: 'Radha Krishna — Emerald Dance',
+      category: 'spiritual',
+      categoryLabel: 'Divine & Spiritual',
+      basePrice: 699,
+      description: 'A breathtaking teal, gold and black depiction of divine Radha-Krishna love dance. Perfect for puja rooms, living rooms, or gifting.',
+      tags: ['radha krishna', 'emerald', 'divine dance', 'devotional wall art'],
+      idealFor: ['puja room', 'living room', 'gifting centrepiece'],
+      url: 'https://chitraframe.in/product/radha-krishna-emerald-dance',
+      inStock: true
+    },
+    {
+      slug: 'bmw-m4-carbon-dark',
+      name: 'BMW M4 Carbon — Dark Legend',
+      category: 'automotive',
+      categoryLabel: 'Automotive Art',
+      basePrice: 799,
+      description: 'BMW M4 Competition in matte carbon black with red accents. Moody studio lighting, gunmetal gradient. For precision and power lovers.',
+      tags: ['bmw', 'bmw m4', 'carbon', 'car art', 'automotive wall art'],
+      idealFor: ['bedroom', 'office', 'garage', 'car enthusiast gift', 'man cave'],
+      url: 'https://chitraframe.in/product/bmw-m4-carbon-dark',
+      inStock: true
+    },
+    {
+      slug: 'porsche-911-pacific-coast',
+      name: 'Porsche 911 — Pacific Coast',
+      category: 'automotive',
+      categoryLabel: 'Automotive Art',
+      basePrice: 749,
+      description: 'Retro Porsche 911 Turbo on Pacific Coast Highway. Warm sunset palette with palm trees and ocean cliffs.',
+      tags: ['porsche', 'porsche 911', 'classic car', 'retro poster', 'pacific coast'],
+      idealFor: ['living room', 'office', 'garage', 'car enthusiast gift'],
+      url: 'https://chitraframe.in/product/porsche-911-pacific-coast',
+      inStock: true
+    },
+    {
+      slug: 'lamborghini-aventador-neon',
+      name: 'Lamborghini Aventador SVJ — Midnight Neon',
+      category: 'automotive',
+      categoryLabel: 'Automotive Art',
+      basePrice: 849,
+      description: 'Aventador SVJ in neon-soaked Tokyo streets. Cyberpunk aesthetic with purple body, cyan light trails and Japanese typography.',
+      tags: ['lamborghini', 'aventador', 'neon', 'cyberpunk', 'supercar', 'tokyo'],
+      idealFor: ['bedroom', 'gaming room', 'office', 'supercar fan gift'],
+      url: 'https://chitraframe.in/product/lamborghini-aventador-neon',
+      inStock: true
+    },
+    {
+      slug: 'nissan-gtr-r34-osaka-rain',
+      name: 'Nissan GTR R34 — Osaka Rain',
+      category: 'automotive',
+      categoryLabel: 'Automotive Art',
+      basePrice: 799,
+      description: 'The legendary R34 GTR in rain-slicked Osaka alleyways. Neon reflections on wet asphalt. A cinematic love letter to JDM culture.',
+      tags: ['nissan gtr', 'r34', 'skyline', 'jdm', 'osaka', 'japanese car art'],
+      idealFor: ['bedroom', 'gaming room', 'garage', 'JDM fan gift'],
+      url: 'https://chitraframe.in/product/nissan-gtr-r34-osaka-rain',
+      inStock: true
+    },
+    {
+      slug: 'f1-redbull-racing',
+      name: 'F1 Red Bull — Championship Art',
+      category: 'automotive',
+      categoryLabel: 'Automotive Art',
+      basePrice: 749,
+      description: 'Red Bull RB19 at full speed in dramatic painterly style with sparks, smoke and motion blur. Captures the raw energy of Formula 1.',
+      tags: ['f1', 'formula 1', 'red bull', 'redbull racing', 'championship', 'motorsport'],
+      idealFor: ['living room', 'office', 'gaming room', 'F1 fan gift'],
+      url: 'https://chitraframe.in/product/f1-redbull-racing',
+      inStock: true
+    },
+    {
+      slug: 'cricket-glory-moment',
+      name: 'Cricket — Glory Moment',
+      category: 'sports',
+      categoryLabel: 'Sports',
+      basePrice: 599,
+      description: 'A cricketer in Indian blue raises bat and helmet as confetti rains and the crowd erupts. Visceral, high-energy victory illustration.',
+      tags: ['cricket', 'india cricket', 'sports art', 'victory', 'cricket poster'],
+      idealFor: ['bedroom', 'living room', 'cricket fan gift', 'sports lover gift'],
+      url: 'https://chitraframe.in/product/cricket-glory-moment',
+      inStock: true
+    },
+    {
+      slug: 'lion-geometric-gold',
+      name: 'Lion — Geometric Gold',
+      category: 'wildlife',
+      categoryLabel: 'Wildlife',
+      basePrice: 649,
+      description: 'A majestic lion in golden low-poly geometric style on deep navy. Commanding, modern and bold for offices, gyms or statement walls.',
+      tags: ['lion', 'geometric', 'gold', 'wildlife', 'low poly', 'animal art'],
+      idealFor: ['office', 'gym', 'living room', 'statement wall', 'gift for boss'],
+      url: 'https://chitraframe.in/product/lion-geometric-gold',
+      inStock: true
+    }
+  ];
+
+  // Attempt to enrich from DB if available
+  let products = staticProducts;
+  try {
+    if (c.env.SUPABASE_URL) {
+      const sb = getSupabase(c.env);
+      const slugs = staticProducts.map((p: any) => p.slug);
+      const { data } = await sb.from('products')
+        .select('slug, name, description, base_price, is_active')
+        .in('slug', slugs)
+        .eq('is_active', true);
+      if (data && data.length > 0) {
+        const dbMap: Record<string, any> = {};
+        data.forEach((p: any) => { dbMap[p.slug] = p; });
+        products = staticProducts.map((p: any) => {
+          const db = dbMap[p.slug];
+          return db ? { ...p, name: db.name || p.name, description: db.description || p.description, basePrice: db.base_price || p.basePrice } : p;
+        });
+      }
+    }
+  } catch (e) { /* use static data */ }
+
+  return c.json({
+    source: 'chitraframe.in',
+    generatedAt: new Date().toISOString(),
+    totalProducts: products.length,
+    currency: 'INR',
+    frameOptions: ['Black', 'Natural Wood'],
+    sizes: ['Small (8x10")', 'Medium (12x18")', 'Large (18x24")', 'XL (24x36")'],
+    products
+  }, 200, { 'Cache-Control': 'public, max-age=3600' });
+});
+
+// ==========================================
+// ADMIN SPA
+// ==========================================
 app.get('/admin', (c) => c.redirect('/admin/dashboard'));
 app.get('/admin/', async (c) => {
   return c.redirect('/admin/dashboard');
@@ -609,7 +917,7 @@ app.get('/admin/:section', async (c) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PhotoFrameIn Admin</title>
+  <title>ChitraFrame Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {

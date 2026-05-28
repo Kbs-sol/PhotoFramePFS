@@ -12,7 +12,7 @@
   // ── Product image map (Cloudinary + direct URLs for uploaded designs) ──────
   const DESIGN_IMAGES = {
     // Spiritual
-    'mahadev-cosmic-meditation': 'https://www.genspark.ai/api/files/s/6YSmJUF0',
+    'mahadev-cosmic-trance': 'https://www.genspark.ai/api/files/s/6YSmJUF0',
     'radha-krishna-watercolor': 'https://www.genspark.ai/api/files/s/joUaJFwf',
     'radha-krishna-emerald-dance': 'https://www.genspark.ai/api/files/s/u7qV7RLf',
     // Automotive
@@ -297,6 +297,7 @@
 
         <nav class="header-nav header-nav-right" aria-label="Site links">
           <a href="/shop" onclick="window.cf.nav('/shop');return false;" class="header-nav-link">Shop All</a>
+          <a href="/customize" onclick="window.cf.nav('/customize');return false;" class="header-nav-link" style="color:var(--gold)">Custom Frame</a>
           <a href="/about" onclick="window.cf.nav('/about');return false;" class="header-nav-link hidden md:inline-flex">About</a>
         </nav>
 
@@ -858,16 +859,66 @@
 
     // Find product from known list
     const knownProducts = {
-      'radha-krishna-emerald-dance': { name: 'Radha Krishna — Emerald Dance', category: 'Spiritual', basePrice: 699, desc: 'A breathtaking watercolor-style rendition of the divine love of Radha and Krishna. Teal, gold and black create a mesmerising dance of colour and devotion. Perfect for puja rooms, living rooms, or as a gifting centrepiece.', image: DESIGN_IMAGES['radha-krishna-emerald-dance'] },
-      'mahadev-cosmic-meditation': { name: 'Mahadev — Cosmic Meditation', category: 'Spiritual', basePrice: 649, desc: 'Lord Shiva in cosmic meditation — a luminous silhouette surrounded by swirling cosmic energy. This print radiates peace, power and divine presence. A stunning focal point for any spiritual space.', image: DESIGN_IMAGES['mahadev-cosmic-meditation'] },
-      'radha-krishna-watercolor': { name: 'Radha Krishna — Watercolor Bliss', category: 'Spiritual', basePrice: 599, desc: 'Soft, ethereal watercolours depict the eternal union of Radha and Krishna beneath a flowering tree. Delicate pastels and botanical detail make this a timeless choice for a serene, auspicious home.', image: DESIGN_IMAGES['radha-krishna-watercolor'] },
-      'bmw-m4-carbon-dark': { name: 'BMW M4 Carbon — Dark Legend', category: 'Automotive', basePrice: 799, desc: 'A dramatic digital illustration of the BMW M4 Competition — matte carbon black with red accent details. Rendered in moody studio lighting against a gunmetal gradient. For the driver who appreciates precision and power.', image: DESIGN_IMAGES['bmw-m4-carbon-dark'] },
-      'porsche-911-pacific-coast': { name: 'Porsche 911 — Pacific Coast', category: 'Automotive', basePrice: 749, desc: 'Retro poster art of the classic Porsche 911 Turbo cruising the Pacific Coast Highway. Warm sunset palette, palm trees and ocean cliffs — pure driving romance. A must-have for any enthusiast\'s wall.', image: DESIGN_IMAGES['porsche-911-pacific-coast'] },
-      'lamborghini-aventador-neon': { name: 'Lamborghini Aventador SVJ — Midnight Neon', category: 'Automotive', basePrice: 849, desc: 'The Aventador SVJ in neon-soaked Tokyo streets. Cyberpunk aesthetic meets supercar fantasy — deep purple body, cyan light trails, and Japanese typography. Bold, cinematic wall art.', image: DESIGN_IMAGES['lamborghini-aventador-neon'] },
-      'nissan-gtr-r34-osaka-rain': { name: 'Nissan GTR R34 — Osaka Rain', category: 'Automotive', basePrice: 799, desc: 'The legendary R34 GTR in rain-slicked Osaka alleyways. Neon reflections on wet asphalt, Japanese signage and moody atmosphere. A love letter to JDM culture rendered in cinematic realism.', image: DESIGN_IMAGES['nissan-gtr-r34-osaka-rain'] },
-      'f1-redbull-racing': { name: 'F1 RedBull — Championship Art', category: 'Automotive', basePrice: 749, desc: 'The Oracle Red Bull RB19 at full speed — dramatic painterly style with sparks, smoke and motion blur. Expressive brushstrokes capture the raw energy of Formula 1 at its peak.', image: DESIGN_IMAGES['f1-redbull-racing'] },
-      'cricket-glory-moment': { name: 'Cricket — Glory Moment', category: 'Sports', basePrice: 599, desc: 'An electric celebration — a cricketer in Indian blue raises bat and helmet as confetti rains and the crowd erupts. Visceral, high-energy illustration that captures the euphoria of victory.', image: DESIGN_IMAGES['cricket-glory-moment'] },
-      'lion-geometric-gold': { name: 'Lion — Geometric Gold', category: 'Wildlife', basePrice: 649, desc: 'A majestic lion rendered in golden low-poly geometric style on deep navy. Commanding, modern, and bold. Perfect for offices, gyms, or any space that calls for strength and authority.', image: DESIGN_IMAGES['lion-geometric-gold'] },
+      'mahadev-cosmic-trance': { name: 'Mahadev — Cosmic Trance', category: 'Spiritual', basePrice: 649,
+        desc: 'Lord Shiva immersed in cosmic trance — a luminous silhouette surrounded by swirling nebulae and divine energy. Deep blues, purples and gold radiate peace, power and transcendence. The perfect centrepiece for any puja room or spiritual space.',
+        seoTitle: 'Mahadev Cosmic Trance Framed Art Print | ChitraFrame India',
+        seoDesc: 'Buy Mahadev Cosmic Trance premium framed art print online. Museum-quality Lord Shiva wall art in Black or Natural Wood frame. Ships across India. Starting ₹649.',
+        keywords: 'mahadev wall art, lord shiva framed print, shiva cosmic art, divine wall art india',
+        image: DESIGN_IMAGES['mahadev-cosmic-trance'] },
+      'radha-krishna-watercolor': { name: 'Radha Krishna — Watercolor Bliss', category: 'Spiritual', basePrice: 599,
+        desc: 'Soft, ethereal watercolours depict the eternal union of Radha and Krishna beneath a flowering tree. Delicate pastels and botanical detail make this a timeless choice for a serene, auspicious home.',
+        seoTitle: 'Radha Krishna Watercolor Framed Art Print | ChitraFrame India',
+        seoDesc: 'Buy Radha Krishna Watercolor premium framed wall art. Beautiful devotional print in Black or Natural Wood frame. Ships across India. Starting ₹599.',
+        keywords: 'radha krishna wall art, krishna framed print, devotional wall art india',
+        image: DESIGN_IMAGES['radha-krishna-watercolor'] },
+      'radha-krishna-emerald-dance': { name: 'Radha Krishna — Emerald Dance', category: 'Spiritual', basePrice: 699,
+        desc: 'A breathtaking watercolor-style rendition of the divine love of Radha and Krishna. Teal, gold and black create a mesmerising dance of colour and devotion. Perfect for puja rooms, living rooms, or as a gifting centrepiece.',
+        seoTitle: 'Radha Krishna Emerald Dance Framed Print | ChitraFrame India',
+        seoDesc: 'Buy Radha Krishna Emerald Dance premium framed art print. Teal and gold devotional wall art. Ships across India in Black or Natural Wood frame. From ₹699.',
+        keywords: 'radha krishna emerald dance, krishna art print, divine couple wall art',
+        image: DESIGN_IMAGES['radha-krishna-emerald-dance'] },
+      'bmw-m4-carbon-dark': { name: 'BMW M4 Carbon — Dark Legend', category: 'Automotive', basePrice: 799,
+        desc: 'A dramatic digital illustration of the BMW M4 Competition — matte carbon black with red accent details. Rendered in moody studio lighting against a gunmetal gradient. For the driver who appreciates precision and power.',
+        seoTitle: 'BMW M4 Carbon Dark Framed Art Print | ChitraFrame India',
+        seoDesc: 'Buy BMW M4 Carbon Dark premium automotive wall art. Museum-quality car poster in Black or Natural Wood frame. Perfect gift for car lovers. Ships across India.',
+        keywords: 'bmw m4 wall art, bmw car poster india, automotive art print, car framed poster',
+        image: DESIGN_IMAGES['bmw-m4-carbon-dark'] },
+      'porsche-911-pacific-coast': { name: 'Porsche 911 — Pacific Coast', category: 'Automotive', basePrice: 749,
+        desc: 'Retro poster art of the classic Porsche 911 Turbo cruising the Pacific Coast Highway. Warm sunset palette, palm trees and ocean cliffs — pure driving romance. A must-have for any enthusiast\'s wall.',
+        seoTitle: 'Porsche 911 Pacific Coast Framed Art Print | ChitraFrame India',
+        seoDesc: 'Buy Porsche 911 Pacific Coast retro automotive wall art. Classic car poster framed print. Perfect for car enthusiasts. Ships across India from ₹749.',
+        keywords: 'porsche 911 wall art, porsche poster india, classic car framed print',
+        image: DESIGN_IMAGES['porsche-911-pacific-coast'] },
+      'lamborghini-aventador-neon': { name: 'Lamborghini Aventador SVJ — Midnight Neon', category: 'Automotive', basePrice: 849,
+        desc: 'The Aventador SVJ in neon-soaked Tokyo streets. Cyberpunk aesthetic meets supercar fantasy — deep purple body, cyan light trails, and Japanese typography. Bold, cinematic wall art.',
+        seoTitle: 'Lamborghini Aventador Neon Framed Art Print | ChitraFrame India',
+        seoDesc: 'Buy Lamborghini Aventador Midnight Neon premium wall art. Cyberpunk supercar framed poster. Ships across India in Black or Natural Wood frame. From ₹849.',
+        keywords: 'lamborghini wall art, aventador poster india, supercar neon art, cyberpunk car print',
+        image: DESIGN_IMAGES['lamborghini-aventador-neon'] },
+      'nissan-gtr-r34-osaka-rain': { name: 'Nissan GTR R34 — Osaka Rain', category: 'Automotive', basePrice: 799,
+        desc: 'The legendary R34 GTR in rain-slicked Osaka alleyways. Neon reflections on wet asphalt, Japanese signage and moody atmosphere. A love letter to JDM culture rendered in cinematic realism.',
+        seoTitle: 'Nissan GTR R34 Osaka Rain Framed Art Print | ChitraFrame India',
+        seoDesc: 'Buy Nissan GTR R34 Osaka Rain JDM wall art. Legendary Skyline GTR framed poster. Ships across India. Perfect for JDM and car culture fans. From ₹799.',
+        keywords: 'nissan gtr r34 wall art, skyline gtr poster india, jdm art print, r34 framed poster',
+        image: DESIGN_IMAGES['nissan-gtr-r34-osaka-rain'] },
+      'f1-redbull-racing': { name: 'F1 Red Bull — Championship Art', category: 'Automotive', basePrice: 749,
+        desc: 'The Oracle Red Bull RB19 at full speed — dramatic painterly style with sparks, smoke and motion blur. Expressive brushstrokes capture the raw energy of Formula 1 at its peak.',
+        seoTitle: 'F1 Red Bull Racing Framed Art Print | ChitraFrame India',
+        seoDesc: 'Buy F1 Red Bull Racing Championship premium framed art. Formula 1 wall art in Black or Natural Wood frame. Ships across India. From ₹749.',
+        keywords: 'f1 wall art india, red bull racing poster, formula 1 framed print, f1 art',
+        image: DESIGN_IMAGES['f1-redbull-racing'] },
+      'cricket-glory-moment': { name: 'Cricket — Glory Moment', category: 'Sports', basePrice: 599,
+        desc: 'An electric celebration — a cricketer in Indian blue raises bat and helmet as confetti rains and the crowd erupts. Visceral, high-energy illustration that captures the euphoria of victory.',
+        seoTitle: 'Cricket Glory Moment Framed Art Print | ChitraFrame India',
+        seoDesc: 'Buy Cricket Glory Moment premium framed wall art. Indian cricket victory art in Black or Natural Wood frame. Ships across India. Perfect gift for cricket fans. From ₹599.',
+        keywords: 'cricket wall art india, cricket poster framed, indian cricket art print, sports wall art',
+        image: DESIGN_IMAGES['cricket-glory-moment'] },
+      'lion-geometric-gold': { name: 'Lion — Geometric Gold', category: 'Wildlife', basePrice: 649,
+        desc: 'A majestic lion rendered in golden low-poly geometric style on deep navy. Commanding, modern, and bold. Perfect for offices, gyms, or any space that calls for strength and authority.',
+        seoTitle: 'Lion Geometric Gold Framed Art Print | ChitraFrame India',
+        seoDesc: 'Buy Lion Geometric Gold premium framed wall art. Majestic low-poly lion print in Black or Natural Wood frame. Ships across India. Perfect for offices and gyms. From ₹649.',
+        keywords: 'lion wall art india, geometric lion poster, wildlife framed print, lion art gold',
+        image: DESIGN_IMAGES['lion-geometric-gold'] },
     };
 
     const product = knownProducts[slug] || {
@@ -886,6 +937,33 @@
 
     app.innerHTML = renderHeader() + `
     <main id="main-content">
+      <!-- JSON-LD Product Schema for SEO + AI crawlers -->
+      <script type="application/ld+json">
+      {
+        "@context": "https://schema.org/",
+        "@type": "Product",
+        "name": "${escapeHTML(product.name)}",
+        "description": "${escapeHTML(product.desc)}",
+        "image": "${escapeHTML(product.image)}",
+        "brand": { "@type": "Brand", "name": "ChitraFrame" },
+        "url": "https://chitraframe.in/product/${escapeHTML(slug)}",
+        "category": "${escapeHTML(product.category)}",
+        "offers": {
+          "@type": "AggregateOffer",
+          "priceCurrency": "INR",
+          "lowPrice": "${product.basePrice}",
+          "highPrice": "${product.basePrice + 450}",
+          "offerCount": "8",
+          "availability": "https://schema.org/InStock",
+          "seller": { "@type": "Organization", "name": "ChitraFrame" }
+        },
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "4.9",
+          "reviewCount": "124"
+        }
+      }
+      <\/script>
       <!-- Breadcrumb -->
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <div class="container">
@@ -1126,7 +1204,7 @@
     const products = (window._allProducts || []).filter(p => p.category === slug);
     const fallback = [
       { slug: 'radha-krishna-emerald-dance', name: 'Radha Krishna — Emerald Dance', category: 'spiritual', price: 699, image: DESIGN_IMAGES['radha-krishna-emerald-dance'] },
-      { slug: 'mahadev-cosmic-meditation', name: 'Mahadev — Cosmic Meditation', category: 'spiritual', price: 649, image: DESIGN_IMAGES['mahadev-cosmic-meditation'] },
+      { slug: 'mahadev-cosmic-trance', name: 'Mahadev — Cosmic Trance', category: 'spiritual', price: 649, image: DESIGN_IMAGES['mahadev-cosmic-trance'] },
     ];
 
     app.innerHTML = renderHeader() + `
@@ -1904,6 +1982,496 @@
     });
   }
 
+  // ── CUSTOM FRAME PAGE ────────────────────────────────────────────────────
+  function customCalcPrice() {
+    const sizeSelect = document.getElementById('custom-size');
+    const frameSelect = document.getElementById('custom-frame-preset');
+    const qty = parseInt(document.getElementById('custom-qty')?.value || '1', 10);
+    const sizePrices = { small: 699, medium: 999, large: 1499, xl: 2199 };
+    const frameExtra = { black: 0, 'natural-wood': 100, custom: 200 };
+    const size = sizeSelect?.value || 'medium';
+    const frame = frameSelect?.value || 'black';
+    const base = (sizePrices[size] || 999) + (frameExtra[frame] || 0);
+    const total = base * Math.max(1, qty || 1);
+    const el = document.getElementById('custom-price-display');
+    if (el) el.textContent = formatPrice(total);
+    window._customState = { size, frame, qty: Math.max(1, qty), price: base };
+  }
+
+  function submitCustomOrder() {
+    const s = window._customState || {};
+    const name = document.getElementById('custom-name')?.value?.trim();
+    const phone = document.getElementById('custom-phone')?.value?.trim();
+    const spec = document.getElementById('custom-spec')?.value?.trim();
+    const frameColor = document.getElementById('custom-frame-color')?.value?.trim();
+    const framePreset = document.getElementById('custom-frame-preset')?.value;
+
+    if (!name || name.length < 2) { toast('Please enter your name', 'error'); return; }
+    if (!phone || !/^[6-9]\d{9}$/.test(phone.replace(/\s/g, ''))) { toast('Please enter a valid 10-digit mobile number', 'error'); return; }
+
+    const frameDisplay = frameColor && frameColor.trim() ? frameColor : (framePreset === 'natural-wood' ? 'Natural Wood' : 'Black');
+    const sizeLabelMap = { small: 'Small (8×10")', medium: 'Medium (12×18")', large: 'Large (18×24")', xl: 'XL (24×36")' };
+    const sizeDisplay = sizeLabelMap[s.size] || 'Medium (12×18")';
+    const itemName = `Custom Frame — ${sizeDisplay} · ${frameDisplay}`;
+
+    addToCart({
+      variantId: `custom-${s.size}-${(frameDisplay).toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+      name: itemName,
+      price: s.price || 999,
+      image: DESIGN_IMAGES['lion-geometric-gold'],
+      slug: 'custom-frame',
+      size: sizeDisplay,
+      frame: frameDisplay,
+      customSpec: spec || '',
+      customerName: name,
+      customerPhone: phone,
+    });
+
+    // Also capture lead
+    fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name, phone,
+        source: 'custom-frame-page',
+        notes: `Size: ${sizeDisplay} | Frame: ${frameDisplay} | Spec: ${spec || 'None'}`
+      })
+    }).catch(() => {});
+
+    toast('Custom frame added to cart! 🎨');
+    setTimeout(() => navigate('/checkout'), 800);
+  }
+
+  function renderCustomizePage(app) {
+    // Update page meta for SEO
+    document.title = 'Custom Framing Service — Your Design, Your Frame | ChitraFrame';
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', 'Order a fully custom frame at ChitraFrame. Choose any size, any frame colour, and enter your exact specifications. Museum-quality framing, ships across India.');
+
+    app.innerHTML = renderHeader() + `
+    <main id="main-content">
+      <!-- JSON-LD for Custom Framing Service -->
+      <script type="application/ld+json">
+      {
+        "@context": "https://schema.org/",
+        "@type": "Service",
+        "name": "Custom Frame Order",
+        "description": "Order a fully custom photo frame at ChitraFrame. Choose your size, frame finish colour, and provide detailed specifications. Museum-quality framing shipped across India.",
+        "provider": { "@type": "Organization", "name": "ChitraFrame", "url": "https://chitraframe.in" },
+        "areaServed": "IN",
+        "serviceType": "Custom Framing",
+        "offers": {
+          "@type": "Offer",
+          "priceCurrency": "INR",
+          "price": "699",
+          "priceSpecification": { "@type": "PriceSpecification", "minPrice": "699", "maxPrice": "2399" }
+        }
+      }
+      <\/script>
+
+      <!-- Hero -->
+      <section class="customize-hero">
+        <div class="container">
+          <nav class="breadcrumb-inline" aria-label="Breadcrumb">
+            <a href="/" onclick="window.cf.nav('/');return false;">Home</a> /
+            <span aria-current="page">Custom Frame</span>
+          </nav>
+          <div class="customize-hero-inner">
+            <div class="customize-hero-text" data-reveal>
+              <div class="category-badge">Bespoke Framing</div>
+              <h1 class="customize-hero-title">Your Vision,<br><em>Perfectly Framed</em></h1>
+              <p class="customize-hero-sub">Museum-quality frames made to your exact specifications. Choose your size, finish colour, and tell us exactly what you need. Handcrafted and delivered across India.</p>
+              <ul class="customize-trust-list">
+                <li>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Any frame colour — Black, Natural Wood, White, custom
+                </li>
+                <li>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  4 standard sizes or request a custom dimension
+                </li>
+                <li>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Acid-free mat board, shatterproof acrylic glass
+                </li>
+                <li>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Ships in 3–5 days · Pan-India delivery
+                </li>
+              </ul>
+            </div>
+            <div class="customize-hero-visual" data-reveal data-reveal-delay="1">
+              <div class="customize-frame-preview" id="customize-preview">
+                <div class="frame-preview-outer" id="frame-preview-outer" style="border-color:#1a1a1a">
+                  <div class="frame-preview-mat">
+                    <div class="frame-preview-img">
+                      <svg viewBox="0 0 200 260" fill="none" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+                        <rect width="200" height="260" fill="#1a1a2e"/>
+                        <circle cx="100" cy="100" r="60" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/>
+                        <circle cx="100" cy="100" r="40" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.4"/>
+                        <circle cx="100" cy="80" r="20" fill="var(--gold)" opacity="0.3"/>
+                        <path d="M60 170 Q100 140 140 170" stroke="var(--gold)" stroke-width="2" fill="none" opacity="0.6"/>
+                        <text x="100" y="220" text-anchor="middle" fill="var(--gold)" font-size="12" opacity="0.7" font-family="serif">Your Artwork Here</text>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                <p class="frame-preview-label" id="frame-preview-label">Black Frame · Medium (12×18")</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Configurator -->
+      <section class="customize-section">
+        <div class="container">
+          <div class="customize-layout">
+
+            <!-- Step-by-step form -->
+            <div class="customize-form-col">
+              <div class="customize-form-card" data-reveal>
+
+                <!-- Step 1: Size -->
+                <div class="customize-step">
+                  <div class="customize-step-header">
+                    <span class="step-number">01</span>
+                    <h2 class="step-title">Choose Your Size</h2>
+                  </div>
+                  <div class="custom-size-grid">
+                    <label class="custom-size-card">
+                      <input type="radio" name="size-radio" value="small" onchange="document.getElementById('custom-size').value='small';window.cf.customCalcPrice();document.getElementById('frame-preview-label').textContent=document.getElementById('custom-size').options[document.getElementById('custom-size').selectedIndex].text+' · '+document.getElementById('custom-frame-preset').options[document.getElementById('custom-frame-preset').selectedIndex].text+' Frame'">
+                      <div class="size-card-inner">
+                        <div class="size-card-visual small-vis"></div>
+                        <div class="size-card-info">
+                          <strong>Small</strong>
+                          <span>8 × 10"</span>
+                          <span class="size-card-note">Desk / Bedside</span>
+                        </div>
+                        <span class="size-card-price">from ₹699</span>
+                      </div>
+                    </label>
+                    <label class="custom-size-card active">
+                      <input type="radio" name="size-radio" value="medium" checked onchange="document.getElementById('custom-size').value='medium';window.cf.customCalcPrice();document.getElementById('frame-preview-label').textContent=document.getElementById('custom-size').options[document.getElementById('custom-size').selectedIndex].text+' · '+document.getElementById('custom-frame-preset').options[document.getElementById('custom-frame-preset').selectedIndex].text+' Frame'">
+                      <div class="size-card-inner">
+                        <div class="size-card-visual medium-vis">
+                          <span class="popular-badge">Most Popular</span>
+                        </div>
+                        <div class="size-card-info">
+                          <strong>Medium</strong>
+                          <span>12 × 18"</span>
+                          <span class="size-card-note">Bedroom / Study</span>
+                        </div>
+                        <span class="size-card-price">from ₹999</span>
+                      </div>
+                    </label>
+                    <label class="custom-size-card">
+                      <input type="radio" name="size-radio" value="large" onchange="document.getElementById('custom-size').value='large';window.cf.customCalcPrice();document.getElementById('frame-preview-label').textContent=document.getElementById('custom-size').options[document.getElementById('custom-size').selectedIndex].text+' · '+document.getElementById('custom-frame-preset').options[document.getElementById('custom-frame-preset').selectedIndex].text+' Frame'">
+                      <div class="size-card-inner">
+                        <div class="size-card-visual large-vis"></div>
+                        <div class="size-card-info">
+                          <strong>Large</strong>
+                          <span>18 × 24"</span>
+                          <span class="size-card-note">Living Room</span>
+                        </div>
+                        <span class="size-card-price">from ₹1,499</span>
+                      </div>
+                    </label>
+                    <label class="custom-size-card">
+                      <input type="radio" name="size-radio" value="xl" onchange="document.getElementById('custom-size').value='xl';window.cf.customCalcPrice();document.getElementById('frame-preview-label').textContent=document.getElementById('custom-size').options[document.getElementById('custom-size').selectedIndex].text+' · '+document.getElementById('custom-frame-preset').options[document.getElementById('custom-frame-preset').selectedIndex].text+' Frame'">
+                      <div class="size-card-inner">
+                        <div class="size-card-visual xl-vis"></div>
+                        <div class="size-card-info">
+                          <strong>XL</strong>
+                          <span>24 × 36"</span>
+                          <span class="size-card-note">Statement Wall</span>
+                        </div>
+                        <span class="size-card-price">from ₹2,199</span>
+                      </div>
+                    </label>
+                  </div>
+                  <!-- Hidden select for JS state -->
+                  <select id="custom-size" style="display:none" onchange="window.cf.customCalcPrice()">
+                    <option value="small">Small (8×10")</option>
+                    <option value="medium" selected>Medium (12×18")</option>
+                    <option value="large">Large (18×24")</option>
+                    <option value="xl">XL (24×36")</option>
+                  </select>
+                </div>
+
+                <!-- Step 2: Frame Finish -->
+                <div class="customize-step">
+                  <div class="customize-step-header">
+                    <span class="step-number">02</span>
+                    <h2 class="step-title">Frame Finish</h2>
+                  </div>
+                  <p class="step-hint">Select a standard finish, or describe your custom colour below.</p>
+                  <select id="custom-frame-preset" class="custom-select" onchange="
+                    window.cf.customCalcPrice();
+                    var v=this.value;
+                    var outer=document.getElementById('frame-preview-outer');
+                    if(v==='black'){outer.style.borderColor='#1a1a1a';}
+                    else if(v==='natural-wood'){outer.style.borderColor='#8B6914';}
+                    else{outer.style.borderColor='#C5A059';}
+                    document.getElementById('frame-preview-label').textContent=document.getElementById('custom-size').options[document.getElementById('custom-size').selectedIndex].text+' · '+this.options[this.selectedIndex].text+' Frame';
+                  ">
+                    <option value="black">⬛ Black (Classic Matte)</option>
+                    <option value="natural-wood">🪵 Natural Wood (Warm Oak)</option>
+                    <option value="custom">✏️ Custom (Describe below)</option>
+                  </select>
+
+                  <div class="custom-frame-swatches" id="frame-swatches">
+                    <button class="frame-swatch-btn active" data-val="black"
+                      onclick="document.getElementById('custom-frame-preset').value='black';document.getElementById('custom-frame-preset').dispatchEvent(new Event('change'));$$('.frame-swatch-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"
+                      style="background:#1a1a1a" title="Black">
+                    </button>
+                    <button class="frame-swatch-btn" data-val="natural-wood"
+                      onclick="document.getElementById('custom-frame-preset').value='natural-wood';document.getElementById('custom-frame-preset').dispatchEvent(new Event('change'));$$('.frame-swatch-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"
+                      style="background:linear-gradient(135deg,#8B6914,#C4922E)" title="Natural Wood">
+                    </button>
+                    <button class="frame-swatch-btn" data-val="custom"
+                      onclick="document.getElementById('custom-frame-preset').value='custom';document.getElementById('custom-frame-preset').dispatchEvent(new Event('change'));$$('.frame-swatch-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('custom-frame-color').focus()"
+                      style="background:linear-gradient(135deg,#fff 40%,#C5A059 60%)" title="Custom">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 10l7-7M9 2l1 1-7 7-1-1 7-7z" stroke="#333" stroke-width="1.2" stroke-linecap="round"/></svg>
+                    </button>
+                  </div>
+
+                  <div class="custom-color-field" id="custom-color-field">
+                    <label for="custom-frame-color" class="field-label">Custom Frame Colour / Finish</label>
+                    <input type="text" id="custom-frame-color" class="custom-input"
+                      placeholder="e.g. 'Walnut Dark', 'White Gloss', 'Rose Gold', 'Matte Charcoal'…"
+                      maxlength="120">
+                    <p class="field-hint">Describe any colour, finish or material. Our team will confirm before production.</p>
+                  </div>
+                </div>
+
+                <!-- Step 3: Quantity -->
+                <div class="customize-step">
+                  <div class="customize-step-header">
+                    <span class="step-number">03</span>
+                    <h2 class="step-title">Quantity</h2>
+                  </div>
+                  <div class="custom-qty-row">
+                    <button class="qty-btn" onclick="var el=document.getElementById('custom-qty');el.value=Math.max(1,parseInt(el.value||1)-1);window.cf.customCalcPrice()">−</button>
+                    <input type="number" id="custom-qty" value="1" min="1" max="50" class="qty-input" onchange="window.cf.customCalcPrice()">
+                    <button class="qty-btn" onclick="var el=document.getElementById('custom-qty');el.value=Math.min(50,parseInt(el.value||1)+1);window.cf.customCalcPrice()">+</button>
+                    <span class="qty-label">frame(s)</span>
+                  </div>
+                  <p class="step-hint">Ordering 3+ frames? <a href="/contact" onclick="window.cf.nav('/contact');return false;" class="link-gold">Contact us for bulk pricing →</a></p>
+                </div>
+
+                <!-- Step 4: Detailed Specifications -->
+                <div class="customize-step">
+                  <div class="customize-step-header">
+                    <span class="step-number">04</span>
+                    <h2 class="step-title">Detailed Specifications <span class="optional-tag">Optional</span></h2>
+                  </div>
+                  <p class="step-hint">Describe anything specific — mounting style, mat colour, glass type, inscription, orientation, or any other requirement.</p>
+                  <textarea id="custom-spec" class="custom-textarea"
+                    placeholder="e.g. 'Landscape orientation, white mat border, UV-protective glass, no hanging hardware needed, gift wrap in kraft paper with a navy ribbon…'&#10;&#10;Or attach a reference image URL, describe exact dimensions, or any special instructions for our framing team."
+                    rows="5" maxlength="1200"></textarea>
+                  <div class="spec-char-count"><span id="spec-chars">0</span>/1200 characters</div>
+                </div>
+
+                <!-- Step 5: Contact -->
+                <div class="customize-step">
+                  <div class="customize-step-header">
+                    <span class="step-number">05</span>
+                    <h2 class="step-title">Your Details</h2>
+                  </div>
+                  <div class="contact-fields">
+                    <div class="field-group">
+                      <label for="custom-name" class="field-label">Full Name</label>
+                      <input type="text" id="custom-name" class="custom-input" placeholder="Your name" maxlength="100" autocomplete="name">
+                    </div>
+                    <div class="field-group">
+                      <label for="custom-phone" class="field-label">Mobile Number</label>
+                      <input type="tel" id="custom-phone" class="custom-input" placeholder="10-digit mobile number" maxlength="15" autocomplete="tel" inputmode="numeric">
+                    </div>
+                  </div>
+                  <p class="step-hint">We'll WhatsApp you a confirmation and send a proof before printing.</p>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Sticky Price Summary -->
+            <aside class="customize-summary-col">
+              <div class="customize-summary-card" data-reveal data-reveal-delay="1">
+                <h3 class="summary-title">Order Summary</h3>
+
+                <div class="summary-line">
+                  <span>Size</span>
+                  <span id="summary-size">Medium (12×18")</span>
+                </div>
+                <div class="summary-line">
+                  <span>Frame Finish</span>
+                  <span id="summary-frame">Black (Classic Matte)</span>
+                </div>
+                <div class="summary-line">
+                  <span>Qty</span>
+                  <span id="summary-qty">1</span>
+                </div>
+                <div class="summary-divider"></div>
+                <div class="summary-total-row">
+                  <span>Total</span>
+                  <span class="summary-total-amount" id="custom-price-display">₹999</span>
+                </div>
+                <p class="summary-shipping">+ ₹99 shipping (free above ₹799)</p>
+
+                <button class="btn-primary w-full summary-cta" onclick="window.cf.submitCustomOrder()">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M1 1h2.5l2.4 9.6h8.1l2-7H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="15" r="1.2" fill="currentColor"/><circle cx="13" cy="15" r="1.2" fill="currentColor"/></svg>
+                  Add to Cart &amp; Checkout
+                </button>
+                <button class="btn-outline w-full mt-3" onclick="
+                  var name=document.getElementById('custom-name').value.trim();
+                  var phone=document.getElementById('custom-phone').value.trim();
+                  var spec=document.getElementById('custom-spec').value.trim();
+                  var msg='Hi ChitraFrame! I want a custom frame. Name: '+name+' | Phone: '+phone+' | Spec: '+spec;
+                  window.open('https://wa.me/917989531818?text='+encodeURIComponent(msg),'_blank');">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.6 2.4A7.8 7.8 0 0 0 2.4 13.6L1 15l1.5-.4A7.8 7.8 0 1 0 13.6 2.4zm-5.8 11a6.3 6.3 0 0 1-3.2-.9l-.2-.1-1.5.4.4-1.4-.2-.2A6.3 6.3 0 1 1 7.8 13.4z" fill="#25D366"/><path d="M5.5 4.5c-.1-.3-.3-.3-.5-.3-.1 0-.3 0-.5.1-.2.1-.7.7-.7 1.7s.7 2 .8 2.1c.1.1 1.4 2.2 3.4 3 .5.2.8.3 1.1.3.3 0 .6-.1.8-.3.2-.2.5-.8.6-1.1.1-.2 0-.4-.1-.5l-1.2-.6c-.2-.1-.4 0-.5.1l-.4.5c-.1.1-.2.1-.4 0a5.2 5.2 0 0 1-1.6-1.4c-.1-.2 0-.3.1-.4l.3-.4c.1-.1.1-.3.1-.4L5.5 4.5z" fill="#25D366"/></svg>
+                  WhatsApp Instead
+                </button>
+
+                <div class="summary-trust">
+                  <div class="trust-item-sm">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.5 3H12l-2.5 2 1 3L7 7l-3.5 2 1-3L2 4h3.5L7 1z" fill="var(--gold)"/></svg>
+                    Museum-quality print
+                  </div>
+                  <div class="trust-item-sm">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3 4 7-8" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Proof sent before printing
+                  </div>
+                  <div class="trust-item-sm">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.5 3H12l-2.5 2 1 3L7 7l-3.5 2 1-3L2 4h3.5L7 1z" stroke="var(--gold)" stroke-width="1" stroke-linejoin="round"/></svg>
+                    Ships in 3–5 days
+                  </div>
+                </div>
+              </div>
+
+              <!-- FAQ mini -->
+              <div class="customize-faq" data-reveal>
+                <h4>Common Questions</h4>
+                <details class="faq-item-sm">
+                  <summary>Can I send my own photo or artwork?</summary>
+                  <p>Yes! Once you place the order, WhatsApp us your image at +91 79895 31818. We accept JPG, PNG, PDF and AI files. Minimum 300 DPI for best results.</p>
+                </details>
+                <details class="faq-item-sm">
+                  <summary>What frame colours can you do?</summary>
+                  <p>Any RAL or Pantone colour, natural wood stains (walnut, oak, teak), matte or gloss finishes, metallic options (gold, silver, bronze). Describe it in the spec box.</p>
+                </details>
+                <details class="faq-item-sm">
+                  <summary>What glass/acrylic options are available?</summary>
+                  <p>Standard shatterproof acrylic (default), UV-protective acrylic (+₹200), anti-glare acrylic (+₹300), or real glass on request. Specify in the details box.</p>
+                </details>
+                <details class="faq-item-sm">
+                  <summary>How long does it take?</summary>
+                  <p>We send a digital proof within 24 hours. After your approval, production takes 2–3 days. Shipping 1–3 days pan-India (Bluedart/DTDC).</p>
+                </details>
+                <details class="faq-item-sm">
+                  <summary>What if I'm not happy with the result?</summary>
+                  <p>We stand behind our quality. If the frame arrives damaged or differs from the approved proof, we'll replace or refund — no questions asked.</p>
+                </details>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- How It Works -->
+      <section class="section section-alt">
+        <div class="container">
+          <div class="section-header" data-reveal>
+            <h2 class="section-title">How Custom Framing Works</h2>
+            <p class="section-sub">Four simple steps from order to your wall</p>
+          </div>
+          <div class="how-steps" data-reveal>
+            <div class="how-step">
+              <div class="how-step-icon">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="4" width="24" height="24" rx="4" stroke="var(--gold)" stroke-width="1.5"/><path d="M10 16h12M16 10v12" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </div>
+              <div class="how-step-num">01</div>
+              <h3>Configure &amp; Order</h3>
+              <p>Choose your size, frame finish, quantity and add any specifications. Add to cart and complete checkout.</p>
+            </div>
+            <div class="how-step">
+              <div class="how-step-icon">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="8" width="24" height="18" rx="3" stroke="var(--gold)" stroke-width="1.5"/><path d="M10 4l3 4M22 4l-3 4" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"/><path d="M10 17h12M10 21h8" stroke="var(--gold)" stroke-width="1.2" stroke-linecap="round" opacity=".6"/></svg>
+              </div>
+              <div class="how-step-num">02</div>
+              <h3>Send Your Image</h3>
+              <p>WhatsApp or email your artwork to us. We accept any format and advise on optimal resolution.</p>
+            </div>
+            <div class="how-step">
+              <div class="how-step-icon">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="4" width="24" height="24" rx="4" stroke="var(--gold)" stroke-width="1.5"/><path d="M10 16l4 4 8-8" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="how-step-num">03</div>
+              <h3>Approve Proof</h3>
+              <p>We send a digital proof within 24 hrs. You approve, request changes, or cancel — you're always in control.</p>
+            </div>
+            <div class="how-step">
+              <div class="how-step-icon">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M4 16h24M20 8l8 8-8 8" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="how-step-num">04</div>
+              <h3>Delivered to Door</h3>
+              <p>Production in 2–3 days. Shipped bubble-wrapped in a rigid box. Track in real time with our tracking page.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+    ${renderFooter()}`;
+
+    // Init UI
+    window._customState = { size: 'medium', frame: 'black', qty: 1, price: 999 };
+    customCalcPrice();
+
+    // Sync summary fields with form changes
+    function syncSummary() {
+      const sizeEl = document.getElementById('custom-size');
+      const frameEl = document.getElementById('custom-frame-preset');
+      const qtyEl = document.getElementById('custom-qty');
+      const colorEl = document.getElementById('custom-frame-color');
+      const sizeLabelMap = { small: 'Small (8×10")', medium: 'Medium (12×18")', large: 'Large (18×24")', xl: 'XL (24×36")' };
+      if (document.getElementById('summary-size') && sizeEl) document.getElementById('summary-size').textContent = sizeLabelMap[sizeEl.value] || '';
+      if (document.getElementById('summary-frame') && frameEl) {
+        const frameVal = (colorEl?.value?.trim()) ? colorEl.value.trim() : frameEl.options[frameEl.selectedIndex]?.text || '';
+        document.getElementById('summary-frame').textContent = frameVal;
+      }
+      if (document.getElementById('summary-qty') && qtyEl) document.getElementById('summary-qty').textContent = qtyEl.value;
+    }
+
+    ['custom-size','custom-frame-preset','custom-qty','custom-frame-color'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', syncSummary);
+      if (el) el.addEventListener('input', syncSummary);
+    });
+    syncSummary();
+
+    // Size card radio sync
+    document.querySelectorAll('.custom-size-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.custom-size-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        setTimeout(syncSummary, 50);
+      });
+    });
+
+    // Spec char count
+    const specEl = document.getElementById('custom-spec');
+    const charCount = document.getElementById('spec-chars');
+    if (specEl && charCount) {
+      specEl.addEventListener('input', () => { charCount.textContent = specEl.value.length; });
+    }
+
+    initMobileMenu();
+    initStickyHeader();
+    setTimeout(initReveal, 100);
+  }
+
   // ── Router ────────────────────────────────────────────────────────────────
   function route() {
     const path = location.pathname;
@@ -1927,6 +2495,7 @@
       else if (path === '/suggest') renderSuggestPage(app);
       else if (path === '/review') renderReviewPage(app);
       else if (path === '/about' || path === '/contact') renderStaticPage(app, path.slice(1));
+      else if (path === '/customize') renderCustomizePage(app);
       else if (path.startsWith('/blog')) renderBlogPage(app, path);
       else renderHomePage(app);
     } catch (err) {
@@ -1987,7 +2556,9 @@
     submitReview,
     handleLogin,
     pickStar,
-    updateCartBadge
+    updateCartBadge,
+    submitCustomOrder,
+    customCalcPrice
   };
 
   // Legacy alias
