@@ -319,13 +319,56 @@ app.post('/api/leads', async (c) => {
   } catch (e) { return c.json({ success: true }); }
 });
 
+// POST /api/custom-orders — log custom frame wizard intake orders
+app.post('/api/custom-orders', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    // Validate required fields
+    const name = String(body.buyer_fullname || '').trim().slice(0, 100);
+    const phone = String(body.buyer_whatsapp_phone || '').replace(/\D/g, '').slice(0, 15);
+    if (!name || name.length < 2) return c.json({ error: 'Invalid name' }, 400);
+    if (!phone || phone.length < 10) return c.json({ error: 'Invalid phone' }, 400);
+
+    // If no Supabase, silently accept (fire-and-forget from client)
+    if (!c.env?.SUPABASE_URL) return c.json({ success: true, queued: true });
+
+    const sb = getSupabase(c.env);
+
+    // Try to insert into custom_framing_orders_intake (created in 0002 migration)
+    const { error } = await sb.from('custom_framing_orders_intake').insert({
+      buyer_fullname: name,
+      buyer_whatsapp_phone: phone,
+      uploaded_image_storage_path: String(body.uploaded_image_storage_path || 'no-upload').slice(0, 500),
+      selected_dimension_profile: String(body.selected_dimension_profile || 'Medium').slice(0, 50),
+      selected_framing_style: String(body.selected_framing_style || 'Direct').slice(0, 50),
+      include_poster_print_copy: Boolean(body.include_poster_print_copy),
+      user_special_instructions: String(body.user_special_instructions || '').slice(0, 1000),
+      computed_subtotal_amount: Number(body.computed_subtotal_amount) || 0,
+      intake_status: 'pending_image',
+      intake_created_at: new Date().toISOString()
+    });
+
+    if (error) {
+      // Table may not exist yet in older deploys — silently accept
+      console.warn('[custom-orders] Insert warning:', error.message);
+      return c.json({ success: true, note: 'logged_with_warning' });
+    }
+
+    return c.json({ success: true });
+  } catch (e: any) {
+    console.error('[custom-orders] Error:', e);
+    // Always return 200 — client uses this as fire-and-forget
+    return c.json({ success: true });
+  }
+});
+
 // GET /api/config/public — public-facing config
 app.get('/api/config/public', async (c) => {
   try {
     if (!c.env.SUPABASE_URL) {
       return c.json({ config: {
         announcement_active: 'true',
-        announcement_text: 'Free Delivery on orders above ₹799 | COD Available',
+        announcement_text: 'Free Delivery on orders above ₹899 | COD Available',
         announcement_link: '/shop',
         announcement_bg: '#CC0000',
         cod_enabled: 'true', cod_min_value: '499', cod_max_value: '1995', cod_fee: '49',

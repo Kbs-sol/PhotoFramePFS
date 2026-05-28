@@ -211,6 +211,7 @@
             <div class="cart-item-info">
               <p class="cart-item-name">${escapeHTML(item.name)}</p>
               <p class="cart-item-variant">${escapeHTML(item.size || '')}${item.frame ? ' · ' + escapeHTML(item.frame) : ''}</p>
+              ${item.isAddon ? '<span class="cart-item-addon-tag">Add-on</span>' : ''}
               <div class="cart-item-bottom">
                 <div class="qty-stepper">
                   <button onclick="window.cf.updateQty(${idx},-1)" aria-label="Decrease quantity">−</button>
@@ -226,7 +227,24 @@
           </li>`).join('')}
       </ul>`;
 
+    // Check if poster already in cart
+    const hasPoster = state.cart.some(i => i.variantId === 'addon-poster-a3');
+    const hasFrameItem = state.cart.some(i => i.slug && i.slug !== 'addon-poster-a3');
+
     footer.innerHTML = `
+      ${hasFrameItem && !hasPoster ? `
+      <div class="cart-poster-upsell">
+        <div class="cart-poster-upsell-inner">
+          <div class="cart-poster-upsell-icon">🗞️</div>
+          <div class="cart-poster-upsell-text">
+            <strong>Add A3 Poster Print</strong>
+            <span>Rolled, unframed — perfect as a gift, spare, or bedroom print</span>
+          </div>
+          <button class="cart-poster-btn" onclick="window.cf.addPosterAddon()">
+            +₹89
+          </button>
+        </div>
+      </div>` : ''}
       <div class="cart-totals">
         <div class="cart-total-row"><span>Subtotal</span><span>${formatPrice(subtotal)}</span></div>
         ${discount > 0 ? `<div class="cart-total-row cart-discount"><span>${escapeHTML(discountLabel)}</span><span>−${formatPrice(discount)}</span></div>` : ''}
@@ -267,12 +285,34 @@
     renderCartDrawerContent();
   }
 
+  function addPosterAddon() {
+    // Poster is only available as an add-on when a frame product is in cart
+    const hasFrame = state.cart.some(i => i.slug && i.slug !== 'addon-poster-a3');
+    if (!hasFrame) { toast('Add a framed print first to unlock the poster add-on', 'error'); return; }
+    const already = state.cart.find(i => i.variantId === 'addon-poster-a3');
+    if (already) { toast('A3 Poster already in cart'); return; }
+    state.cart.push({
+      variantId: 'addon-poster-a3',
+      name: 'A3 Poster Print (Rolled)',
+      price: 89,
+      image: '',
+      slug: 'addon-poster-a3',
+      size: 'A3 (11.7×16.5")',
+      frame: 'Rolled — Unframed',
+      quantity: 1,
+      isAddon: true,
+    });
+    saveCart();
+    renderCartDrawerContent();
+    toast('A3 Poster add-on added! 🗞️');
+  }
+
   // ── HEADER ────────────────────────────────────────────────────────────────
   function renderHeader() {
     const cartCount = state.cart.reduce((s, i) => s + (i.quantity || 1), 0);
     const ann = state.config;
     const isAnnActive = ann.announcement_active === 'true';
-    const annText = escapeHTML(ann.announcement_text || 'Free delivery on orders above ₹799 · COD Available across India');
+    const annText = escapeHTML(ann.announcement_text || 'Free delivery on orders above ₹899 · COD Available across India');
     const annBg = /^#[0-9A-Fa-f]{3,8}$/.test(ann.announcement_bg || '') ? ann.announcement_bg : '#0F0E0C';
 
     return `
@@ -540,92 +580,121 @@
     if (window._heroCanvasCleanup) { window._heroCanvasCleanup(); window._heroCanvasCleanup = null; }
     document.title = 'ChitraFrame | Buy Framed Art Prints Online India — Divine, Automotive, Sports';
     const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute('content', 'Buy premium framed art prints online in India. Divine & spiritual art, automotive legends, sports heroes, wildlife — museum-quality printing, Black or Natural Wood frames, free shipping above ₹799. Starting ₹499.');
+    if (metaDesc) metaDesc.setAttribute('content', 'Buy premium framed art prints online in India. Divine & spiritual art, automotive legends, sports heroes, wildlife — museum-quality printing, Black or Natural Wood frames, free shipping above ₹899. Starting ₹499.');
 
     app.innerHTML = renderHeader() + `
     <main id="main-content">
 
-      <!-- ══ HERO ══ -->
-      <section class="hero" aria-labelledby="hero-h1" itemscope itemtype="https://schema.org/WebPage">
-        <canvas id="hero-canvas" class="hero-canvas" aria-hidden="true"></canvas>
-        <div class="hero-inner">
-          <div class="hero-left" data-reveal>
-            <div class="hero-tag">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.2 2.5L10 4.1l-2 1.9.5 2.8L6 7.5 3.5 8.8 4 6 2 4.1l2.8-.6L6 1z" fill="var(--gold)"/></svg>
-              #1 Art Print Brand in India
+      <!-- ══ HERO — Editorial Split ══ -->
+      <section class="hero-v2" aria-labelledby="hero-h1" itemscope itemtype="https://schema.org/WebPage">
+
+        <!-- Left panel: full-bleed image mosaic -->
+        <div class="hero-v2-visual" aria-hidden="true">
+          <div class="hero-v2-img hero-v2-img--main" onclick="window.cf.nav('/category/spiritual')" role="button" tabindex="0" aria-label="Shop Divine art" onkeydown="if(event.key==='Enter')window.cf.nav('/category/spiritual')">
+            <img src="${DESIGN_IMAGES['radha-krishna-emerald-dance']}" alt="Radha Krishna Emerald Dance framed art" loading="eager" fetchpriority="high" width="480" height="640">
+            <div class="hero-v2-cat-pill">Divine</div>
+          </div>
+          <div class="hero-v2-stack">
+            <div class="hero-v2-img" onclick="window.cf.nav('/category/automotive')" role="button" tabindex="0" aria-label="Shop Automotive art" onkeydown="if(event.key==='Enter')window.cf.nav('/category/automotive')">
+              <img src="${DESIGN_IMAGES['bmw-m4-carbon-dark']}" alt="BMW M4 Carbon Dark Legend framed art" loading="eager" width="280" height="280">
+              <div class="hero-v2-cat-pill">Automotive</div>
             </div>
-            <h1 class="hero-h1" id="hero-h1" itemprop="name">
-              Framed Art Prints<br>
-              <em>Delivered Across India</em>
-            </h1>
-            <p class="hero-sub" itemprop="description">Museum-quality printing · Premium Black &amp; Wood frames · Delivered in 3–5 days. Divine, Automotive, Sports &amp; Wildlife art. Starting <strong>₹499</strong>.</p>
-            <div class="hero-actions">
-              <button class="btn-primary btn-hero-cta" onclick="window.cf.nav('/shop')" aria-label="Shop all framed art prints">
-                Shop All Prints
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-              <button class="btn-ghost hero-ghost-btn" onclick="window.cf.nav('/customize')">
-                Custom Frame
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 12L5 9M5 9l5-5M5 9l-2 1 1-2M10 4l2-2 2 2-2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-            </div>
-            <div class="hero-trust">
-              <div class="hero-trust-item">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.6 3.3L12 5l-2.5 2.4.6 3.4L7 9.3l-3.1 1.5.6-3.4L2 5l3.4-.7L7 1z" fill="var(--gold)"/></svg>
-                4.9★ · 2,000+ happy customers
-              </div>
-              <div class="hero-trust-sep">·</div>
-              <div class="hero-trust-item">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 9l3 3 9-9" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Free delivery above ₹799
-              </div>
-              <div class="hero-trust-sep">·</div>
-              <div class="hero-trust-item">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 4v5c0 2.5 2.2 4.5 5 5 2.8-.5 5-2.5 5-5V4L7 1z" stroke="var(--ink-500)" stroke-width="1.2" stroke-linejoin="round"/></svg>
-                COD available pan-India
-              </div>
+            <div class="hero-v2-img" onclick="window.cf.nav('/product/mahadev-cosmic-trance')" role="button" tabindex="0" aria-label="Shop Mahadev art" onkeydown="if(event.key==='Enter')window.cf.nav('/product/mahadev-cosmic-trance')">
+              <img src="${DESIGN_IMAGES['mahadev-cosmic-trance']}" alt="Mahadev Cosmic Trance framed art" loading="eager" width="280" height="280">
+              <div class="hero-v2-cat-pill">Spiritual</div>
             </div>
           </div>
-          <div class="hero-right" data-reveal data-reveal-delay="1">
-            <div class="hero-mosaic">
-              <div class="hero-tile hero-tile-tall" onclick="window.cf.nav('/category/spiritual')" role="button" tabindex="0" aria-label="Shop Divine & Spiritual art prints" onkeydown="if(event.key==='Enter')window.cf.nav('/category/spiritual')">
-                <img src="${DESIGN_IMAGES['radha-krishna-emerald-dance']}" alt="Radha Krishna Emerald Dance premium framed art print" loading="eager" width="400" height="560">
-                <div class="hero-tile-label">Divine Collection</div>
-                <div class="hero-tile-badge">Bestseller</div>
-              </div>
-              <div class="hero-tile-col">
-                <div class="hero-tile" onclick="window.cf.nav('/category/automotive')" role="button" tabindex="0" aria-label="Shop Automotive art prints" onkeydown="if(event.key==='Enter')window.cf.nav('/category/automotive')">
-                  <img src="${DESIGN_IMAGES['bmw-m4-carbon-dark']}" alt="BMW M4 Carbon Dark Legend framed art print" loading="eager" width="260" height="260">
-                  <div class="hero-tile-label">Automotive Art</div>
-                </div>
-                <div class="hero-tile" onclick="window.cf.nav('/category/wildlife')" role="button" tabindex="0" aria-label="Shop Wildlife art prints" onkeydown="if(event.key==='Enter')window.cf.nav('/category/wildlife')">
-                  <img src="${DESIGN_IMAGES['lion-geometric-gold']}" alt="Geometric Lion Gold framed wall art" loading="eager" width="260" height="260">
-                  <div class="hero-tile-label">Wildlife</div>
-                </div>
-              </div>
-            </div>
+          <!-- floating price chip -->
+          <div class="hero-v2-price-chip">Starting ₹499</div>
+        </div>
+
+        <!-- Right panel: copy -->
+        <div class="hero-v2-copy" data-reveal>
+          <p class="hero-v2-eyebrow">Framed Art Prints · Delivered Across India</p>
+          <h1 class="hero-v2-h1" id="hero-h1" itemprop="name">
+            Walls that speak<br>
+            <em>your story</em>
+          </h1>
+          <div class="hero-v2-rating">
+            <span class="hero-v2-rating-stars">★★★★★</span>
+            <span class="hero-v2-rating-text">4.9 · 2,000+ orders across India</span>
+          </div>
+          <p class="hero-v2-sub" itemprop="description">
+            Archival-quality prints in handcrafted Black or Natural Wood frames.
+            Divine, Automotive, Sports &amp; Wildlife — 51 designs, 4 sizes.
+            Ships in 3–5 days, anywhere in India.
+          </p>
+
+          <div class="hero-v2-actions">
+            <button class="hero-v2-cta" onclick="window.cf.nav('/shop')" aria-label="Shop all prints">
+              Shop All Prints
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M9 4l3.5 3.5L9 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="hero-v2-ghost" onclick="window.cf.nav('/customize')">
+              Custom Frame →
+            </button>
+          </div>
+
+          <div class="hero-v2-pills">
+            <span class="hero-v2-pill">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 6l3 3 7-7" stroke="var(--green)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Free delivery above ₹899
+            </span>
+            <span class="hero-v2-pill">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.4 2.9L10.5 4.5l-2.3 2.2.5 3.1L6 8.4l-2.7 1.4.5-3.1L1.5 4.5l3.1-.6L6 1z" fill="var(--gold)"/></svg>
+              4.9 · 2,000+ orders
+            </span>
+            <span class="hero-v2-pill">
+              COD available
+            </span>
+          </div>
+
+          <!-- Category scroll on mobile -->
+          <div class="hero-v2-cats" role="navigation" aria-label="Product categories">
+            <button class="hero-v2-cat" onclick="window.cf.nav('/category/spiritual')">🙏 Divine</button>
+            <button class="hero-v2-cat" onclick="window.cf.nav('/category/automotive')">🚗 Cars</button>
+            <button class="hero-v2-cat" onclick="window.cf.nav('/category/sports')">🏏 Sports</button>
+            <button class="hero-v2-cat" onclick="window.cf.nav('/category/wildlife')">🦁 Wildlife</button>
+            <button class="hero-v2-cat" onclick="window.cf.nav('/customize')">✏️ Custom</button>
           </div>
         </div>
       </section>
 
-      <!-- ══ TRUST TICKER ══ -->
-      <div class="trust-ticker" aria-label="Key benefits">
-        <div class="trust-ticker-inner">
+      <!-- ══ BENEFITS BAR ══ -->
+      <div class="benefits-bar" aria-label="Key benefits">
+        <div class="benefits-bar-inner">
           ${[
-            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1L9.3 5H14l-3.6 2.7 1.4 4.3L7.5 9.5 4.2 12l1.4-4.3L2 5h4.7L7.5 1z" fill="var(--gold)"/></svg>`, text: 'Museum-Quality Print' },
-            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 5h13l-1.5 8H2.5L1 5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5 5V3.5a2.5 2.5 0 0 1 5 0V5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`, text: 'Free Delivery ₹799+' },
-            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 8l3 4 8-8" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`, text: 'Shatterproof Acrylic Glass' },
-            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1L3 4v5c0 3 2 5 4.5 5.5C12 14 14 12 14 9V4L7.5 1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`, text: 'Safe Foam Packaging' },
-            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M5 7.5l2 2 3-3" stroke="var(--green)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`, text: 'COD Available' },
-            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1l1.6 3.3L13 5l-2.5 2.3.6 3.4-3.1-1.6-3.1 1.6.6-3.4L3 5l3.9-.7L7.5 1z" fill="var(--gold)"/></svg>`, text: '4.9★ — 2,000+ Reviews' },
-            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="4" width="13" height="8" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M5 4V3a2 2 0 0 1 5 0v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`, text: 'Secure Checkout' },
-            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 10l3 3 8-10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`, text: 'Ready in 3–5 Days' },
-          ].map(t => `<div class="trust-ticker-item">${t.icon}<span>${t.text}</span></div>`).join('<div class="trust-ticker-dot">·</div>')}
-          ${/* duplicate for seamless loop */ [
-            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1L9.3 5H14l-3.6 2.7 1.4 4.3L7.5 9.5 4.2 12l1.4-4.3L2 5h4.7L7.5 1z" fill="var(--gold)"/></svg>`, text: 'Museum-Quality Print' },
-            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 5h13l-1.5 8H2.5L1 5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5 5V3.5a2.5 2.5 0 0 1 5 0V5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`, text: 'Free Delivery ₹799+' },
-            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 8l3 4 8-8" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`, text: 'Shatterproof Acrylic Glass' },
-          ].map(t => `<div class="trust-ticker-item">${t.icon}<span>${t.text}</span></div>`).join('<div class="trust-ticker-dot">·</div>')}
+            { icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1l1.8 3.7L14 5.6l-3 2.9.7 4L8 10.6l-3.7 1.9.7-4L2 5.6l4.2-.9L8 1z" fill="var(--gold)"/></svg>`, text: 'Museum-quality printing' },
+            { icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 7l4 4 8-8" stroke="var(--green)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`, text: 'Free delivery above ₹899' },
+            { icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 5V4a3 3 0 0 1 6 0v1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`, text: 'COD + Secure checkout' },
+            { icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 5v3l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`, text: 'Ships in 3–5 days' },
+            { icon: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 10l2.5 3.5L13 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`, text: 'Replacement guarantee' },
+          ].map(b => `<div class="benefits-bar-item">${b.icon}<span>${b.text}</span></div>`).join('<div class="benefits-bar-sep"></div>')}
+        </div>
+      </div>
+
+      <!-- ══ TRUST MARQUEE (mobile only) ══ -->
+      <div class="trust-marquee" aria-hidden="true">
+        <div class="trust-marquee-track">
+          ${[
+            'Museum-quality printing',
+            'Free delivery above ₹899',
+            'COD available pan-India',
+            'Ships in 3–5 days',
+            'Replacement guarantee',
+            '4.9★ from 2,000+ orders',
+            'Handcrafted frames',
+            'Made to order — freshly printed',
+          ].concat([
+            'Museum-quality printing',
+            'Free delivery above ₹899',
+            'COD available pan-India',
+            'Ships in 3–5 days',
+            'Replacement guarantee',
+            '4.9★ from 2,000+ orders',
+            'Handcrafted frames',
+            'Made to order — freshly printed',
+          ]).map(t => `<span class="trust-marquee-item"><span class="trust-marquee-dot"></span>${t}</span>`).join('')}
         </div>
       </div>
 
@@ -660,13 +729,13 @@
         </div>
       </section>
 
-      <!-- ══ WHY CHITRAFRAME (SEO + Conversion) ══ -->
+      <!-- ══ WHY CHITRAFRAME ══ -->
       <section class="why-section" aria-labelledby="why-heading">
         <div class="container">
           <div class="section-header" data-reveal>
             <p class="section-eyebrow">Why ChitraFrame</p>
             <h2 class="section-title" id="why-heading">Gallery Quality. Doorstep Price.</h2>
-            <p class="section-sub">The only Indian art print brand obsessed with every detail — from ink to final mile delivery.</p>
+            <p class="section-sub">Every order is freshly printed and framed — no pre-made stock, no compromise.</p>
           </div>
           <div class="why-grid">
             <div class="why-card" data-reveal>
@@ -674,42 +743,42 @@
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="12" stroke="var(--gold)" stroke-width="1.4"/><path d="M9 14l3 3 7-7" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </div>
               <h3>Archival Pigment Inks</h3>
-              <p>Our prints use 12-colour archival inks rated for 100+ years. Colours stay vivid long after lesser prints fade.</p>
+              <p>Professional-grade archival inks — colours stay vivid for years. Printed fresh for every order, never stock.</p>
             </div>
             <div class="why-card" data-reveal data-reveal-delay="1">
               <div class="why-icon">
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="3" y="3" width="22" height="22" rx="4" stroke="var(--gold)" stroke-width="1.4"/><rect x="7" y="7" width="14" height="14" rx="2" stroke="var(--gold)" stroke-width="1" opacity="0.5"/></svg>
               </div>
               <h3>Handcrafted Frames</h3>
-              <p>Every frame is finished by hand — solid wood moulding, UV-protective acrylic glass, acid-free mat board. Zero shortcuts.</p>
+              <p>Solid wood moulding, acid-free mat board. Black Classic Matte or Natural Wood Oak — both finished by hand.</p>
             </div>
             <div class="why-card" data-reveal data-reveal-delay="2">
               <div class="why-icon">
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M4 14h20M16 6l8 8-8 8" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </div>
               <h3>Pan-India Delivery</h3>
-              <p>From Srinagar to Kanyakumari. Rigid-box shipping with foam padding. Arrives intact, always — or we replace it free.</p>
+              <p>Ships to every Indian pin code in 3–5 business days. Carefully packed. Arrives ready to hang.</p>
             </div>
             <div class="why-card" data-reveal data-reveal-delay="3">
               <div class="why-icon">
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 3l2.4 7.4H24L17.8 15l2.3 7.1L14 18l-6.1 4.1L10.2 15 4 10.4h7.6L14 3z" stroke="var(--gold)" stroke-width="1.4" stroke-linejoin="round"/></svg>
               </div>
-              <h3>4.9★ Verified Reviews</h3>
-              <p>Over 2,000 customers have rated us 5 stars. We publish every review — good or critical — because we earn trust, not fake it.</p>
+              <h3>2,000+ Orders Fulfilled</h3>
+              <p>Real orders from customers across India. No inflated numbers — just prints we're proud of.</p>
             </div>
             <div class="why-card" data-reveal data-reveal-delay="1">
               <div class="why-icon">
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M6 14a8 8 0 1 1 16 0 8 8 0 0 1-16 0z" stroke="var(--gold)" stroke-width="1.4"/><path d="M14 10v4l3 3" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"/></svg>
               </div>
-              <h3>3–5 Day Dispatch</h3>
-              <p>We print, frame, and ship within 3–5 business days. No pre-made stock — every piece is freshly crafted for your order.</p>
+              <h3>Made-to-Order</h3>
+              <p>Every frame is printed and assembled only after you place your order. Fresh every time, no shelf dust.</p>
             </div>
             <div class="why-card" data-reveal data-reveal-delay="2">
               <div class="why-icon">
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M7 12h14M7 16h14M12 3v3M16 3v3M12 22v3M16 22v3" stroke="var(--gold)" stroke-width="1.4" stroke-linecap="round"/><rect x="4" y="6" width="20" height="16" rx="3" stroke="var(--gold)" stroke-width="1.4"/></svg>
               </div>
               <h3>Replacement Guarantee</h3>
-              <p>If your print arrives damaged or differs from what you ordered, we send a replacement at zero cost. Our promise.</p>
+              <p>If your print arrives damaged, we replace it free. No lengthy return forms — just share a photo and we act.</p>
             </div>
           </div>
         </div>
@@ -849,7 +918,7 @@
             ${[
               { q: 'Where can I buy framed art prints online in India?', a: 'ChitraFrame ships premium framed art prints to all major cities across India — Mumbai, Delhi, Bangalore, Hyderabad, Chennai, Pune, Kolkata and beyond. Order at chitraframe.in and get delivery in 3–5 business days.' },
               { q: 'What sizes are available for framed wall art?', a: 'We offer four standard sizes: Small (8×10 inches), Medium (12×18 inches), Large (18×24 inches), and XL (24×36 inches). All sizes are available in Black or Natural Wood frame finishes.' },
-              { q: 'What frame finishes does ChitraFrame offer?', a: 'We offer two premium frame finishes: Classic Matte Black (contemporary, versatile) and Natural Wood Oak (warm, rustic). Both use solid wood moulding and UV-protective acrylic glass.' },
+              { q: 'What frame finishes does ChitraFrame offer?', a: 'We offer two premium frame finishes: Classic Matte Black (contemporary, versatile) and Natural Wood Oak (warm, rustic). Both use solid wood moulding and solid wood backing for a premium finish.' },
               { q: 'Is Cash on Delivery available?', a: 'Yes — COD is available across India on orders between ₹499 and ₹1,995. A nominal ₹49 COD handling fee applies. For online payment (UPI, cards), you save ₹50 automatically.' },
               { q: 'How is the art print packed for shipping?', a: 'Every frame is bubble-wrapped and placed in a custom rigid cardboard box with foam padding on all sides. We have a near-zero transit damage rate. In the rare case of damage, we replace it free.' },
               { q: 'Can I order a custom frame with my own photo?', a: 'Yes! Use our Custom Frame page to choose your size and finish, then WhatsApp your image to us after ordering. We send a digital proof within 24 hours before printing.' },
@@ -893,7 +962,8 @@
     initStickyHeader();
     setTimeout(initReveal, 100);
     loadConfig();
-    setTimeout(initHeroCanvas, 50);
+    // Hero canvas disabled — using editorial v2 hero
+    // setTimeout(initHeroCanvas, 50);
   }
 
   function renderCategoryCards() {
@@ -907,24 +977,21 @@
     ];
 
     return categories.map((cat, i) => `
-      <article class="category-card" data-reveal data-reveal-delay="${i % 3}"
-        onclick="window.cf.nav('/category/${cat.slug}')"
-        role="button" tabindex="0"
-        aria-label="Shop ${cat.label} art prints"
-        onkeydown="if(event.key==='Enter')window.cf.nav('/category/${cat.slug}')">
-        <div class="category-card-img">
-          <img src="${escapeHTML(cat.img)}" alt="${escapeHTML(cat.label)} framed art prints India" loading="lazy" width="400" height="520">
-          <div class="category-card-overlay" style="background:linear-gradient(to top, ${cat.color}f0 0%, ${cat.color}88 40%, transparent 70%)"></div>
-        </div>
-        <div class="category-card-body">
-          <span class="category-card-count">${escapeHTML(cat.sub)}</span>
-          <h3 class="category-card-title">${escapeHTML(cat.label)}</h3>
-          <p class="category-card-cta">${escapeHTML(cat.cta)}</p>
-          <span class="category-card-arrow">
-            Shop →
+      <a class="cat-card" data-reveal data-reveal-delay="${i % 3}"
+        href="/category/${cat.slug}"
+        onclick="window.cf.nav('/category/${cat.slug}');return false;"
+        aria-label="Shop ${escapeHTML(cat.label)} art prints">
+        <img src="${escapeHTML(cat.img)}" alt="${escapeHTML(cat.label)} framed art prints India" loading="lazy" width="400" height="520">
+        <div class="cat-card-overlay"></div>
+        <div class="cat-card-body">
+          <span class="cat-card-sub">${escapeHTML(cat.sub)}</span>
+          <span class="cat-card-label">${escapeHTML(cat.label)}</span>
+          <span class="cat-card-arrow">
+            Shop now
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </span>
         </div>
-      </article>`).join('');
+      </a>`).join('');
   }
 
   function renderFeaturedProducts() {
@@ -945,42 +1012,43 @@
   function renderProductCard(p, idx = 0) {
     const variantId = `${p.slug}-medium-black`;
     const badge = p.badge || (idx === 0 ? 'Bestseller' : idx === 1 ? 'New' : '');
+    const img = escapeHTML(p.image || cldUrl(p.slug, 600));
+    const slug = escapeHTML(p.slug);
+    const name = escapeHTML(p.name);
+    const cat = escapeHTML(p.category || '');
     return `
-    <article class="product-card" data-reveal data-reveal-delay="${idx % 4}" role="article" itemscope itemtype="https://schema.org/Product">
-      <meta itemprop="name" content="${escapeHTML(p.name)} — Framed Art Print">
-      <meta itemprop="description" content="Buy ${escapeHTML(p.name)} premium framed art print online in India. Museum-quality printing, Black or Natural Wood frame. Starting ${formatPrice(p.price)}. Ships pan-India.">
+    <article class="pc" data-reveal data-reveal-delay="${idx % 4}" role="article" itemscope itemtype="https://schema.org/Product">
+      <meta itemprop="name" content="${name} — Framed Art Print">
       <meta itemprop="brand" content="ChitraFrame">
-      <div class="product-card-image" onclick="window.cf.nav('/product/${escapeHTML(p.slug)}')" role="button" tabindex="0" aria-label="View ${escapeHTML(p.name)} framed art print" onkeydown="if(event.key==='Enter')window.cf.nav('/product/${escapeHTML(p.slug)}')">
-        <img src="${escapeHTML(p.image || cldUrl(p.slug, 600))}" alt="${escapeHTML(p.name)} framed art print India" loading="lazy" width="600" height="750">
-        ${badge ? `<div class="product-card-badge">${escapeHTML(badge)}</div>` : ''}
-        <div class="product-card-actions">
-          <button class="product-quick-add" onclick="event.stopPropagation();window.cf.quickAdd('${escapeHTML(variantId)}','${escapeHTML(p.name)}',${p.price},'${escapeHTML(p.image || cldUrl(p.slug, 200))}','${escapeHTML(p.slug)}')" aria-label="Quick add ${escapeHTML(p.name)} to cart">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1h2l1.8 7.2h6.4l1.6-5H4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5.5" cy="11.5" r="1" fill="currentColor"/><circle cx="10" cy="11.5" r="1" fill="currentColor"/></svg>
+      <a class="pc-img-wrap" href="/product/${slug}" onclick="window.cf.nav('/product/${slug}');return false;" aria-label="View ${name}">
+        <img src="${img}" alt="${name} framed art print" loading="lazy" width="600" height="750" itemprop="image">
+        ${badge ? `<span class="pc-badge">${escapeHTML(badge)}</span>` : ''}
+        <!-- Single hover overlay — no conflict, no overlap -->
+        <div class="pc-hover">
+          <button class="pc-atc" onclick="event.preventDefault();event.stopPropagation();window.cf.quickAdd('${escapeHTML(variantId)}','${name}',${p.price},'${escapeHTML(p.image || cldUrl(p.slug, 200))}','${slug}')" aria-label="Add ${name} to cart">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 1.5h2l1.8 7.5h7l1.7-5.5H4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5.5" cy="12.5" r="1.2" fill="currentColor"/><circle cx="10.5" cy="12.5" r="1.2" fill="currentColor"/></svg>
             Add to Cart
           </button>
         </div>
-        <button class="product-view-btn" onclick="window.cf.nav('/product/${escapeHTML(p.slug)}')" aria-label="View details">
-          View Details
-        </button>
-      </div>
-      <div class="product-card-info">
-        <div class="product-card-meta">
-          <span class="product-card-category">${escapeHTML(p.category || '')}</span>
-          <div class="product-card-stars" aria-label="4.9 stars">
+      </a>
+      <div class="pc-info">
+        <div class="pc-meta">
+          <span class="pc-cat">${cat}</span>
+          <span class="pc-stars" aria-label="4.9 stars">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="var(--gold)"><path d="M5 1l1 2.1L8.5 3.5l-1.8 1.8.4 2.5L5 6.6 2.9 7.8l.4-2.5L1.5 3.5l2.5-.4L5 1z"/></svg>
             4.9
-          </div>
+          </span>
         </div>
-        <h3 class="product-card-name">
-          <a href="/product/${escapeHTML(p.slug)}" onclick="window.cf.nav('/product/${escapeHTML(p.slug)}');return false;" itemprop="url">${escapeHTML(p.name)}</a>
+        <h3 class="pc-name">
+          <a href="/product/${slug}" onclick="window.cf.nav('/product/${slug}');return false;" itemprop="url">${name}</a>
         </h3>
-        <div class="product-card-price" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+        <div class="pc-price" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
           <meta itemprop="priceCurrency" content="INR">
           <meta itemprop="price" content="${p.price}">
           <meta itemprop="availability" content="https://schema.org/InStock">
-          <span class="price-from">from</span>
-          <span class="price-amount">${formatPrice(p.price)}</span>
-          <span class="price-sizes">4 sizes</span>
+          <span class="pc-price-from">from</span>
+          <span class="pc-price-amt">${formatPrice(p.price)}</span>
+          <span class="pc-price-sizes">4 sizes</span>
         </div>
       </div>
     </article>`;
@@ -1310,19 +1378,33 @@
                 </button>
               </div>
 
+              <!-- A3 Poster Add-on -->
+              <label class="pdp-poster-addon" id="pdp-poster-addon">
+                <input type="checkbox" id="pdp-poster-check" onchange="window.cf.togglePdpPoster(this.checked)">
+                <div class="pdp-poster-addon-inner">
+                  <span class="pdp-poster-check-visual"></span>
+                  <span class="pdp-poster-icon">🗞️</span>
+                  <div class="pdp-poster-text">
+                    <strong>Add A3 Poster Print (Rolled)</strong>
+                    <span>Unframed, rolled print — ideal as a gift, spare, or bedroom art</span>
+                  </div>
+                  <span class="pdp-poster-price">+₹89</span>
+                </div>
+              </label>
+
               <!-- Trust Pills -->
               <div class="product-trust">
                 <div class="product-trust-item">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l2 3h3l-2.5 2.5 1 3L7 8l-3.5 1.5 1-3L2 4h3L7 1z" fill="var(--gold)"/></svg>
-                  Premium print quality
+                  Freshly printed per order
                 </div>
                 <div class="product-trust-item">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5l2 6h8l2-6" stroke="var(--ink-500)" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 5V4a3 3 0 0 1 6 0v1" stroke="var(--ink-500)" stroke-width="1.2" stroke-linecap="round"/></svg>
-                  Ships in 2–3 days
+                  Ships in 3–5 days
                 </div>
                 <div class="product-trust-item">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l2 3h3l-2.5 2.5 1 3L7 8l-3.5 1.5 1-3L2 4h3L7 1z" stroke="var(--green)" stroke-width="1.2" stroke-linejoin="round"/></svg>
-                  Easy returns
+                  Replacement guarantee
                 </div>
               </div>
 
@@ -1410,6 +1492,31 @@
         image, slug, size: s.size, frame: s.frame
       });
     }
+    // Add poster add-on if checked
+    const posterCheck = document.getElementById('pdp-poster-check');
+    if (posterCheck && posterCheck.checked) {
+      const already = state.cart.find(i => i.variantId === 'addon-poster-a3');
+      if (!already) {
+        state.cart.push({
+          variantId: 'addon-poster-a3',
+          name: 'A3 Poster Print (Rolled)',
+          price: 89,
+          image: '',
+          slug: 'addon-poster-a3',
+          size: 'A3 (11.7×16.5")',
+          frame: 'Rolled — Unframed',
+          quantity: 1,
+          isAddon: true,
+        });
+        saveCart();
+      }
+    }
+  }
+
+  function togglePdpPoster(checked) {
+    // Visual feedback only — actual add happens on ATC
+    const label = document.getElementById('pdp-poster-addon');
+    if (label) label.classList.toggle('pdp-poster-addon--active', checked);
   }
 
   function showSizeGuide() {
@@ -1612,6 +1719,29 @@
 
   function renderCheckoutPage(app) {
     if (state.cart.length === 0) { navigate('/cart'); return; }
+    // Guard: if cart contains ONLY the poster add-on, block checkout
+    const hasRealItem = state.cart.some(i => !i.isAddon);
+    if (!hasRealItem) {
+      app.innerHTML = renderHeader() + `
+      <main id="main-content">
+        <div class="container" style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center;padding:80px 24px">
+          <div style="font-size:48px">🗞️</div>
+          <h1 style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--ink-900)">Poster add-on needs a frame</h1>
+          <p style="color:var(--ink-500);max-width:420px;line-height:1.7">The A3 Poster Print is only available as an add-on alongside a framed print. Please add a framed art print to your cart to proceed to checkout.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+            <button class="btn-primary" onclick="window.cf.nav('/shop')">
+              Browse Framed Prints
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="btn-outline" onclick="window.cf.nav('/cart')">Back to Cart</button>
+          </div>
+        </div>
+      </main>
+      ${renderFooter()}`;
+      initMobileMenu();
+      initStickyHeader();
+      return;
+    }
     const { subtotal, discount, shipping, total } = getCartTotals('online');
 
     app.innerHTML = renderHeader() + `
@@ -1729,6 +1859,12 @@
 
   async function submitCheckout(e) {
     e.preventDefault();
+    // Guard: block checkout if only poster add-on is in cart
+    const hasRealItem = state.cart.some(i => !i.isAddon);
+    if (!hasRealItem) {
+      toast('Please add a framed print before checking out. The poster is an add-on only.', 'error');
+      return;
+    }
     const form = e.target;
     const btn = $('#checkout-submit-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Placing order...'; }
@@ -1876,7 +2012,7 @@
                   <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="11" stroke="var(--gold)" stroke-width="1.5"/><path d="M9 14l3 3 7-7" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
                 <h3>No compromise on quality</h3>
-                <p>Archival pigment inks. Solid wood moulding. UV-protective acrylic glass. Acid-free mat board. We don't cut corners at any stage.</p>
+                <p>Archival pigment inks. Solid wood moulding. Acid-free mat board. Archival inks. We don't cut corners at any stage.</p>
               </div>
               <div class="about-value-card" data-reveal data-reveal-delay="1">
                 <div class="about-value-icon">
@@ -3281,46 +3417,9 @@
     });
   }
 
-  // ── Social Proof Popup ────────────────────────────────────────────────────
-  function initSocialProofPopup() {
-    if (document.getElementById('sp-popup')) return;
-    const events = [
-      { name: 'Priya M.', city: 'Mumbai', action: 'just ordered', product: 'Radha Krishna — Natural Wood, Large', img: DESIGN_IMAGES['radha-krishna-emerald-dance'], time: '2 min ago' },
-      { name: 'Rohan S.', city: 'Bangalore', action: 'just ordered', product: 'Porsche 911 — Matte Black, Medium', img: DESIGN_IMAGES['porsche-911-pacific-coast'], time: '4 min ago' },
-      { name: 'Anjali K.', city: 'Hyderabad', action: 'just ordered', product: 'Mahadev Cosmic — Black, Large', img: DESIGN_IMAGES['mahadev-cosmic-trance'], time: '6 min ago' },
-      { name: 'Vikram R.', city: 'Chennai', action: 'just ordered', product: 'Lion Geometric — Wood, XL', img: DESIGN_IMAGES['lion-geometric-gold'], time: '8 min ago' },
-      { name: 'Deepa N.', city: 'Delhi', action: 'just ordered', product: 'BMW M4 — Matte Black, Medium', img: DESIGN_IMAGES['bmw-m4-carbon-dark'], time: '11 min ago' },
-    ];
-
-    const popup = document.createElement('div');
-    popup.id = 'sp-popup';
-    popup.className = 'sp-popup';
-    popup.setAttribute('role', 'status');
-    popup.setAttribute('aria-live', 'polite');
-    document.body.appendChild(popup);
-
-    let idx = 0;
-    const showNext = () => {
-      const ev = events[idx % events.length];
-      idx++;
-      popup.innerHTML = `
-        <div class="sp-popup-dot"></div>
-        <img class="sp-popup-img" src="${escapeHTML(ev.img || '')}" alt="${escapeHTML(ev.product)}" onerror="this.style.display='none'">
-        <div class="sp-popup-body">
-          <div class="sp-popup-name">${escapeHTML(ev.name)} · ${escapeHTML(ev.city)}</div>
-          <div class="sp-popup-action">${escapeHTML(ev.action)} <strong>${escapeHTML(ev.product)}</strong></div>
-          <div class="sp-popup-time">${escapeHTML(ev.time)}</div>
-        </div>`;
-      popup.classList.add('visible');
-      setTimeout(() => { popup.classList.remove('visible'); }, 5000);
-    };
-
-    // First show after 8s, then every 18s
-    setTimeout(() => {
-      showNext();
-      setInterval(showNext, 18000);
-    }, 8000);
-  }
+  // Social proof popup removed — fake "just ordered" notifications hurt trust
+  // Instead we surface real review count in hero pills and review section
+  function initSocialProofPopup() { /* disabled */ }
 
   // ── LocalBusiness + Organization Schema ──────────────────────────────────
   function injectOrganizationSchema() {
@@ -3389,7 +3488,6 @@
       const p = location.pathname;
       if (p === '/' || p === '/shop' || p.startsWith('/category')) {
         initStickyCTABar();
-        initSocialProofPopup();
       }
       if (p === '/') initExitIntent();
     }, 2000);
@@ -3422,7 +3520,9 @@
     updateCartBadge,
     submitCustomOrder,
     customCalcPrice,
-    updateCheckoutTotal
+    updateCheckoutTotal,
+    addPosterAddon,
+    togglePdpPoster
   };
 
   // Legacy alias
