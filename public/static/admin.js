@@ -48,7 +48,7 @@
       <div class="login-card">
         <div class="login-logo">
           <span class="icon">🖼️</span>
-          <h1>PhotoFrameIn</h1>
+          <h1>ChitraFrame</h1>
           <p>Admin Panel</p>
         </div>
         <div id="login-error" class="login-error" ${errorMsg ? 'style="display:block"' : ''}>${errorMsg || ''}</div>
@@ -63,7 +63,17 @@
           </div>
           <button type="submit" id="login-submit" class="login-btn mt-6"><i class="fas fa-sign-in-alt" style="margin-right:8px"></i>Sign In</button>
         </form>
-        <p style="text-align:center;margin-top:20px;font-size:12px;color:#5A5A5A">Secure access · Protected by Supabase Auth</p>
+        <div style="margin-top:20px;padding:14px;background:rgba(197,160,89,0.08);border:1px solid rgba(197,160,89,0.2);border-radius:8px;font-size:12px;color:#8A7A5A;line-height:1.6">
+          <strong style="color:#C5A059;display:block;margin-bottom:4px">⚙️ Demo / No-Supabase Mode</strong>
+          Configure env vars <code style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px">OWNER_EMAIL</code>, 
+          <code style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px">ADMIN_PASSWORD</code>, 
+          <code style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px">ADMIN_TOKEN</code> to enable login.<br>
+          <span style="color:#6A6A6A;font-size:11px;margin-top:4px;display:block">
+            Placeholder: <strong style="color:#A09070">admin@chitraframe.in</strong> / <strong style="color:#A09070">ChitraFrame@2024</strong><br>
+            (Set these as actual env vars in Cloudflare Dashboard → Workers → Variables)
+          </span>
+        </div>
+        <p style="text-align:center;margin-top:12px;font-size:11px;color:#444">Secure access · ChitraFrame Admin</p>
       </div>
     </div>`;
     $('#login-form').addEventListener('submit', async (e) => {

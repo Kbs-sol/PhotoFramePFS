@@ -184,6 +184,21 @@ app.get('/api/pages/:slug', async (c) => {
   } catch (e) { return c.json({ error: 'Page not found' }, 404); }
 });
 
+// GET /api/reviews — all approved reviews (general fallback)
+app.get('/api/reviews', async (c) => {
+  try {
+    if (!c.env.SUPABASE_URL) return c.json({ reviews: [] });
+    const sb = getSupabase(c.env);
+    const { data } = await sb.from('reviews')
+      .select('*')
+      .eq('is_approved', true)
+      .eq('is_hidden', false)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    return c.json({ reviews: data || [] });
+  } catch (e) { return c.json({ reviews: [] }); }
+});
+
 // GET /api/reviews/:productId
 app.get('/api/reviews/:productId', async (c) => {
   try {
@@ -318,7 +333,14 @@ app.get('/api/config/public', async (c) => {
         urgency_text: 'Limited Stock Available', urgency_subtext: 'Offer Ends Tonight',
         combos_enabled: 'true', exit_intent_enabled: 'true',
         seo_title: 'ChitraFrame | Premium Framed Art Prints — Divine, Automotive, Sports, Wildlife',
-        seo_description: 'Buy premium framed art prints at ChitraFrame. Divine, automotive, sports and wildlife designs. Museum-quality printing with Black or Natural Wood frames. Ships across India.'
+        seo_description: 'Buy premium framed art prints at ChitraFrame. Divine, automotive, sports and wildlife designs. Museum-quality printing with Black or Natural Wood frames. Ships across India.',
+        // Placeholder contact info — configure real values via Supabase admin panel
+        contact_email: 'support@chitraframe.in',
+        contact_phone: '+91 79895 31818',
+        whatsapp_number: '917989531818',
+        contact_address: 'ChitraFrame, Hyderabad, Telangana, India',
+        instagram_link: 'https://instagram.com/chitraframe.in',
+        facebook_link: 'https://facebook.com/chitraframe',
       }});
     }
     const config = await getConfigs(c.env, [
@@ -469,8 +491,8 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
   const canonicalTag = `\n  <link rel="canonical" href="${canonical}">`;
   const ldTag = jsonLd ? `\n  ${jsonLd}` : '';
 
-  // Business Schema (always present)
-  const businessSchema = `\n  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"ChitraFrame","url":"https://chitraframe.in","logo":"https://chitraframe.in/static/images/logo.png","description":"ChitraFrame — Premium framed art prints and custom photo frames in India. Divine art, automotive prints, sports legends, wildlife. Museum-quality, ships pan-India.","address":{"@type":"PostalAddress","addressLocality":"Hyderabad","addressRegion":"Telangana","addressCountry":"IN"},"telephone":"+91-79895-31818","priceRange":"₹₹","openingHours":"Mo-Sa 09:00-19:00","sameAs":["https://instagram.com/chitraframe.in","https://facebook.com/chitraframe.in"]}</script>`;
+  // Business Schema (always present) — LocalBusiness + Organization + WebSite
+  const businessSchema = `\n  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":["LocalBusiness","Store"],"@id":"https://chitraframe.in/#business","name":"ChitraFrame","url":"https://chitraframe.in","logo":{"@type":"ImageObject","url":"https://chitraframe.in/static/images/logo.png","width":400,"height":100},"image":"https://chitraframe.in/static/images/logo.png","description":"ChitraFrame — India's premium framed art print brand. Museum-quality art prints in divine, automotive, sports and wildlife categories. Black and Natural Wood frames. Delivered pan-India in 3-5 days from ₹499.","address":{"@type":"PostalAddress","streetAddress":"Hyderabad","addressLocality":"Hyderabad","addressRegion":"Telangana","postalCode":"500001","addressCountry":"IN"},"telephone":"+91-79895-31818","email":"support@chitraframe.in","priceRange":"₹₹","currenciesAccepted":"INR","paymentAccepted":"Credit Card, Debit Card, UPI, Net Banking, COD","openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],"opens":"09:00","closes":"19:00"}],"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","reviewCount":"2000","bestRating":"5","worstRating":"1"},"sameAs":["https://instagram.com/chitraframe.in","https://facebook.com/chitraframe.in","https://wa.me/917989531818"],"hasOfferCatalog":{"@type":"OfferCatalog","name":"ChitraFrame Art Prints","itemListElement":[{"@type":"Offer","itemOffered":{"@type":"Product","name":"Divine Art Prints"}},{"@type":"Offer","itemOffered":{"@type":"Product","name":"Automotive Wall Art"}},{"@type":"Offer","itemOffered":{"@type":"Product","name":"Sports Legends Prints"}},{"@type":"Offer","itemOffered":{"@type":"Product","name":"Wildlife Art Prints"}}]}},{"@type":"WebSite","@id":"https://chitraframe.in/#website","url":"https://chitraframe.in","name":"ChitraFrame","description":"Buy framed art prints online India — divine, automotive, sports, wildlife. Museum quality. Ships in 3–5 days.","publisher":{"@id":"https://chitraframe.in/#business"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://chitraframe.in/shop?q={search_term_string}"},"query-input":"required name=search_term_string"}}]}</script>`;
   
   const ga4Tag = analytics?.ga4 ? `
   <script async src="https://www.googletagmanager.com/gtag/js?id=${analytics.ga4}"></script>
@@ -604,10 +626,57 @@ for (const route of customerRoutes) {
       }
     } catch (e) { /* Error gracefully */ }
 
+    // Blog page SSR SEO — no DB needed, meta derived from static post data
+    if (route === '/blog') {
+      title = 'ChitraFrame Blog — Art Buying Guides, Interior Tips & Frame Ideas India';
+      description = 'ChitraFrame blog: expert guides on buying framed art prints in India, interior styling tips, frame selection advice, divine art for pooja rooms, automotive wall art, and more.';
+    }
+    if (route === '/blog/:slug') {
+      const slug = c.req.param('slug');
+      const blogMeta: Record<string, { title: string; description: string }> = {
+        'best-framed-art-prints-india-2025': {
+          title: 'Best Framed Art Prints to Buy Online in India (2025) | ChitraFrame Blog',
+          description: 'A complete guide to buying premium framed art prints in India — print quality, frame materials, sizing, and where to buy without overpaying. Updated 2025.'
+        },
+        'divine-wall-art-pooja-room': {
+          title: 'Divine Wall Art for Pooja Rooms: Radha Krishna, Mahadev & More | ChitraFrame Blog',
+          description: 'Transform your pooja room or meditation space with the right devotional wall art. Radha Krishna, Lord Shiva, Ganesha — and how to choose the perfect frame.'
+        },
+        'automotive-wall-art-car-enthusiasts': {
+          title: 'Automotive Wall Art for Car Enthusiasts: BMW, Porsche, Lamborghini & F1 | ChitraFrame Blog',
+          description: 'The best automotive wall art in India for garages, man caves and home offices. Porsche 911, BMW M4, Lamborghini, Formula 1 prints — reviewed and ranked.'
+        },
+        'how-to-choose-frame-size-wall-art': {
+          title: 'How to Choose the Right Frame Size for Your Wall | ChitraFrame Blog',
+          description: 'Picking the wrong size is the most common wall art mistake. A practical guide to choosing Small, Medium, Large and XL frames — with room-by-room recommendations.'
+        },
+        'black-vs-natural-wood-frame': {
+          title: 'Black Frame vs Natural Wood Frame: Which Should You Choose? | ChitraFrame Blog',
+          description: 'Matte black vs natural wood frames — which suits your interior? Modern minimalist spaces love matte black. Warm, rustic homes gravitate toward natural wood. How to decide.'
+        }
+      };
+      if (blogMeta[slug]) {
+        title = blogMeta[slug].title;
+        description = blogMeta[slug].description;
+        // Article schema for blog posts
+        jsonLd = `<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"${title.replace(/"/g, '&quot;')}","description":"${description.replace(/"/g, '&quot;')}","publisher":{"@type":"Organization","name":"ChitraFrame","logo":{"@type":"ImageObject","url":"https://chitraframe.in/static/images/logo.png"}},"url":"https://chitraframe.in/blog/${slug}","mainEntityOfPage":"https://chitraframe.in/blog/${slug}"}</script>`;
+      }
+    }
+    // About page SSR SEO
+    if (route === '/about') {
+      title = 'About ChitraFrame — India\'s Premium Framed Art Print Brand';
+      description = 'ChitraFrame was born from a love of art and Indian homes. Museum-quality framed art prints in divine, automotive, sports and wildlife categories. Ships pan-India.';
+    }
+    // Contact page SSR SEO
+    if (route === '/contact') {
+      title = 'Contact ChitraFrame — WhatsApp, Email & Instagram Support';
+      description = 'Get in touch with ChitraFrame via WhatsApp, email or Instagram. We respond within 2 hours. Bulk orders, custom frames, returns — we\'re here to help.';
+    }
+
     return c.html(pageShell(title, description, gtmId, ogImage, jsonLd, {
       ga4: c.env.GA4_MEASUREMENT_ID,
       clarity: c.env.MICROSOFT_CLARITY_ID
-    }, route === '/product/:slug' ? `/product/${c.req.param('slug')}` : route === '/category/:slug' ? `/category/${c.req.param('slug')}` : route === '/' ? '/' : route.includes(':') ? undefined : route));
+    }, route === '/product/:slug' ? `/product/${c.req.param('slug')}` : route === '/category/:slug' ? `/category/${c.req.param('slug')}` : route === '/blog/:slug' ? `/blog/${c.req.param('slug')}` : route === '/' ? '/' : route.includes(':') ? undefined : route));
   });
 }
 

@@ -75,8 +75,16 @@ admin.post('/auth', async (c) => {
     // Without this guard, calling getSupabase(env) with undefined SUPABASE_URL throws a hard crash
     if (!c.env.SUPABASE_URL) {
       return c.json({ 
-        error: 'Authentication failed. Check your credentials or configure Supabase.',
-        hint: isOwnerEmail ? 'Password mismatch. Verify ADMIN_PASSWORD env var.' : 'Only the owner email can log in without Supabase configured.'
+        error: 'Authentication failed.',
+        hint: isOwnerEmail 
+          ? 'Password mismatch. Verify ADMIN_PASSWORD env var.' 
+          : 'Only the owner email can log in without Supabase configured.',
+        demo_info: {
+          note: 'Demo / No-Supabase mode: set env vars OWNER_EMAIL + ADMIN_PASSWORD + ADMIN_TOKEN to enable login',
+          placeholder_email: 'admin@chitraframe.in',
+          placeholder_password: 'ChitraFrame@2024',
+          setup_guide: 'Go to Cloudflare Dashboard → Workers → Settings → Variables to configure real credentials'
+        }
       }, 401);
     }
 

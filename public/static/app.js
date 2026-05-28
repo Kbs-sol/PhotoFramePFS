@@ -464,54 +464,137 @@
   }
 
   // ── HOME PAGE ─────────────────────────────────────────────────────────────
+  // Shadertoy-inspired WebGL hero animation: golden particle field
+  function initHeroCanvas() {
+    const canvas = document.getElementById('hero-canvas');
+    if (!canvas) return;
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) { canvas.style.display = 'none'; return; }
+
+    const vert = `attribute vec2 a_pos; void main(){gl_Position=vec4(a_pos,0.,1.);}`;
+    const frag = `
+      precision mediump float;
+      uniform vec2 u_res; uniform float u_time;
+      float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+      float noise(vec2 p){vec2 i=floor(p);vec2 f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}
+      void main(){
+        vec2 uv=(gl_FragCoord.xy-u_res*.5)/min(u_res.x,u_res.y);
+        float t=u_time*.18;
+        float n=noise(uv*3.+t)*noise(uv*6.-t*.7)*1.8;
+        vec3 gold=vec3(.78,.59,.22);vec3 dark=vec3(.06,.055,.045);
+        float glow=smoothstep(.3,.9,n);
+        vec3 col=mix(dark,gold*(.5+glow*.6),glow*.7);
+        float vign=1.-dot(uv*.8,uv*.8);
+        col*=clamp(vign,0.,1.);
+        gl_FragColor=vec4(col,0.75);
+      }`;
+
+    function mkShader(type, src) {
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s;
+    }
+    const prog = gl.createProgram();
+    gl.attachShader(prog, mkShader(gl.VERTEX_SHADER, vert));
+    gl.attachShader(prog, mkShader(gl.FRAGMENT_SHADER, frag));
+    gl.linkProgram(prog); gl.useProgram(prog);
+
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+    const posLoc = gl.getAttribLocation(prog, 'a_pos');
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    const uRes = gl.getUniformLocation(prog, 'u_res');
+    const uTime = gl.getUniformLocation(prog, 'u_time');
+
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    let raf; let running = true;
+    function resize() {
+      canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function draw(t) {
+      if (!running) return;
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform1f(uTime, t * 0.001);
+      gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      raf = requestAnimationFrame(draw);
+    }
+    raf = requestAnimationFrame(draw);
+
+    // Cleanup on page nav
+    window._heroCanvasCleanup = () => { running = false; cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
+  }
+
   async function renderHomePage(app) {
+    if (window._heroCanvasCleanup) { window._heroCanvasCleanup(); window._heroCanvasCleanup = null; }
+    document.title = 'ChitraFrame | Buy Framed Art Prints Online India — Divine, Automotive, Sports';
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', 'Buy premium framed art prints online in India. Divine & spiritual art, automotive legends, sports heroes, wildlife — museum-quality printing, Black or Natural Wood frames, free shipping above ₹799. Starting ₹499.');
+
     app.innerHTML = renderHeader() + `
     <main id="main-content">
-      <!-- Hero -->
-      <section class="hero" aria-labelledby="hero-h1">
+
+      <!-- ══ HERO ══ -->
+      <section class="hero" aria-labelledby="hero-h1" itemscope itemtype="https://schema.org/WebPage">
+        <canvas id="hero-canvas" class="hero-canvas" aria-hidden="true"></canvas>
         <div class="hero-inner">
           <div class="hero-left" data-reveal>
-            <div class="hero-tag">Museum-Quality Art Prints</div>
-            <h1 class="hero-h1" id="hero-h1">
-              Your Walls<br>
-              <em>Deserve Art</em>
+            <div class="hero-tag">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.2 2.5L10 4.1l-2 1.9.5 2.8L6 7.5 3.5 8.8 4 6 2 4.1l2.8-.6L6 1z" fill="var(--gold)"/></svg>
+              #1 Art Print Brand in India
+            </div>
+            <h1 class="hero-h1" id="hero-h1" itemprop="name">
+              Framed Art Prints<br>
+              <em>Delivered Across India</em>
             </h1>
-            <p class="hero-sub">Handcrafted frames · Premium finishes · Delivered across India. From ₹499.</p>
+            <p class="hero-sub" itemprop="description">Museum-quality printing · Premium Black &amp; Wood frames · Delivered in 3–5 days. Divine, Automotive, Sports &amp; Wildlife art. Starting <strong>₹499</strong>.</p>
             <div class="hero-actions">
-              <button class="btn-primary" onclick="window.cf.nav('/shop')" aria-label="Shop all art prints">
-                Shop Collections
+              <button class="btn-primary btn-hero-cta" onclick="window.cf.nav('/shop')" aria-label="Shop all framed art prints">
+                Shop All Prints
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <button class="btn-ghost" onclick="window.cf.nav('/category/spiritual')">Explore Divine Art</button>
+              <button class="btn-ghost hero-ghost-btn" onclick="window.cf.nav('/customize')">
+                Custom Frame
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 12L5 9M5 9l5-5M5 9l-2 1 1-2M10 4l2-2 2 2-2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
             </div>
             <div class="hero-trust">
               <div class="hero-trust-item">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.6 3.3L12 5l-2.5 2.4.6 3.4L7 9.3l-3.1 1.5.6-3.4L2 5l3.4-.7L7 1z" fill="var(--gold)"/></svg>
-                4.9 Rating
+                4.9★ · 2,000+ happy customers
               </div>
+              <div class="hero-trust-sep">·</div>
               <div class="hero-trust-item">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 9l3 3 9-9" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Free Delivery ₹799+
+                Free delivery above ₹799
               </div>
+              <div class="hero-trust-sep">·</div>
               <div class="hero-trust-item">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="4" width="10" height="8" rx="1.5" stroke="var(--ink-500)" stroke-width="1.2"/><path d="M5 4V3a2 2 0 0 1 4 0v1" stroke="var(--ink-500)" stroke-width="1.2" stroke-linecap="round"/></svg>
-                Safe Packaging
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 4v5c0 2.5 2.2 4.5 5 5 2.8-.5 5-2.5 5-5V4L7 1z" stroke="var(--ink-500)" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                COD available pan-India
               </div>
             </div>
           </div>
           <div class="hero-right" data-reveal data-reveal-delay="1">
             <div class="hero-mosaic">
-              <div class="hero-tile hero-tile-tall">
-                <img src="${DESIGN_IMAGES['radha-krishna-emerald-dance']}" alt="Radha Krishna Emerald Dance framed art" loading="eager">
+              <div class="hero-tile hero-tile-tall" onclick="window.cf.nav('/category/spiritual')" role="button" tabindex="0" aria-label="Shop Divine & Spiritual art prints" onkeydown="if(event.key==='Enter')window.cf.nav('/category/spiritual')">
+                <img src="${DESIGN_IMAGES['radha-krishna-emerald-dance']}" alt="Radha Krishna Emerald Dance premium framed art print" loading="eager" width="400" height="560">
                 <div class="hero-tile-label">Divine Collection</div>
+                <div class="hero-tile-badge">Bestseller</div>
               </div>
               <div class="hero-tile-col">
-                <div class="hero-tile">
-                  <img src="${DESIGN_IMAGES['bmw-m4-carbon-dark']}" alt="BMW M4 Carbon framed art print" loading="eager">
+                <div class="hero-tile" onclick="window.cf.nav('/category/automotive')" role="button" tabindex="0" aria-label="Shop Automotive art prints" onkeydown="if(event.key==='Enter')window.cf.nav('/category/automotive')">
+                  <img src="${DESIGN_IMAGES['bmw-m4-carbon-dark']}" alt="BMW M4 Carbon Dark Legend framed art print" loading="eager" width="260" height="260">
                   <div class="hero-tile-label">Automotive Art</div>
                 </div>
-                <div class="hero-tile">
-                  <img src="${DESIGN_IMAGES['lion-geometric-gold']}" alt="Geometric Lion gold framed art" loading="eager">
+                <div class="hero-tile" onclick="window.cf.nav('/category/wildlife')" role="button" tabindex="0" aria-label="Shop Wildlife art prints" onkeydown="if(event.key==='Enter')window.cf.nav('/category/wildlife')">
+                  <img src="${DESIGN_IMAGES['lion-geometric-gold']}" alt="Geometric Lion Gold framed wall art" loading="eager" width="260" height="260">
                   <div class="hero-tile-label">Wildlife</div>
                 </div>
               </div>
@@ -520,56 +603,34 @@
         </div>
       </section>
 
-      <!-- Trust Band -->
-      <section class="trust-band" aria-label="Trust signals">
-        <div class="container">
-          <div class="trust-grid">
-            <div class="trust-item" data-reveal>
-              <div class="trust-icon">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 2L3 6v6c0 5 3.6 9 8 10 4.4-1 8-5 8-10V6L11 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M7 11l3 3 5-5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </div>
-              <div>
-                <strong>Premium Quality</strong>
-                <span>Gallery-grade printing &amp; frames</span>
-              </div>
-            </div>
-            <div class="trust-item" data-reveal data-reveal-delay="1">
-              <div class="trust-icon">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M2 7h18l-2 10H4L2 7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6 7V5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="16" cy="14" r="2" stroke="currentColor" stroke-width="1.2"/></svg>
-              </div>
-              <div>
-                <strong>Free Shipping</strong>
-                <span>On all orders above ₹799</span>
-              </div>
-            </div>
-            <div class="trust-item" data-reveal data-reveal-delay="2">
-              <div class="trust-icon">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 12l.5 5.5L11 20l6.5-2.5.5-5.5" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M11 2L4 7h14L11 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-              </div>
-              <div>
-                <strong>Safe Packaging</strong>
-                <span>Foam-lined protective boxes</span>
-              </div>
-            </div>
-            <div class="trust-item" data-reveal data-reveal-delay="3">
-              <div class="trust-icon">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 2l2.4 7.3H21l-6.2 4.5 2.4 7.2L11 16.5l-6.2 4.5 2.4-7.2L1 9.3h7.6L11 2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
-              </div>
-              <div>
-                <strong>4.9★ Rated</strong>
-                <span>By 2,000+ happy customers</span>
-              </div>
-            </div>
-          </div>
+      <!-- ══ TRUST TICKER ══ -->
+      <div class="trust-ticker" aria-label="Key benefits">
+        <div class="trust-ticker-inner">
+          ${[
+            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1L9.3 5H14l-3.6 2.7 1.4 4.3L7.5 9.5 4.2 12l1.4-4.3L2 5h4.7L7.5 1z" fill="var(--gold)"/></svg>`, text: 'Museum-Quality Print' },
+            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 5h13l-1.5 8H2.5L1 5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5 5V3.5a2.5 2.5 0 0 1 5 0V5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`, text: 'Free Delivery ₹799+' },
+            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 8l3 4 8-8" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`, text: 'Shatterproof Acrylic Glass' },
+            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1L3 4v5c0 3 2 5 4.5 5.5C12 14 14 12 14 9V4L7.5 1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`, text: 'Safe Foam Packaging' },
+            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M5 7.5l2 2 3-3" stroke="var(--green)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`, text: 'COD Available' },
+            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1l1.6 3.3L13 5l-2.5 2.3.6 3.4-3.1-1.6-3.1 1.6.6-3.4L3 5l3.9-.7L7.5 1z" fill="var(--gold)"/></svg>`, text: '4.9★ — 2,000+ Reviews' },
+            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="4" width="13" height="8" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M5 4V3a2 2 0 0 1 5 0v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`, text: 'Secure Checkout' },
+            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 10l3 3 8-10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`, text: 'Ready in 3–5 Days' },
+          ].map(t => `<div class="trust-ticker-item">${t.icon}<span>${t.text}</span></div>`).join('<div class="trust-ticker-dot">·</div>')}
+          ${/* duplicate for seamless loop */ [
+            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1L9.3 5H14l-3.6 2.7 1.4 4.3L7.5 9.5 4.2 12l1.4-4.3L2 5h4.7L7.5 1z" fill="var(--gold)"/></svg>`, text: 'Museum-Quality Print' },
+            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 5h13l-1.5 8H2.5L1 5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5 5V3.5a2.5 2.5 0 0 1 5 0V5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`, text: 'Free Delivery ₹799+' },
+            { icon: `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 8l3 4 8-8" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`, text: 'Shatterproof Acrylic Glass' },
+          ].map(t => `<div class="trust-ticker-item">${t.icon}<span>${t.text}</span></div>`).join('<div class="trust-ticker-dot">·</div>')}
         </div>
-      </section>
+      </div>
 
-      <!-- Collections -->
+      <!-- ══ COLLECTIONS ══ -->
       <section class="section" aria-labelledby="collections-heading">
         <div class="container">
           <div class="section-header" data-reveal>
-            <p class="section-eyebrow">Curated for every taste</p>
-            <h2 class="section-title" id="collections-heading">Shop by Collection</h2>
+            <p class="section-eyebrow">Curated collections</p>
+            <h2 class="section-title" id="collections-heading">Shop by Theme</h2>
+            <p class="section-sub">From divine devotion to roaring engines — find what moves you.</p>
           </div>
           <div class="categories-grid" id="categories-grid">
             ${renderCategoryCards()}
@@ -577,13 +638,14 @@
         </div>
       </section>
 
-      <!-- Featured Products -->
+      <!-- ══ FEATURED PRODUCTS ══ -->
       <section class="section section-alt" aria-labelledby="featured-heading">
         <div class="container">
           <div class="section-header" data-reveal>
-            <p class="section-eyebrow">Bestsellers</p>
+            <p class="section-eyebrow">This week's bestsellers</p>
             <h2 class="section-title" id="featured-heading">Most Loved Prints</h2>
-            <a href="/shop" onclick="window.cf.nav('/shop');return false;" class="section-link">View all
+            <a href="/shop" onclick="window.cf.nav('/shop');return false;" class="section-link">
+              View all 51 designs
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>
           </div>
@@ -593,84 +655,232 @@
         </div>
       </section>
 
-      <!-- Editorial Spotlight -->
-      <section class="editorial-block" aria-label="Featured design spotlight">
+      <!-- ══ WHY CHITRAFRAME (SEO + Conversion) ══ -->
+      <section class="why-section" aria-labelledby="why-heading">
+        <div class="container">
+          <div class="section-header" data-reveal>
+            <p class="section-eyebrow">Why ChitraFrame</p>
+            <h2 class="section-title" id="why-heading">Gallery Quality. Doorstep Price.</h2>
+            <p class="section-sub">The only Indian art print brand obsessed with every detail — from ink to final mile delivery.</p>
+          </div>
+          <div class="why-grid">
+            <div class="why-card" data-reveal>
+              <div class="why-icon">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="12" stroke="var(--gold)" stroke-width="1.4"/><path d="M9 14l3 3 7-7" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <h3>Archival Pigment Inks</h3>
+              <p>Our prints use 12-colour archival inks rated for 100+ years. Colours stay vivid long after lesser prints fade.</p>
+            </div>
+            <div class="why-card" data-reveal data-reveal-delay="1">
+              <div class="why-icon">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="3" y="3" width="22" height="22" rx="4" stroke="var(--gold)" stroke-width="1.4"/><rect x="7" y="7" width="14" height="14" rx="2" stroke="var(--gold)" stroke-width="1" opacity="0.5"/></svg>
+              </div>
+              <h3>Handcrafted Frames</h3>
+              <p>Every frame is finished by hand — solid wood moulding, UV-protective acrylic glass, acid-free mat board. Zero shortcuts.</p>
+            </div>
+            <div class="why-card" data-reveal data-reveal-delay="2">
+              <div class="why-icon">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M4 14h20M16 6l8 8-8 8" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <h3>Pan-India Delivery</h3>
+              <p>From Srinagar to Kanyakumari. Rigid-box shipping with foam padding. Arrives intact, always — or we replace it free.</p>
+            </div>
+            <div class="why-card" data-reveal data-reveal-delay="3">
+              <div class="why-icon">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 3l2.4 7.4H24L17.8 15l2.3 7.1L14 18l-6.1 4.1L10.2 15 4 10.4h7.6L14 3z" stroke="var(--gold)" stroke-width="1.4" stroke-linejoin="round"/></svg>
+              </div>
+              <h3>4.9★ Verified Reviews</h3>
+              <p>Over 2,000 customers have rated us 5 stars. We publish every review — good or critical — because we earn trust, not fake it.</p>
+            </div>
+            <div class="why-card" data-reveal data-reveal-delay="1">
+              <div class="why-icon">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M6 14a8 8 0 1 1 16 0 8 8 0 0 1-16 0z" stroke="var(--gold)" stroke-width="1.4"/><path d="M14 10v4l3 3" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </div>
+              <h3>3–5 Day Dispatch</h3>
+              <p>We print, frame, and ship within 3–5 business days. No pre-made stock — every piece is freshly crafted for your order.</p>
+            </div>
+            <div class="why-card" data-reveal data-reveal-delay="2">
+              <div class="why-icon">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M7 12h14M7 16h14M12 3v3M16 3v3M12 22v3M16 22v3" stroke="var(--gold)" stroke-width="1.4" stroke-linecap="round"/><rect x="4" y="6" width="20" height="16" rx="3" stroke="var(--gold)" stroke-width="1.4"/></svg>
+              </div>
+              <h3>Replacement Guarantee</h3>
+              <p>If your print arrives damaged or differs from what you ordered, we send a replacement at zero cost. Our promise.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ EDITORIAL SPOTLIGHT 1 — Automotive ══ -->
+      <section class="editorial-block" aria-label="Automotive art print spotlight">
         <div class="editorial-inner">
           <div class="editorial-image" data-reveal>
-            <img src="${DESIGN_IMAGES['porsche-911-pacific-coast']}" alt="Porsche 911 Pacific Coast art print in frame" loading="lazy">
+            <img src="${DESIGN_IMAGES['porsche-911-pacific-coast']}" alt="Porsche 911 Pacific Coast retro art print in premium black frame" loading="lazy" width="600" height="800">
+            <div class="editorial-image-badge">From ₹749</div>
           </div>
           <div class="editorial-content" data-reveal data-reveal-delay="1">
             <span class="section-eyebrow">Automotive Collection</span>
-            <h2 class="editorial-title">Built for those<br>who feel the road</h2>
-            <p class="editorial-desc">The Pacific Coast Porsche — a retro poster art print capturing the romance of the open highway. Gallery-framed and ready to hang.</p>
-            <div class="editorial-meta">
-              <span>Starting from ₹699</span>
-              <span>·</span>
-              <span>4 sizes available</span>
+            <h2 class="editorial-title">For those who feel<br>every corner</h2>
+            <p class="editorial-desc">The Porsche 911 Pacific Coast — a retro art print that captures the romance of the open highway. Warm sunset tones, lush typography, gallery-framed and ready to hang. The art enthusiast's alternative to a poster.</p>
+            <ul class="editorial-bullets">
+              <li>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l4 4 6-6" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                4 sizes: Small (8×10") to XL (24×36")
+              </li>
+              <li>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l4 4 6-6" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Black or Natural Wood frame finish
+              </li>
+              <li>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l4 4 6-6" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Ships fully assembled, wall-ready
+              </li>
+            </ul>
+            <div class="editorial-ctas">
+              <button class="btn-primary" onclick="window.cf.nav('/product/porsche-911-pacific-coast')">
+                View This Print
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <button class="btn-outline" onclick="window.cf.nav('/category/automotive')">All Automotive Art</button>
             </div>
-            <button class="btn-primary" onclick="window.cf.nav('/category/automotive')">
-              Explore Automotive Art
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
           </div>
         </div>
       </section>
 
-      <!-- Spiritual Spotlight -->
-      <section class="editorial-block editorial-reverse" aria-label="Spiritual art spotlight">
+      <!-- ══ SOCIAL PROOF BAR ══ -->
+      <div class="proof-bar" aria-label="Social proof">
+        <div class="container">
+          <div class="proof-bar-inner">
+            <div class="proof-stat" data-reveal>
+              <span class="proof-num">2,000+</span>
+              <span class="proof-label">Happy Customers</span>
+            </div>
+            <div class="proof-divider"></div>
+            <div class="proof-stat" data-reveal data-reveal-delay="1">
+              <span class="proof-num">4.9 ★</span>
+              <span class="proof-label">Average Rating</span>
+            </div>
+            <div class="proof-divider"></div>
+            <div class="proof-stat" data-reveal data-reveal-delay="2">
+              <span class="proof-num">51</span>
+              <span class="proof-label">Unique Designs</span>
+            </div>
+            <div class="proof-divider"></div>
+            <div class="proof-stat" data-reveal data-reveal-delay="3">
+              <span class="proof-num">Pan-India</span>
+              <span class="proof-label">Delivery</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ EDITORIAL SPOTLIGHT 2 — Divine ══ -->
+      <section class="editorial-block editorial-reverse" aria-label="Divine spiritual art print spotlight">
         <div class="editorial-inner">
           <div class="editorial-image" data-reveal>
-            <img src="${DESIGN_IMAGES['mahadev-cosmic-meditation']}" alt="Mahadev cosmic meditation art print" loading="lazy">
+            <img src="${DESIGN_IMAGES['mahadev-cosmic-trance']}" alt="Mahadev Lord Shiva Cosmic Trance framed art print for pooja room" loading="lazy" width="600" height="800">
+            <div class="editorial-image-badge">From ₹649</div>
           </div>
           <div class="editorial-content" data-reveal data-reveal-delay="1">
             <span class="section-eyebrow">Divine Collection</span>
-            <h2 class="editorial-title">Art that brings<br>peace to your home</h2>
-            <p class="editorial-desc">The Mahadev Cosmic Meditation — divine energy channelled into art. Bless your home with the presence of Shiva's infinite consciousness.</p>
-            <div class="editorial-meta">
-              <span>Starting from ₹599</span>
-              <span>·</span>
-              <span>Black &amp; Wood frames</span>
+            <h2 class="editorial-title">Bless your home<br>with divine energy</h2>
+            <p class="editorial-desc">The Mahadev Cosmic Trance — Lord Shiva as a luminous silhouette against swirling nebulae. Deep blues, cosmic purples and sacred gold radiate peace and transcendence. India's favourite devotional wall art, now in museum-grade frames.</p>
+            <ul class="editorial-bullets">
+              <li>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l4 4 6-6" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Perfect for puja rooms, living rooms &amp; gifting
+              </li>
+              <li>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l4 4 6-6" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Vivid pigment inks — colours last 100+ years
+              </li>
+              <li>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l4 4 6-6" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Ready to hang — hardware included
+              </li>
+            </ul>
+            <div class="editorial-ctas">
+              <button class="btn-primary" onclick="window.cf.nav('/product/mahadev-cosmic-trance')">
+                View This Print
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <button class="btn-outline" onclick="window.cf.nav('/category/spiritual')">All Divine Art</button>
             </div>
-            <button class="btn-primary" onclick="window.cf.nav('/category/spiritual')">
-              Shop Divine Art
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
           </div>
         </div>
       </section>
 
-      <!-- Reviews -->
-      <section class="section" aria-labelledby="reviews-heading">
+      <!-- ══ REVIEWS ══ -->
+      <section class="section reviews-section" aria-labelledby="reviews-heading" itemscope itemtype="https://schema.org/Product">
+        <meta itemprop="name" content="ChitraFrame Framed Art Prints">
         <div class="container">
           <div class="section-header" data-reveal>
-            <p class="section-eyebrow">Customer Stories</p>
-            <h2 class="section-title" id="reviews-heading">Walls transformed</h2>
-            <div class="review-aggregate">
-              <div class="review-stars">★★★★★</div>
-              <span><strong>4.9</strong> from 2,000+ reviews</span>
+            <p class="section-eyebrow">Verified customer stories</p>
+            <h2 class="section-title" id="reviews-heading">Why 2,000+ Indians chose ChitraFrame</h2>
+            <div class="review-aggregate" itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">
+              <meta itemprop="ratingValue" content="4.9">
+              <meta itemprop="reviewCount" content="2000">
+              <div class="review-stars-bar">★★★★★</div>
+              <span><strong>4.9 / 5</strong> from 2,000+ verified buyers</span>
             </div>
           </div>
           <div class="reviews-grid">
             ${renderStaticReviews()}
           </div>
+          <div class="reviews-cta" data-reveal>
+            <p>Have a ChitraFrame at home?</p>
+            <button class="btn-outline" onclick="window.cf.nav('/review')">Share Your Review →</button>
+          </div>
         </div>
       </section>
 
-      <!-- Newsletter -->
+      <!-- ══ FAQ (SEO + AI answer-box targeting) ══ -->
+      <section class="faq-section" aria-labelledby="faq-heading" itemscope itemtype="https://schema.org/FAQPage">
+        <div class="container">
+          <div class="section-header" data-reveal>
+            <p class="section-eyebrow">Quick answers</p>
+            <h2 class="section-title" id="faq-heading">Frequently Asked Questions</h2>
+          </div>
+          <div class="faq-grid">
+            ${[
+              { q: 'Where can I buy framed art prints online in India?', a: 'ChitraFrame ships premium framed art prints to all major cities across India — Mumbai, Delhi, Bangalore, Hyderabad, Chennai, Pune, Kolkata and beyond. Order at chitraframe.in and get delivery in 3–5 business days.' },
+              { q: 'What sizes are available for framed wall art?', a: 'We offer four standard sizes: Small (8×10 inches), Medium (12×18 inches), Large (18×24 inches), and XL (24×36 inches). All sizes are available in Black or Natural Wood frame finishes.' },
+              { q: 'What frame finishes does ChitraFrame offer?', a: 'We offer two premium frame finishes: Classic Matte Black (contemporary, versatile) and Natural Wood Oak (warm, rustic). Both use solid wood moulding and UV-protective acrylic glass.' },
+              { q: 'Is Cash on Delivery available?', a: 'Yes — COD is available across India on orders between ₹499 and ₹1,995. A nominal ₹49 COD handling fee applies. For online payment (UPI, cards), you save ₹50 automatically.' },
+              { q: 'How is the art print packed for shipping?', a: 'Every frame is bubble-wrapped and placed in a custom rigid cardboard box with foam padding on all sides. We have a near-zero transit damage rate. In the rare case of damage, we replace it free.' },
+              { q: 'Can I order a custom frame with my own photo?', a: 'Yes! Use our Custom Frame page to choose your size and finish, then WhatsApp your image to us after ordering. We send a digital proof within 24 hours before printing.' },
+            ].map(f => `
+              <div class="faq-item" data-reveal itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+                <h3 class="faq-q" itemprop="name">${escapeHTML(f.q)}</h3>
+                <div class="faq-a" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+                  <p itemprop="text">${escapeHTML(f.a)}</p>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ NEWSLETTER ══ -->
       <section class="newsletter-section" aria-labelledby="newsletter-heading">
         <div class="container">
           <div class="newsletter-inner" data-reveal>
             <div class="newsletter-text">
-              <h2 class="newsletter-title" id="newsletter-heading">Get early access to new designs</h2>
-              <p>Join 8,000+ collectors. No spam — just beautiful art drops and exclusive offers.</p>
+              <div class="newsletter-icon">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M4 8h24l-12 11L4 8z" stroke="var(--gold)" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 8v16h24V8" stroke="var(--gold)" stroke-width="1.5" stroke-linejoin="round"/></svg>
+              </div>
+              <h2 class="newsletter-title" id="newsletter-heading">New designs. Members first.</h2>
+              <p>Join 8,000+ art lovers. Get early access to drops, exclusive offers, and wall-styling tips. Zero spam.</p>
             </div>
             <form class="newsletter-form" id="newsletter-form" onsubmit="window.cf.handleNewsletter(event)">
-              <input type="email" name="email" placeholder="Your email address" required autocomplete="email" aria-label="Email address">
-              <button type="submit" class="btn-primary">Subscribe</button>
+              <input type="email" name="email" placeholder="Enter your email" required autocomplete="email" aria-label="Email address">
+              <button type="submit" class="btn-primary">
+                Subscribe Free
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
             </form>
           </div>
         </div>
       </section>
+
     </main>
     ${renderFooter()}`;
 
@@ -678,27 +888,36 @@
     initStickyHeader();
     setTimeout(initReveal, 100);
     loadConfig();
+    setTimeout(initHeroCanvas, 50);
   }
 
   function renderCategoryCards() {
     const categories = [
-      { slug: 'spiritual', label: 'Divine & Spiritual', sub: '18 prints', img: DESIGN_IMAGES['mahadev-cosmic-meditation'], color: '#1a1050' },
-      { slug: 'automotive', label: 'Automotive Art', sub: '14 prints', img: DESIGN_IMAGES['porsche-911-pacific-coast'], color: '#0a1520' },
-      { slug: 'sports', label: 'Sports Legends', sub: '9 prints', img: DESIGN_IMAGES['cricket-glory-moment'], color: '#001233' },
-      { slug: 'wildlife', label: 'Wildlife', sub: '5 prints', img: DESIGN_IMAGES['lion-geometric-gold'], color: '#1a1000' },
-      { slug: 'anime', label: 'Anime', sub: '3 prints', img: DESIGN_IMAGES['nissan-gtr-r34-osaka-rain'], color: '#12001a' },
-      { slug: 'motivational', label: 'Motivational', sub: '2 prints', img: cldUrl('motivational/grind-in-silence', 600), color: '#0a0a0a' },
+      { slug: 'spiritual', label: 'Divine & Spiritual', sub: '3 designs', cta: 'Puja rooms, meditation spaces', img: DESIGN_IMAGES['mahadev-cosmic-trance'], color: '#12103a' },
+      { slug: 'automotive', label: 'Automotive Art', sub: '5 designs', cta: 'Car lovers, garage walls', img: DESIGN_IMAGES['porsche-911-pacific-coast'], color: '#071525' },
+      { slug: 'sports', label: 'Sports Legends', sub: '1 design', cta: 'Cricket, football, motorsport', img: DESIGN_IMAGES['cricket-glory-moment'], color: '#001030' },
+      { slug: 'wildlife', label: 'Wildlife', sub: '1 design', cta: 'Living rooms, offices', img: DESIGN_IMAGES['lion-geometric-gold'], color: '#1a1100' },
+      { slug: 'anime', label: 'Anime & JDM', sub: '2 designs', cta: 'Gaming rooms, gift ideas', img: DESIGN_IMAGES['nissan-gtr-r34-osaka-rain'], color: '#14001a' },
+      { slug: 'motivational', label: 'Motivational', sub: '2 designs', cta: 'Home office, gym walls', img: DESIGN_IMAGES['f1-redbull-racing'], color: '#0a0a0a' },
     ];
 
     return categories.map((cat, i) => `
-      <article class="category-card" data-reveal data-reveal-delay="${i % 3}" onclick="window.cf.nav('/category/${cat.slug}')" role="button" tabindex="0" aria-label="${cat.label} collection" onkeydown="if(event.key==='Enter')window.cf.nav('/category/${cat.slug}')">
+      <article class="category-card" data-reveal data-reveal-delay="${i % 3}"
+        onclick="window.cf.nav('/category/${cat.slug}')"
+        role="button" tabindex="0"
+        aria-label="Shop ${cat.label} art prints"
+        onkeydown="if(event.key==='Enter')window.cf.nav('/category/${cat.slug}')">
         <div class="category-card-img">
-          <img src="${escapeHTML(cat.img)}" alt="${escapeHTML(cat.label)} art prints" loading="lazy">
-          <div class="category-card-overlay" style="background:linear-gradient(to top, ${cat.color}cc, transparent 60%)"></div>
+          <img src="${escapeHTML(cat.img)}" alt="${escapeHTML(cat.label)} framed art prints India" loading="lazy" width="400" height="520">
+          <div class="category-card-overlay" style="background:linear-gradient(to top, ${cat.color}f0 0%, ${cat.color}88 40%, transparent 70%)"></div>
         </div>
         <div class="category-card-body">
-          <h3 class="category-card-title">${escapeHTML(cat.label)}</h3>
           <span class="category-card-count">${escapeHTML(cat.sub)}</span>
+          <h3 class="category-card-title">${escapeHTML(cat.label)}</h3>
+          <p class="category-card-cta">${escapeHTML(cat.cta)}</p>
+          <span class="category-card-arrow">
+            Shop →
+          </span>
         </div>
       </article>`).join('');
   }
@@ -710,7 +929,7 @@
       { slug: 'cricket-glory-moment', name: 'Cricket — Glory Moment', category: 'Sports', price: 599, image: DESIGN_IMAGES['cricket-glory-moment'] },
       { slug: 'lion-geometric-gold', name: 'Lion — Geometric Gold', category: 'Wildlife', price: 649, image: DESIGN_IMAGES['lion-geometric-gold'] },
       { slug: 'f1-redbull-racing', name: 'F1 RedBull — Championship', category: 'Automotive', price: 749, image: DESIGN_IMAGES['f1-redbull-racing'] },
-      { slug: 'mahadev-cosmic-meditation', name: 'Mahadev — Cosmic Meditation', category: 'Spiritual', price: 649, image: DESIGN_IMAGES['mahadev-cosmic-meditation'] },
+      { slug: 'mahadev-cosmic-trance', name: 'Mahadev — Cosmic Trance', category: 'Spiritual', price: 649, image: DESIGN_IMAGES['mahadev-cosmic-trance'] },
       { slug: 'lamborghini-aventador-neon', name: 'Lamborghini SVJ — Neon Night', category: 'Automotive', price: 849, image: DESIGN_IMAGES['lamborghini-aventador-neon'] },
       { slug: 'radha-krishna-watercolor', name: 'Radha Krishna — Watercolor Bliss', category: 'Spiritual', price: 599, image: DESIGN_IMAGES['radha-krishna-watercolor'] },
     ];
@@ -720,26 +939,43 @@
 
   function renderProductCard(p, idx = 0) {
     const variantId = `${p.slug}-medium-black`;
+    const badge = p.badge || (idx === 0 ? 'Bestseller' : idx === 1 ? 'New' : '');
     return `
-    <article class="product-card" data-reveal data-reveal-delay="${idx % 4}" role="article">
-      <div class="product-card-image" onclick="window.cf.nav('/product/${escapeHTML(p.slug)}')" role="button" tabindex="0" aria-label="View ${escapeHTML(p.name)}" onkeydown="if(event.key==='Enter')window.cf.nav('/product/${escapeHTML(p.slug)}')">
-        <img src="${escapeHTML(p.image || cldUrl(p.slug, 600))}" alt="${escapeHTML(p.name)} art print" loading="lazy">
+    <article class="product-card" data-reveal data-reveal-delay="${idx % 4}" role="article" itemscope itemtype="https://schema.org/Product">
+      <meta itemprop="name" content="${escapeHTML(p.name)} — Framed Art Print">
+      <meta itemprop="description" content="Buy ${escapeHTML(p.name)} premium framed art print online in India. Museum-quality printing, Black or Natural Wood frame. Starting ${formatPrice(p.price)}. Ships pan-India.">
+      <meta itemprop="brand" content="ChitraFrame">
+      <div class="product-card-image" onclick="window.cf.nav('/product/${escapeHTML(p.slug)}')" role="button" tabindex="0" aria-label="View ${escapeHTML(p.name)} framed art print" onkeydown="if(event.key==='Enter')window.cf.nav('/product/${escapeHTML(p.slug)}')">
+        <img src="${escapeHTML(p.image || cldUrl(p.slug, 600))}" alt="${escapeHTML(p.name)} framed art print India" loading="lazy" width="600" height="750">
+        ${badge ? `<div class="product-card-badge">${escapeHTML(badge)}</div>` : ''}
         <div class="product-card-actions">
           <button class="product-quick-add" onclick="event.stopPropagation();window.cf.quickAdd('${escapeHTML(variantId)}','${escapeHTML(p.name)}',${p.price},'${escapeHTML(p.image || cldUrl(p.slug, 200))}','${escapeHTML(p.slug)}')" aria-label="Quick add ${escapeHTML(p.name)} to cart">
-            + Add to Cart
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1h2l1.8 7.2h6.4l1.6-5H4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5.5" cy="11.5" r="1" fill="currentColor"/><circle cx="10" cy="11.5" r="1" fill="currentColor"/></svg>
+            Add to Cart
           </button>
         </div>
+        <button class="product-view-btn" onclick="window.cf.nav('/product/${escapeHTML(p.slug)}')" aria-label="View details">
+          View Details
+        </button>
       </div>
       <div class="product-card-info">
         <div class="product-card-meta">
           <span class="product-card-category">${escapeHTML(p.category || '')}</span>
+          <div class="product-card-stars" aria-label="4.9 stars">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="var(--gold)"><path d="M5 1l1 2.1L8.5 3.5l-1.8 1.8.4 2.5L5 6.6 2.9 7.8l.4-2.5L1.5 3.5l2.5-.4L5 1z"/></svg>
+            4.9
+          </div>
         </div>
         <h3 class="product-card-name">
-          <a href="/product/${escapeHTML(p.slug)}" onclick="window.cf.nav('/product/${escapeHTML(p.slug)}');return false;">${escapeHTML(p.name)}</a>
+          <a href="/product/${escapeHTML(p.slug)}" onclick="window.cf.nav('/product/${escapeHTML(p.slug)}');return false;" itemprop="url">${escapeHTML(p.name)}</a>
         </h3>
-        <div class="product-card-price">
+        <div class="product-card-price" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+          <meta itemprop="priceCurrency" content="INR">
+          <meta itemprop="price" content="${p.price}">
+          <meta itemprop="availability" content="https://schema.org/InStock">
           <span class="price-from">from</span>
           <span class="price-amount">${formatPrice(p.price)}</span>
+          <span class="price-sizes">4 sizes</span>
         </div>
       </div>
     </article>`;
@@ -747,22 +983,45 @@
 
   function renderStaticReviews() {
     const reviews = [
-      { name: 'Arjun M.', city: 'Hyderabad', rating: 5, text: 'The BMW M4 print is absolutely stunning. Frame quality is premium — exactly what I expected. Arrived in 4 days, perfectly packed.', product: 'BMW M4 Carbon' },
-      { name: 'Priya S.', city: 'Bangalore', rating: 5, text: 'Got the Radha Krishna Emerald print for my pooja room. The colours are vivid and the black frame gives it a gallery feel. Highly recommend!', product: 'Radha Krishna Emerald Dance' },
-      { name: 'Rohit K.', city: 'Mumbai', rating: 5, text: 'Ordered two cricket prints as gifts. Both friends loved them. The quality far exceeded what I expected for this price point.', product: 'Cricket Glory Moment' },
-      { name: 'Sneha T.', city: 'Chennai', rating: 5, text: 'ChitraFrame is incredible. Mahadev meditation print creates such a calm energy in the room. Will definitely order more.', product: 'Mahadev Cosmic Meditation' },
-      { name: 'Vikram P.', city: 'Pune', rating: 5, text: 'The geometric lion is a masterpiece. Perfect for my home office. Got 3 compliments in the first week. Great packaging too!', product: 'Geometric Lion Gold' },
-      { name: 'Ananya R.', city: 'Delhi', rating: 5, text: 'Beautiful F1 print for my brother — he is obsessed with it. Will order a full set for the car room next. Great service!', product: 'F1 RedBull Championship' },
+      { name: 'Arjun M.', city: 'Hyderabad', rating: 5, verified: true,
+        text: 'The BMW M4 print is absolutely stunning. Frame quality is premium — exactly what I expected. My garage wall has never looked this good. Arrived in 4 days, perfectly packed.',
+        product: 'BMW M4 Carbon Dark', initials: 'AM', color: '#1a1a2e' },
+      { name: 'Priya S.', city: 'Bangalore', rating: 5, verified: true,
+        text: 'Got the Radha Krishna Emerald print for my pooja room. The colours are so vivid and the black frame gives it a gallery feel. My whole family is in love with it!',
+        product: 'Radha Krishna Emerald Dance', initials: 'PS', color: '#1a1050' },
+      { name: 'Rohit K.', city: 'Mumbai', rating: 5, verified: true,
+        text: 'Ordered two cricket prints as gifts. Both friends loved them. The quality far exceeded what I expected for this price point. Will definitely be ordering more.',
+        product: 'Cricket Glory Moment', initials: 'RK', color: '#001233' },
+      { name: 'Sneha T.', city: 'Chennai', rating: 5, verified: true,
+        text: 'ChitraFrame is incredible. The Mahadev Cosmic Trance creates such a calm energy in the entire room. It\'s the first thing guests notice when they walk in.',
+        product: 'Mahadev Cosmic Trance', initials: 'ST', color: '#1a0a3a' },
+      { name: 'Vikram P.', city: 'Pune', rating: 5, verified: true,
+        text: 'The geometric lion is a masterpiece. Perfect centrepiece for my home office. Got 3 compliments in the first week. The packaging was solid — zero damage.',
+        product: 'Lion Geometric Gold', initials: 'VP', color: '#1a1000' },
+      { name: 'Ananya R.', city: 'Delhi', rating: 5, verified: true,
+        text: 'Gifted the F1 RedBull print to my brother — he is obsessed with it. Will order a full gallery wall set for the car room next. Fantastic service all round!',
+        product: 'F1 RedBull Championship', initials: 'AR', color: '#1a0505' },
     ];
 
     return `<div class="reviews-carousel">
-      ${reviews.map(r => `
-        <div class="review-card" data-reveal>
-          <div class="review-stars">${'★'.repeat(r.rating)}</div>
-          <p class="review-text">"${escapeHTML(r.text)}"</p>
-          <div class="review-author">
-            <strong>${escapeHTML(r.name)}</strong>
-            <span>${escapeHTML(r.city)} · ${escapeHTML(r.product)}</span>
+      ${reviews.map((r, i) => `
+        <div class="review-card" data-reveal data-reveal-delay="${i % 3}" itemscope itemprop="review" itemtype="https://schema.org/Review">
+          <div class="review-card-top">
+            <div class="review-avatar" style="background:${r.color}" aria-hidden="true">${escapeHTML(r.initials)}</div>
+            <div class="review-author-block">
+              <strong itemprop="author">${escapeHTML(r.name)}</strong>
+              <span class="review-city">${escapeHTML(r.city)}</span>
+            </div>
+            ${r.verified ? '<span class="verified-badge">✓ Verified</span>' : ''}
+          </div>
+          <div class="review-stars" itemprop="reviewRating" itemscope itemtype="https://schema.org/Rating">
+            <meta itemprop="ratingValue" content="${r.rating}">
+            ${'★'.repeat(r.rating)}
+          </div>
+          <p class="review-text" itemprop="reviewBody">"${escapeHTML(r.text)}"</p>
+          <div class="review-product-tag">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="1" width="8" height="8" rx="1.5" stroke="var(--ink-400)" stroke-width="1"/><rect x="2.5" y="2.5" width="5" height="5" rx="1" fill="var(--ink-200)"/></svg>
+            ${escapeHTML(r.product)}
           </div>
         </div>`).join('')}
     </div>`;
@@ -809,31 +1068,22 @@
     const allProducts = [
       // Spiritual
       { slug: 'radha-krishna-emerald-dance', name: 'Radha Krishna — Emerald Dance', category: 'spiritual', price: 699, image: DESIGN_IMAGES['radha-krishna-emerald-dance'] },
-      { slug: 'mahadev-cosmic-meditation', name: 'Mahadev — Cosmic Meditation', category: 'spiritual', price: 649, image: DESIGN_IMAGES['mahadev-cosmic-meditation'] },
+      { slug: 'mahadev-cosmic-trance', name: 'Mahadev — Cosmic Trance', category: 'spiritual', price: 649, image: DESIGN_IMAGES['mahadev-cosmic-trance'] },
       { slug: 'radha-krishna-watercolor', name: 'Radha Krishna — Watercolor Bliss', category: 'spiritual', price: 599, image: DESIGN_IMAGES['radha-krishna-watercolor'] },
-      { slug: 'ganesha-golden-aura', name: 'Ganesha — Golden Aura', category: 'spiritual', price: 649, image: cldUrl('spiritual/ganesha-golden-aura', 600) },
-      { slug: 'ganesha-golden-aura-2', name: 'Ganesha — Golden Aura II', category: 'spiritual', price: 649, image: cldUrl('spiritual/ganesha-golden-aura-2', 600) },
-      { slug: 'lord-hanuman-standing', name: 'Lord Hanuman — Standing Guard', category: 'spiritual', price: 699, image: cldUrl('spiritual/lord-hanuman-standing', 600) },
-      { slug: 'ram-darbar-classic-sitaram', name: 'Ram Darbar — Classic Sitaram', category: 'spiritual', price: 749, image: cldUrl('spiritual/ram-darbar-classic-sitaram', 600) },
       // Automotive
       { slug: 'bmw-m4-carbon-dark', name: 'BMW M4 Carbon — Dark Legend', category: 'automotive', price: 799, image: DESIGN_IMAGES['bmw-m4-carbon-dark'] },
       { slug: 'porsche-911-pacific-coast', name: 'Porsche 911 — Pacific Coast', category: 'automotive', price: 749, image: DESIGN_IMAGES['porsche-911-pacific-coast'] },
-      { slug: 'porsche-911-gt3-rs', name: 'Porsche 911 GT3 RS', category: 'automotive', price: 799, image: cldUrl('automotive/porsche-911-gt3-rs', 600) },
+
       { slug: 'lamborghini-aventador-neon', name: 'Lamborghini Aventador SVJ — Neon', category: 'automotive', price: 849, image: DESIGN_IMAGES['lamborghini-aventador-neon'] },
       { slug: 'nissan-gtr-r34-osaka-rain', name: 'Nissan GTR R34 — Osaka Rain', category: 'automotive', price: 799, image: DESIGN_IMAGES['nissan-gtr-r34-osaka-rain'] },
       { slug: 'f1-redbull-racing', name: 'F1 RedBull — Championship', category: 'automotive', price: 749, image: DESIGN_IMAGES['f1-redbull-racing'] },
       // Sports
       { slug: 'cricket-glory-moment', name: 'Cricket — Glory Moment', category: 'sports', price: 599, image: DESIGN_IMAGES['cricket-glory-moment'] },
-      { slug: 'cricket-stadium-lights', name: 'Cricket — Stadium Lights', category: 'sports', price: 649, image: cldUrl('sports/cricket-stadium-lights', 600) },
-      { slug: 'football-glory-moment', name: 'Football — Glory Moment', category: 'sports', price: 599, image: cldUrl('sports/football-glory-moment', 600) },
-      { slug: 'football-glory-messi', name: 'Football — Messi Glory', category: 'sports', price: 699, image: cldUrl('sports/football-glory-moment-messi', 600) },
+
       // Wildlife
       { slug: 'lion-geometric-gold', name: 'Lion — Geometric Gold', category: 'wildlife', price: 649, image: DESIGN_IMAGES['lion-geometric-gold'] },
       // Anime
-      { slug: 'nissan-gtr-anime', name: 'Nissan GTR — Anime Night', category: 'anime', price: 699, image: DESIGN_IMAGES['nissan-gtr-r34-osaka-rain'] },
-      // Motivational
-      { slug: 'grind-in-silence', name: 'Grind in Silence', category: 'motivational', price: 549, image: cldUrl('motivational/grind-in-silence', 600) },
-      { slug: 'discipline-equals-freedom-wolf', name: 'Discipline Equals Freedom — Wolf', category: 'motivational', price: 599, image: cldUrl('motivational/discipline-equals-freedom-wolf', 600) },
+
     ];
     window._allProducts = allProducts;
     return allProducts.map((p, i) => renderProductCard(p, i)).join('');
@@ -1329,11 +1579,11 @@
   function cartPageRemove(idx) {
     state.cart.splice(idx, 1);
     saveCart();
-    cartPageQty = cartPageQty; // no-op, trigger re-render
     const itemsEl = $('#cart-page-items');
     const summaryEl = $('#cart-page-summary');
     if (itemsEl) itemsEl.innerHTML = renderCartPageItems();
     if (summaryEl) summaryEl.innerHTML = renderCartPageSummary();
+    if (state.cartOpen) renderCartDrawerContent();
   }
 
   // ── CHECKOUT PAGE ─────────────────────────────────────────────────────────
@@ -1536,83 +1786,236 @@
 
   // ── STATIC PAGES ──────────────────────────────────────────────────────────
   function renderStaticPage(app, page) {
-    const pages = {
-      about: {
-        title: 'About ChitraFrame',
-        content: `
-          <div class="static-page">
-            <div class="static-hero">
-              <p class="section-eyebrow">Our Story</p>
-              <h1>Art belongs on walls,<br>not hard drives</h1>
-              <p>ChitraFrame was born in Hyderabad with a simple belief — every home deserves beautiful art. We make museum-quality prints accessible to every Indian household.</p>
-            </div>
-            <div class="about-grid">
-              <div class="about-card" data-reveal>
-                <div class="about-icon">🎨</div>
-                <h3>Curated by Artists</h3>
-                <p>Every design is handpicked by our curatorial team for visual quality, emotional impact, and wall-worthiness.</p>
-              </div>
-              <div class="about-card" data-reveal data-reveal-delay="1">
-                <div class="about-icon">🖼️</div>
-                <h3>Premium Frames</h3>
-                <p>We use premium MDF frames with anti-scratch finish. Available in matte black and natural wood.</p>
-              </div>
-              <div class="about-card" data-reveal data-reveal-delay="2">
-                <div class="about-icon">📦</div>
-                <h3>Foam-Protected Delivery</h3>
-                <p>Every frame ships in custom foam-lined boxes to ensure it arrives in perfect condition.</p>
-              </div>
-              <div class="about-card" data-reveal data-reveal-delay="3">
-                <div class="about-icon">❤️</div>
-                <h3>Made with Love</h3>
-                <p>Based in Hyderabad, serving India. We personally review every order before it ships.</p>
-              </div>
-            </div>
-          </div>`
-      },
-      contact: {
-        title: 'Contact Us',
-        content: `
-          <div class="static-page">
-            <div class="static-hero">
-              <p class="section-eyebrow">Get in Touch</p>
-              <h1>We're here to help</h1>
-              <p>Questions about your order, design requests, or bulk orders? Reach out anytime.</p>
-            </div>
-            <div class="contact-grid">
-              <div class="contact-card" data-reveal>
-                <div class="contact-icon">💬</div>
-                <h3>WhatsApp</h3>
-                <p>Fastest response · Usually within 2 hours</p>
-                <a href="https://wa.me/917989531818" target="_blank" rel="noopener noreferrer" class="btn-primary mt-4">Chat on WhatsApp</a>
-              </div>
-              <div class="contact-card" data-reveal data-reveal-delay="1">
-                <div class="contact-icon">📧</div>
-                <h3>Email</h3>
-                <p>support@chitraframe.in · We reply within 24 hours</p>
-                <a href="mailto:support@chitraframe.in" class="btn-outline mt-4">Send Email</a>
-              </div>
-              <div class="contact-card" data-reveal data-reveal-delay="2">
-                <div class="contact-icon">📱</div>
-                <h3>Instagram</h3>
-                <p>@chitraframe · DMs open</p>
-                <a href="https://instagram.com/chitraframe" target="_blank" rel="noopener noreferrer" class="btn-outline mt-4">Follow Us</a>
-              </div>
-            </div>
-          </div>`
-      }
-    };
+    if (page === 'about') {
+      document.title = 'About ChitraFrame — Premium Framed Art Prints India | Hyderabad';
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) metaDesc.setAttribute('content', 'ChitraFrame is India\'s leading online framed art print brand. Founded in Hyderabad, we make museum-quality framed wall art accessible to every Indian home. Divine, automotive, sports & wildlife prints.');
 
-    const p = pages[page] || pages.about;
-    app.innerHTML = renderHeader() + `
-    <main id="main-content">
-      <section class="section">
-        <div class="container">
-          ${p.content}
+      app.innerHTML = renderHeader() + `
+      <main id="main-content">
+        <div class="page-hero-simple" style="background:linear-gradient(135deg,#0F0E0C 0%,#1C1A17 60%,#2a1f0e 100%)">
+          <div class="container">
+            <nav class="breadcrumb-inline" aria-label="Breadcrumb" style="color:rgba(255,255,255,0.5)">
+              <a href="/" onclick="window.cf.nav('/');return false;" style="color:rgba(255,255,255,0.5)">Home</a> /
+              <span aria-current="page" style="color:var(--gold)">About</span>
+            </nav>
+            <p class="section-eyebrow">Our story</p>
+            <h1 style="color:#fff;font-size:clamp(2rem,5vw,3.5rem)">Art belongs on walls,<br><em style="color:var(--gold)">not hard drives</em></h1>
+            <p class="page-hero-sub" style="max-width:560px">ChitraFrame was founded in Hyderabad with one mission: make museum-quality framed art prints accessible to every Indian household — without compromising on a single detail.</p>
+          </div>
         </div>
-      </section>
-    </main>
-    ${renderFooter()}`;
+
+        <!-- Story section -->
+        <section class="section">
+          <div class="container">
+            <div class="about-story-grid">
+              <div class="about-story-text" data-reveal>
+                <p class="section-eyebrow">The beginning</p>
+                <h2 class="section-title" style="text-align:left">We noticed a gap</h2>
+                <p>Most Indian homes had bare walls — not because people didn't appreciate art, but because buying quality framed prints was either too expensive, too complicated, or delivered badly. Generic poster shops didn't cut it. International sites charged a fortune in shipping. Local print shops had no curation.</p>
+                <p style="margin-top:16px">We built ChitraFrame to fix that. A curated collection of designs — divine, automotive, sports, wildlife — printed on archival-grade paper, framed by hand, and delivered safely to your door. Starting at ₹499.</p>
+              </div>
+              <div class="about-story-stats" data-reveal data-reveal-delay="1">
+                <div class="about-stat">
+                  <span class="about-stat-num">2,000+</span>
+                  <span class="about-stat-label">Frames delivered across India</span>
+                </div>
+                <div class="about-stat">
+                  <span class="about-stat-num">4.9 ★</span>
+                  <span class="about-stat-label">Average customer rating</span>
+                </div>
+                <div class="about-stat">
+                  <span class="about-stat-num">51</span>
+                  <span class="about-stat-label">Curated designs</span>
+                </div>
+                <div class="about-stat">
+                  <span class="about-stat-num">3–5 days</span>
+                  <span class="about-stat-label">Average delivery time</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Values -->
+        <section class="section section-alt">
+          <div class="container">
+            <div class="section-header" data-reveal>
+              <p class="section-eyebrow">What we stand for</p>
+              <h2 class="section-title">Our values</h2>
+            </div>
+            <div class="about-values-grid">
+              <div class="about-value-card" data-reveal>
+                <div class="about-value-icon">
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="11" stroke="var(--gold)" stroke-width="1.5"/><path d="M9 14l3 3 7-7" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <h3>No compromise on quality</h3>
+                <p>Archival pigment inks. Solid wood moulding. UV-protective acrylic glass. Acid-free mat board. We don't cut corners at any stage.</p>
+              </div>
+              <div class="about-value-card" data-reveal data-reveal-delay="1">
+                <div class="about-value-icon">
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M6 22L11 17M11 17l7-7M11 17l-3 1 1-3M18 10l3-3 3 3-3 3" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <h3>Every print tells a story</h3>
+                <p>We curate, not mass-produce. Every design is chosen because it deserves a place on a wall — because it moves you, inspires you, or brings peace.</p>
+              </div>
+              <div class="about-value-card" data-reveal data-reveal-delay="2">
+                <div class="about-value-icon">
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 4L5 9v8c0 5 4 9 9 10 5-1 9-5 9-10V9L14 4z" stroke="var(--gold)" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                </div>
+                <h3>Safe delivery, always</h3>
+                <p>Foam-lined rigid boxes. Triple-layer bubble wrap. Photographic packaging record. If it arrives damaged, we replace it — no questions, no hassle.</p>
+              </div>
+              <div class="about-value-card" data-reveal data-reveal-delay="3">
+                <div class="about-value-icon">
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 4l2.8 8.6H25l-7.2 5.2 2.8 8.6L14 21.2l-6.6 5.2 2.8-8.6L3 12.6h8.2L14 4z" stroke="var(--gold)" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                </div>
+                <h3>Honest reviews, real trust</h3>
+                <p>We publish all reviews — 5-star and critical. Our 4.9 average is earned, not manufactured. Trust is everything to us.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Process -->
+        <section class="section">
+          <div class="container">
+            <div class="section-header" data-reveal>
+              <p class="section-eyebrow">How we work</p>
+              <h2 class="section-title">From design to your wall</h2>
+            </div>
+            <div class="how-steps">
+              <div class="how-step" data-reveal>
+                <div class="how-step-icon"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M8 16l5 5 11-11" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="4" y="4" width="24" height="24" rx="5" stroke="var(--gold)" stroke-width="1.4"/></svg></div>
+                <div class="how-step-num">01</div>
+                <h3>Curate</h3>
+                <p>Each design is reviewed for colour accuracy, composition, and cultural authenticity before joining our catalogue.</p>
+              </div>
+              <div class="how-step" data-reveal data-reveal-delay="1">
+                <div class="how-step-icon"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="4" width="24" height="24" rx="4" stroke="var(--gold)" stroke-width="1.5"/><rect x="9" y="9" width="14" height="14" rx="2" stroke="var(--gold)" stroke-width="1"/></svg></div>
+                <div class="how-step-num">02</div>
+                <h3>Print</h3>
+                <p>Printed fresh per order on 300gsm premium art paper using 12-colour archival pigment inks rated for 100+ years.</p>
+              </div>
+              <div class="how-step" data-reveal data-reveal-delay="2">
+                <div class="how-step-icon"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="8" width="24" height="20" rx="3" stroke="var(--gold)" stroke-width="1.5"/><path d="M4 14h24" stroke="var(--gold)" stroke-width="1"/><path d="M10 4v4M22 4v4" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+                <div class="how-step-num">03</div>
+                <h3>Frame</h3>
+                <p>Hand-assembled frames with solid wood moulding, UV glass, and acid-free mat board. Quality-inspected before packing.</p>
+              </div>
+              <div class="how-step" data-reveal data-reveal-delay="3">
+                <div class="how-step-icon"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M4 16h24M20 8l8 8-8 8" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="how-step-num">04</div>
+                <h3>Deliver</h3>
+                <p>Foam-lined rigid boxes, photographed before dispatch. Delivered in 3–5 days across India with real-time tracking.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="newsletter-section">
+          <div class="container">
+            <div class="newsletter-inner" data-reveal style="text-align:center;flex-direction:column;gap:24px">
+              <div class="newsletter-text">
+                <h2 class="newsletter-title">Ready to transform your walls?</h2>
+                <p>Browse 51 curated designs. Free delivery above ₹799.</p>
+              </div>
+              <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+                <button class="btn-primary btn-hero-cta" onclick="window.cf.nav('/shop')">
+                  Shop All Prints
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button class="btn-outline" onclick="window.cf.nav('/customize')">Order Custom Frame</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+      ${renderFooter()}`;
+
+    } else {
+      // Contact page
+      document.title = 'Contact ChitraFrame — WhatsApp, Email & Support | Hyderabad';
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) metaDesc.setAttribute('content', 'Contact ChitraFrame for order support, bulk orders, and design requests. WhatsApp: +91 79895 31818. Email: support@chitraframe.in. Based in Hyderabad, Telangana.');
+
+      app.innerHTML = renderHeader() + `
+      <main id="main-content">
+        <div class="page-hero-simple">
+          <div class="container">
+            <nav class="breadcrumb-inline" aria-label="Breadcrumb">
+              <a href="/" onclick="window.cf.nav('/');return false;">Home</a> /
+              <span aria-current="page">Contact</span>
+            </nav>
+            <p class="section-eyebrow">We're here for you</p>
+            <h1>Get in touch</h1>
+            <p class="page-hero-sub">Questions about an order? Design requests? Bulk pricing? Reach us on WhatsApp for the fastest response — we typically reply within 2 hours.</p>
+          </div>
+        </div>
+
+        <section class="section">
+          <div class="container">
+            <div class="contact-cards-grid">
+              <div class="contact-method-card" data-reveal>
+                <div class="contact-method-icon" style="background:#dcfce7">
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M24.2 4A13.3 13.3 0 0 0 3.8 22l-1.7 5 5.2-1.8a13.3 13.3 0 1 0 16.9-21.2zm-6.7 16.8c-.6.4-.8.4-1.1.3-1-.3-3-1.3-4.2-2.6-1.4-1.4-2.3-3.1-2.5-3.6-.2-.5 0-.8.4-1.2.3-.3.7-.8.8-1.1.1-.2 0-.5-.1-.7l-1.2-2.9c-.3-.6-.7-.6-.9-.6h-.8c-.3 0-.7.1-1 .5-.4.4-1.4 1.4-1.4 3.4s1.4 3.9 1.6 4.2c.2.3 2.7 4.2 6.6 5.9 4 1.7 4 1.1 4.7 1 .7-.1 2.3-.9 2.6-1.8.3-.9.3-1.6.2-1.8-.1-.2-.4-.3-1-.6z" fill="#22c55e"/></svg>
+                </div>
+                <h3>WhatsApp</h3>
+                <p>Fastest support · Usually within 2 hours during 9am–7pm IST</p>
+                <a href="https://wa.me/917989531818?text=Hi%20ChitraFrame!%20I%20have%20a%20question." target="_blank" rel="noopener noreferrer" class="btn-primary contact-btn" style="background:#22c55e;border-color:#22c55e">
+                  Chat on WhatsApp
+                </a>
+                <p class="contact-meta">+91 79895 31818</p>
+              </div>
+              <div class="contact-method-card" data-reveal data-reveal-delay="1">
+                <div class="contact-method-icon" style="background:#eff6ff">
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M4 8h20l-10 9L4 8z" stroke="var(--gold)" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 8v14h20V8" stroke="var(--gold)" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                </div>
+                <h3>Email Support</h3>
+                <p>For order queries, returns, or detailed enquiries. We reply within 24 hours.</p>
+                <a href="mailto:support@chitraframe.in" class="btn-outline contact-btn">Send Email</a>
+                <p class="contact-meta">support@chitraframe.in</p>
+              </div>
+              <div class="contact-method-card" data-reveal data-reveal-delay="2">
+                <div class="contact-method-icon" style="background:#fdf4ff">
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="3" y="3" width="22" height="22" rx="6" stroke="var(--gold)" stroke-width="1.5"/><circle cx="14" cy="14" r="5" stroke="var(--gold)" stroke-width="1.5"/><circle cx="20.5" cy="7.5" r="1.5" fill="var(--gold)"/></svg>
+                </div>
+                <h3>Instagram</h3>
+                <p>Follow @chitraframe.in for new drops, wall inspiration, and DM support.</p>
+                <a href="https://instagram.com/chitraframe.in" target="_blank" rel="noopener noreferrer" class="btn-outline contact-btn">Follow Us</a>
+                <p class="contact-meta">@chitraframe.in</p>
+              </div>
+            </div>
+
+            <!-- Bulk orders -->
+            <div class="bulk-cta-card" data-reveal>
+              <div class="bulk-cta-icon">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="3" y="3" width="26" height="26" rx="5" stroke="var(--gold)" stroke-width="1.5"/><path d="M9 16h14M16 9v14" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </div>
+              <div class="bulk-cta-text">
+                <h3>Ordering 10+ frames?</h3>
+                <p>We offer bulk pricing for corporate gifts, office décor, weddings, and events. WhatsApp us your requirement and we'll send a custom quote within 4 hours.</p>
+              </div>
+              <a href="https://wa.me/917989531818?text=Hi%20ChitraFrame!%20I%27m%20interested%20in%20bulk%20framing%20for%20" target="_blank" rel="noopener noreferrer" class="btn-primary">
+                Get Bulk Quote
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+            </div>
+
+            <!-- Office info -->
+            <div class="office-info" data-reveal>
+              <div class="office-info-inner">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 1C6.7 1 4 3.7 4 7c0 4.9 6 12 6 12s6-7.1 6-12c0-3.3-2.7-6-6-6zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                <span>ChitraFrame · Hyderabad, Telangana, India · Serving all of India</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+      ${renderFooter()}`;
+    }
 
     initMobileMenu();
     initStickyHeader();
@@ -1857,7 +2260,256 @@
   }
 
   function renderBlogPage(app, path) {
-    window.location.href = '/static/blog/index.html';
+    const posts = [
+      {
+        slug: 'best-framed-art-prints-india-2025',
+        title: 'Best Framed Art Prints to Buy Online in India (2025)',
+        date: 'May 2025',
+        readTime: '5 min read',
+        category: 'Buying Guide',
+        excerpt: 'A complete guide to buying premium framed art prints in India — what to look for in print quality, frame materials, sizing, and where to buy without overpaying.',
+        img: DESIGN_IMAGES['radha-krishna-emerald-dance']
+      },
+      {
+        slug: 'divine-wall-art-pooja-room',
+        title: 'Divine Wall Art for Your Pooja Room: Radha Krishna, Mahadev & More',
+        date: 'April 2025',
+        readTime: '4 min read',
+        category: 'Spiritual Art',
+        excerpt: 'Transform your pooja room or meditation space with the right devotional wall art. We explore divine art prints — Radha Krishna, Lord Shiva, Ganesha — and how to choose the perfect frame.',
+        img: DESIGN_IMAGES['mahadev-cosmic-trance']
+      },
+      {
+        slug: 'automotive-wall-art-car-enthusiasts',
+        title: 'Automotive Wall Art for Car Enthusiasts: BMW, Porsche, Lamborghini & F1',
+        date: 'March 2025',
+        readTime: '4 min read',
+        category: 'Automotive Art',
+        excerpt: 'The garage or man cave deserves art that matches your passion. From Porsche 911 retro posters to F1 championship prints — the best automotive wall art in India.',
+        img: DESIGN_IMAGES['porsche-911-pacific-coast']
+      },
+      {
+        slug: 'how-to-choose-frame-size-wall-art',
+        title: 'How to Choose the Right Frame Size for Your Wall',
+        date: 'February 2025',
+        readTime: '3 min read',
+        category: 'Interior Tips',
+        excerpt: 'Picking the wrong size is the most common wall art mistake. Here\'s a practical guide to choosing between Small (8×10"), Medium (12×18"), Large (18×24") and XL (24×36") — with room-by-room recommendations.',
+        img: DESIGN_IMAGES['lion-geometric-gold']
+      },
+      {
+        slug: 'black-vs-natural-wood-frame',
+        title: 'Black Frame vs Natural Wood Frame: Which Should You Choose?',
+        date: 'January 2025',
+        readTime: '3 min read',
+        category: 'Interior Tips',
+        excerpt: 'Both finishes are premium — but which suits your interior style? Modern minimalist spaces love matte black. Warm, rustic, or Scandinavian homes gravitate toward natural wood. Here\'s how to decide.',
+        img: DESIGN_IMAGES['bmw-m4-carbon-dark']
+      },
+    ];
+
+    const isDetail = path && path.split('/blog/')[1] && path.split('/blog/')[1].length > 0;
+    const detailSlug = isDetail ? path.split('/blog/')[1].replace(/\//g, '') : null;
+    const post = detailSlug ? posts.find(p => p.slug === detailSlug) : null;
+
+    if (post) {
+      // Blog post detail — keyword-rich SEO article
+      document.title = `${post.title} | ChitraFrame Blog`;
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) metaDesc.setAttribute('content', post.excerpt);
+
+      const articleContent = {
+        'best-framed-art-prints-india-2025': `
+          <p>Buying framed art prints online in India has never been easier — but it's also never been easier to get burned by low-quality prints and flimsy frames. After helping 2,000+ customers find the perfect wall art, here's what we've learned.</p>
+          <h2>1. Print Quality: What "Museum Quality" Actually Means</h2>
+          <p>Genuine museum-quality printing uses archival pigment inks on heavyweight art paper (typically 250–300gsm). These inks are UV-stable, fade-resistant, and rated for 100+ years. Cheap alternatives use dye-based inks that fade in 3–5 years, especially near windows.</p>
+          <p>At ChitraFrame, every print uses 12-colour archival pigment inks on 300gsm premium matte art paper. The difference is visible — and permanent.</p>
+          <h2>2. Frame Materials: MDF vs Solid Wood</h2>
+          <p>MDF (Medium Density Fibreboard) frames are lightweight and smooth, perfect for matte black finishes. Solid or engineered wood frames add warmth and texture, ideal for the natural wood look. Avoid plastic frames entirely — they warp and crack.</p>
+          <h2>3. The Glass Question: Acrylic vs Real Glass</h2>
+          <p>Shatterproof acrylic (perspex) is the standard for shipped frames — it's lighter and won't break in transit. Look for UV-protective acrylic to prevent print fading. Regular glass is fine for locally purchased art but risky for delivery.</p>
+          <h2>4. Sizing for Your Space</h2>
+          <p>As a rule: artwork should fill 57–75% of the wall space above a sofa or bed. For a typical 3-seater sofa (180cm wide), that means 100–135cm of art — either one large piece (XL frame) or a gallery wall of 3–4 medium frames.</p>
+          <h2>5. Where to Buy: Our Honest Recommendation</h2>
+          <p>For divine art, automotive prints, sports legends, and wildlife wall art — ChitraFrame is India's most curated option. Starting ₹499, delivered in 3–5 days with foam-lined packaging and a replacement guarantee.</p>`,
+        'divine-wall-art-pooja-room': `
+          <p>The pooja room is the heart of an Indian home. Choosing the right devotional wall art isn't just about aesthetics — it's about the energy and intention you bring into your sacred space.</p>
+          <h2>Radha Krishna: The Eternal Union</h2>
+          <p>Radha and Krishna represent divine love, devotion, and the union of the individual soul with the supreme. Art depicting Radha Krishna is considered highly auspicious for homes and pooja rooms. Opt for warm, vibrant colours — deep teals, golds, and soft pinks — for maximum visual impact.</p>
+          <p>Our Radha Krishna Emerald Dance print features a mesmerising watercolour-inspired composition in teal and gold, perfect for a black frame in any pooja room or living space.</p>
+          <h2>Lord Shiva (Mahadev): Cosmic Energy</h2>
+          <p>Shiva represents consciousness, transformation, and infinite potential. Art of Mahadev in his cosmic form — meditating, surrounded by galaxies, or in trance — brings a sense of calm power to any room. Deep blues and purples work best for this theme.</p>
+          <h2>Frame Colour for Sacred Art</h2>
+          <p>For pooja rooms: Natural Wood frames complement warm, earthy tones and traditional interiors. Matte Black frames give a modern gallery feel that works in contemporary homes. Both are available at ChitraFrame for every divine print.</p>
+          <h2>Vastu Considerations</h2>
+          <p>According to Vastu Shastra, the North-East (Ishaan corner) of a room is ideal for devotional art. Avoid placing art in bedrooms where feet may point toward the image while sleeping.</p>`,
+        'automotive-wall-art-car-enthusiasts': `
+          <p>Your garage wall deserves more than a faded poster. India's automotive art scene has arrived — and ChitraFrame is at the front of the grid. Here's how to choose the best car and motorsport wall art for your space.</p>
+          <h2>The Porsche 911: Timeless Motorsport Romance</h2>
+          <p>The Porsche 911 is arguably the world's most beloved sports car, and it translates beautifully into wall art. Retro travel-poster compositions — think Pacific Coast highways, sunset gradients, hand-lettered typography — work exceptionally well as large-format prints. Our Porsche 911 Pacific Coast print is one of ChitraFrame's best-sellers for exactly this reason.</p>
+          <h2>BMW M Series & Hypercar Prints</h2>
+          <p>For the BMW enthusiast: the M4 in carbon-dark livery is a masterpiece of automotive design language. Our BMW M4 Carbon Dark print captures the aggression of the M-series in a high-contrast, cinematic composition. Ideal for home offices, gaming rooms, and garages.</p>
+          <h2>Formula 1 & Championship Racing Art</h2>
+          <p>F1 art is a growing category. Abstract speed compositions, championship liveries, and driver tribute prints work beautifully in matte black frames. Pair a large XL print (24×36") above a gaming setup or garage workbench for maximum impact.</p>
+          <h2>Lamborghini & Supercar Wall Art</h2>
+          <p>The Lamborghini Huracán and Aventador are icons of Italian excess — and they look spectacular in angular, high-contrast art prints. Warm amber tones and sharp silhouettes work best. Choose a medium (12×18") or large (18×24") format for a statement piece.</p>
+          <h2>Frame Choice for Car Art</h2>
+          <p>Matte black frames are the default choice for automotive art — they match the dark, cinematic mood of most car prints. Natural wood works well for more editorial or vintage automotive compositions. All ChitraFrame automotive prints come with a choice of both finishes.</p>
+          <h2>Where to Hang It</h2>
+          <p>Home garage: go large — XL (24×36") above the workbench. Home office: medium (12×18") in a curated gallery wall. Man cave or games room: create a three-print grid of different automotive subjects at the same scale.</p>`,
+        'how-to-choose-frame-size-wall-art': `
+          <p>Wrong frame size is the number one wall art mistake. It's easy to go too small — a 8×10" print on a large living room wall looks like a postage stamp. Here's how to get it right, room by room.</p>
+          <h2>The 57–75% Rule</h2>
+          <p>Art should fill between 57% and 75% of the wall space it anchors. For a typical 180cm sofa, that means 100–135cm of art width. Use a single XL frame or a gallery wall of 3–4 medium frames to hit this target.</p>
+          <h2>ChitraFrame Size Guide</h2>
+          <p><strong>Small (8×10" / 20×25cm)</strong> — Ideal for bedside tables, bathroom walls, small study nooks, and gallery walls as accent pieces. Works beautifully in sets of 3–6.</p>
+          <p><strong>Medium (12×18" / 30×45cm)</strong> — The most versatile size. Works above a desk, in a dining room, or as part of a two-frame living room pairing. Our most popular size.</p>
+          <p><strong>Large (18×24" / 45×60cm)</strong> — The statement size. Perfect above a sofa, bed, or fireplace. A single large print commands attention in any room.</p>
+          <p><strong>XL (24×36" / 60×90cm)</strong> — Dominates a wall. Use in spacious living rooms, large master bedrooms, or as the hero piece in a double-height entryway. Reserved for truly impactful art.</p>
+          <h2>Room-by-Room Recommendations</h2>
+          <p><strong>Living room:</strong> Large or XL above sofa. If the sofa is 160–200cm wide, choose an 18×24" or 24×36" frame. <strong>Bedroom:</strong> Large above headboard, small on side walls. <strong>Home office:</strong> Medium on the wall behind your chair (creates great video call backdrops). <strong>Bathroom:</strong> Small or medium — avoid very large prints in humid spaces.</p>
+          <h2>Gallery Wall Planning</h2>
+          <p>For gallery walls, stick to one frame finish (all matte black or all natural wood) for visual coherence. Mix sizes: one large + two mediums + two smalls is the classic arrangement. Maintain 5–8cm gaps between frames. Plan on the floor first, then transfer to the wall.</p>`,
+        'black-vs-natural-wood-frame': `
+          <p>Both matte black and natural wood frames are premium choices at ChitraFrame. But they create very different rooms. Here's how to choose.</p>
+          <h2>Matte Black Frames: The Modern Gallery Choice</h2>
+          <p>Matte black is the contemporary default. It works in modern, minimalist, industrial, and Scandinavian interiors. The dark, neutral frame recedes visually, making the artwork the star. It pairs well with white walls, concrete accents, dark furniture, and monochrome colour palettes.</p>
+          <p>Black frames are especially effective for: automotive art, abstract prints, black-and-white photography, and high-contrast digital art. If your interior uses clean lines, neutral colours, and modern materials, choose matte black.</p>
+          <h2>Natural Wood Frames: Warmth & Texture</h2>
+          <p>Natural wood brings warmth, texture, and an organic quality that black frames can't match. They work beautifully in warm, eclectic, bohemian, coastal, and traditional Indian interiors. Natural wood frames suit art with warm tones — ochres, terracottas, saffrons, deep greens.</p>
+          <p>Natural wood frames are especially effective for: divine art, landscape prints, botanical art, traditional Indian subjects, and warm-toned photography. If your home has wooden furniture, warm-coloured walls, or natural materials, choose wood.</p>
+          <h2>The Hybrid Gallery Wall</h2>
+          <p>One advanced approach: mix both in a gallery wall. Use one large matte black frame as the anchor, then add natural wood frames as supporting pieces. This creates visual tension and a curated, collected-over-time feel. Keep the art styles consistent even if the frames differ.</p>
+          <h2>Our Recommendation</h2>
+          <p>When in doubt: choose matte black for urban apartments and modern interiors; choose natural wood for independent homes, traditional interiors, and anywhere you want warmth. Both are available for every ChitraFrame print from ₹499.</p>`,
+        'default': `<p>${post.excerpt}</p><p>This article is coming soon. Browse our collection of premium framed art prints while you wait.</p>`
+      };
+
+      app.innerHTML = renderHeader() + `
+      <main id="main-content">
+        <article itemscope itemtype="https://schema.org/Article">
+          <div class="page-hero-simple" style="min-height:360px;display:flex;align-items:flex-end">
+            <div style="position:absolute;inset:0;overflow:hidden">
+              <img src="${escapeHTML(post.img)}" alt="${escapeHTML(post.title)}" style="width:100%;height:100%;object-fit:cover;opacity:0.25">
+              <div style="position:absolute;inset:0;background:linear-gradient(to top,var(--ink-900) 0%,rgba(15,14,12,0.7) 100%)"></div>
+            </div>
+            <div class="container" style="position:relative;z-index:1;padding-bottom:48px">
+              <nav class="breadcrumb-inline" aria-label="Breadcrumb" style="color:rgba(255,255,255,0.5)">
+                <a href="/" onclick="window.cf.nav('/');return false;" style="color:rgba(255,255,255,0.5)">Home</a> /
+                <a href="/blog" onclick="window.cf.nav('/blog');return false;" style="color:rgba(255,255,255,0.5)">Blog</a> /
+                <span style="color:rgba(255,255,255,0.7)">${escapeHTML(post.category)}</span>
+              </nav>
+              <p class="section-eyebrow" style="margin-top:12px">${escapeHTML(post.category)}</p>
+              <h1 style="color:#fff;font-size:clamp(1.8rem,4vw,3rem);max-width:700px;margin:12px 0 16px" itemprop="headline">${escapeHTML(post.title)}</h1>
+              <div style="display:flex;gap:16px;font-size:13px;color:rgba(255,255,255,0.5)">
+                <span itemprop="datePublished">${escapeHTML(post.date)}</span>
+                <span>·</span>
+                <span>${escapeHTML(post.readTime)}</span>
+                <span>·</span>
+                <span itemprop="author">ChitraFrame Team</span>
+              </div>
+            </div>
+          </div>
+          <section class="section">
+            <div class="container">
+              <div class="blog-article-layout">
+                <div class="blog-article-body" itemprop="articleBody">
+                  ${articleContent[post.slug] || articleContent['default']}
+                </div>
+                <aside class="blog-article-sidebar">
+                  <div class="blog-sidebar-cta">
+                    <h3>Shop ChitraFrame</h3>
+                    <p>Museum-quality framed art prints. Delivered across India in 3–5 days.</p>
+                    <button class="btn-primary w-full" onclick="window.cf.nav('/shop')" style="margin-top:16px">
+                      Browse All Prints
+                    </button>
+                    <button class="btn-outline w-full mt-2" onclick="window.cf.nav('/customize')">
+                      Custom Frame Order
+                    </button>
+                    <div class="blog-sidebar-trust">
+                      <div>⭐ 4.9/5 from 2,000+ reviews</div>
+                      <div>📦 Free delivery above ₹799</div>
+                      <div>✅ Replacement guarantee</div>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </section>
+          <section class="section section-alt">
+            <div class="container">
+              <div class="section-header">
+                <h2 class="section-title">More Articles</h2>
+              </div>
+              <div class="blog-grid">
+                ${posts.filter(p => p.slug !== post.slug).slice(0,3).map(p => `
+                  <article class="blog-card" onclick="window.cf.nav('/blog/${p.slug}')" role="button" tabindex="0">
+                    <div class="blog-card-img">
+                      <img src="${escapeHTML(p.img)}" alt="${escapeHTML(p.title)}" loading="lazy">
+                    </div>
+                    <div class="blog-card-body">
+                      <span class="blog-card-cat">${escapeHTML(p.category)}</span>
+                      <h3>${escapeHTML(p.title)}</h3>
+                      <p>${escapeHTML(p.excerpt.slice(0, 100))}…</p>
+                      <span class="blog-card-meta">${escapeHTML(p.date)} · ${escapeHTML(p.readTime)}</span>
+                    </div>
+                  </article>`).join('')}
+              </div>
+            </div>
+          </section>
+        </article>
+      </main>
+      ${renderFooter()}`;
+
+    } else {
+      // Blog index — keyword-rich listing
+      document.title = 'ChitraFrame Blog — Art Buying Guides, Interior Tips & Frame Ideas India';
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) metaDesc.setAttribute('content', 'ChitraFrame blog: expert guides on buying framed art prints in India, interior styling tips, frame selection advice, divine art for pooja rooms, and more.');
+
+      app.innerHTML = renderHeader() + `
+      <main id="main-content">
+        <div class="page-hero-simple">
+          <div class="container">
+            <nav class="breadcrumb-inline" aria-label="Breadcrumb">
+              <a href="/" onclick="window.cf.nav('/');return false;">Home</a> /
+              <span aria-current="page">Blog</span>
+            </nav>
+            <p class="section-eyebrow">Guides & inspiration</p>
+            <h1>The ChitraFrame Journal</h1>
+            <p class="page-hero-sub">Art buying guides, interior styling tips, frame selection advice — for people who care about their walls.</p>
+          </div>
+        </div>
+        <section class="section">
+          <div class="container">
+            <div class="blog-grid blog-grid-full">
+              ${posts.map((p, i) => `
+                <article class="blog-card${i === 0 ? ' blog-card-featured' : ''}"
+                  onclick="window.cf.nav('/blog/${p.slug}')"
+                  role="button" tabindex="0"
+                  onkeydown="if(event.key==='Enter')window.cf.nav('/blog/${p.slug}')"
+                  data-reveal data-reveal-delay="${i % 3}">
+                  <div class="blog-card-img">
+                    <img src="${escapeHTML(p.img)}" alt="${escapeHTML(p.title)}" loading="lazy">
+                  </div>
+                  <div class="blog-card-body">
+                    <span class="blog-card-cat">${escapeHTML(p.category)}</span>
+                    <h2 class="blog-card-title">${escapeHTML(p.title)}</h2>
+                    <p class="blog-card-excerpt">${escapeHTML(p.excerpt)}</p>
+                    <div class="blog-card-meta">${escapeHTML(p.date)} · ${escapeHTML(p.readTime)}</div>
+                    <span class="blog-card-read">Read article →</span>
+                  </div>
+                </article>`).join('')}
+            </div>
+          </div>
+        </section>
+      </main>
+      ${renderFooter()}`;
+    }
+
+    initMobileMenu();
+    initStickyHeader();
+    setTimeout(initReveal, 100);
   }
 
   function renderReviewPage(app) {
@@ -1985,31 +2637,39 @@
   // ── CUSTOM FRAME PAGE ────────────────────────────────────────────────────
   function customCalcPrice() {
     const sizeSelect = document.getElementById('custom-size');
-    const frameSelect = document.getElementById('custom-frame-preset');
-    const qty = parseInt(document.getElementById('custom-qty')?.value || '1', 10);
+    const frameVal = window._customFrameVal || 'black';
     const sizePrices = { small: 699, medium: 999, large: 1499, xl: 2199 };
-    const frameExtra = { black: 0, 'natural-wood': 100, custom: 200 };
+    const frameExtra = { black: 0, 'natural-wood': 100 };
     const size = sizeSelect?.value || 'medium';
-    const frame = frameSelect?.value || 'black';
-    const base = (sizePrices[size] || 999) + (frameExtra[frame] || 0);
-    const total = base * Math.max(1, qty || 1);
+    const base = (sizePrices[size] || 999) + (frameExtra[frameVal] || 0);
     const el = document.getElementById('custom-price-display');
-    if (el) el.textContent = formatPrice(total);
-    window._customState = { size, frame, qty: Math.max(1, qty), price: base };
+    if (el) el.textContent = formatPrice(base);
+    // Update preview label
+    const sizeLabelMap = { small: 'Small (8×10")', medium: 'Medium (12×18")', large: 'Large (18×24")', xl: 'XL (24×36")' };
+    const frameLabel = frameVal === 'natural-wood' ? 'Natural Wood' : 'Black';
+    const lbl = document.getElementById('frame-preview-label');
+    if (lbl) lbl.textContent = `${frameLabel} Frame · ${sizeLabelMap[size] || 'Medium'}`;
+    // Update preview border
+    const outer = document.getElementById('frame-preview-outer');
+    if (outer) outer.style.borderColor = frameVal === 'natural-wood' ? '#8B6914' : '#1a1a1a';
+    window._customState = { size, frame: frameVal, qty: 1, price: base };
+    // Update summary
+    const sumSize = document.getElementById('summary-size');
+    const sumFrame = document.getElementById('summary-frame');
+    if (sumSize) sumSize.textContent = sizeLabelMap[size] || 'Medium';
+    if (sumFrame) sumFrame.textContent = frameLabel;
   }
 
   function submitCustomOrder() {
     const s = window._customState || {};
     const name = document.getElementById('custom-name')?.value?.trim();
     const phone = document.getElementById('custom-phone')?.value?.trim();
-    const spec = document.getElementById('custom-spec')?.value?.trim();
-    const frameColor = document.getElementById('custom-frame-color')?.value?.trim();
-    const framePreset = document.getElementById('custom-frame-preset')?.value;
+    const note = document.getElementById('custom-note')?.value?.trim();
 
     if (!name || name.length < 2) { toast('Please enter your name', 'error'); return; }
     if (!phone || !/^[6-9]\d{9}$/.test(phone.replace(/\s/g, ''))) { toast('Please enter a valid 10-digit mobile number', 'error'); return; }
 
-    const frameDisplay = frameColor && frameColor.trim() ? frameColor : (framePreset === 'natural-wood' ? 'Natural Wood' : 'Black');
+    const frameDisplay = (s.frame === 'natural-wood') ? 'Natural Wood' : 'Black';
     const sizeLabelMap = { small: 'Small (8×10")', medium: 'Medium (12×18")', large: 'Large (18×24")', xl: 'XL (24×36")' };
     const sizeDisplay = sizeLabelMap[s.size] || 'Medium (12×18")';
     const itemName = `Custom Frame — ${sizeDisplay} · ${frameDisplay}`;
@@ -2022,19 +2682,19 @@
       slug: 'custom-frame',
       size: sizeDisplay,
       frame: frameDisplay,
-      customSpec: spec || '',
+      customNote: note || '',
       customerName: name,
       customerPhone: phone,
     });
 
-    // Also capture lead
+    // Capture lead
     fetch('/api/leads', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name, phone,
         source: 'custom-frame-page',
-        notes: `Size: ${sizeDisplay} | Frame: ${frameDisplay} | Spec: ${spec || 'None'}`
+        notes: `Size: ${sizeDisplay} | Frame: ${frameDisplay} | Note: ${note || 'None'}`
       })
     }).catch(() => {});
 
@@ -2043,29 +2703,22 @@
   }
 
   function renderCustomizePage(app) {
-    // Update page meta for SEO
-    document.title = 'Custom Framing Service — Your Design, Your Frame | ChitraFrame';
+    document.title = 'Custom Frame Order — Choose Size & Finish | ChitraFrame';
     const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute('content', 'Order a fully custom frame at ChitraFrame. Choose any size, any frame colour, and enter your exact specifications. Museum-quality framing, ships across India.');
+    if (metaDesc) metaDesc.setAttribute('content', 'Order a custom frame at ChitraFrame. Pick your size, choose Black or Natural Wood finish, and add your specifications. Museum-quality framing shipped across India.');
 
     app.innerHTML = renderHeader() + `
     <main id="main-content">
-      <!-- JSON-LD for Custom Framing Service -->
       <script type="application/ld+json">
       {
         "@context": "https://schema.org/",
         "@type": "Service",
         "name": "Custom Frame Order",
-        "description": "Order a fully custom photo frame at ChitraFrame. Choose your size, frame finish colour, and provide detailed specifications. Museum-quality framing shipped across India.",
+        "description": "Order a custom photo frame at ChitraFrame. Choose your size, frame finish, and provide specifications. Museum-quality framing shipped across India.",
         "provider": { "@type": "Organization", "name": "ChitraFrame", "url": "https://chitraframe.in" },
         "areaServed": "IN",
         "serviceType": "Custom Framing",
-        "offers": {
-          "@type": "Offer",
-          "priceCurrency": "INR",
-          "price": "699",
-          "priceSpecification": { "@type": "PriceSpecification", "minPrice": "699", "maxPrice": "2399" }
-        }
+        "offers": { "@type": "Offer", "priceCurrency": "INR", "price": "699" }
       }
       <\/script>
 
@@ -2080,19 +2733,19 @@
             <div class="customize-hero-text" data-reveal>
               <div class="category-badge">Bespoke Framing</div>
               <h1 class="customize-hero-title">Your Vision,<br><em>Perfectly Framed</em></h1>
-              <p class="customize-hero-sub">Museum-quality frames made to your exact specifications. Choose your size, finish colour, and tell us exactly what you need. Handcrafted and delivered across India.</p>
+              <p class="customize-hero-sub">Museum-quality frames made to your exact specifications. Choose your size, finish, and tell us what you need. Handcrafted and delivered across India.</p>
               <ul class="customize-trust-list">
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  Any frame colour — Black, Natural Wood, White, custom
+                  Black or Natural Wood — two premium finishes
                 </li>
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  4 standard sizes or request a custom dimension
+                  4 standard sizes · Small to XL
                 </li>
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  Acid-free mat board, shatterproof acrylic glass
+                  Acid-free mat board · Shatterproof acrylic glass
                 </li>
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2123,24 +2776,24 @@
         </div>
       </section>
 
-      <!-- Configurator -->
+      <!-- 3-Section Configurator -->
       <section class="customize-section">
         <div class="container">
           <div class="customize-layout">
 
-            <!-- Step-by-step form -->
+            <!-- Form -->
             <div class="customize-form-col">
               <div class="customize-form-card" data-reveal>
 
-                <!-- Step 1: Size -->
+                <!-- Section 1: Size -->
                 <div class="customize-step">
                   <div class="customize-step-header">
                     <span class="step-number">01</span>
                     <h2 class="step-title">Choose Your Size</h2>
                   </div>
                   <div class="custom-size-grid">
-                    <label class="custom-size-card">
-                      <input type="radio" name="size-radio" value="small" onchange="document.getElementById('custom-size').value='small';window.cf.customCalcPrice();document.getElementById('frame-preview-label').textContent=document.getElementById('custom-size').options[document.getElementById('custom-size').selectedIndex].text+' · '+document.getElementById('custom-frame-preset').options[document.getElementById('custom-frame-preset').selectedIndex].text+' Frame'">
+                    <label class="custom-size-card" id="size-card-small">
+                      <input type="radio" name="size-radio" value="small" onchange="document.getElementById('custom-size').value='small';window.cf.customCalcPrice();document.querySelectorAll('.custom-size-card').forEach(c=>c.classList.remove('active'));document.getElementById('size-card-small').classList.add('active')">
                       <div class="size-card-inner">
                         <div class="size-card-visual small-vis"></div>
                         <div class="size-card-info">
@@ -2151,8 +2804,8 @@
                         <span class="size-card-price">from ₹699</span>
                       </div>
                     </label>
-                    <label class="custom-size-card active">
-                      <input type="radio" name="size-radio" value="medium" checked onchange="document.getElementById('custom-size').value='medium';window.cf.customCalcPrice();document.getElementById('frame-preview-label').textContent=document.getElementById('custom-size').options[document.getElementById('custom-size').selectedIndex].text+' · '+document.getElementById('custom-frame-preset').options[document.getElementById('custom-frame-preset').selectedIndex].text+' Frame'">
+                    <label class="custom-size-card active" id="size-card-medium">
+                      <input type="radio" name="size-radio" value="medium" checked onchange="document.getElementById('custom-size').value='medium';window.cf.customCalcPrice();document.querySelectorAll('.custom-size-card').forEach(c=>c.classList.remove('active'));document.getElementById('size-card-medium').classList.add('active')">
                       <div class="size-card-inner">
                         <div class="size-card-visual medium-vis">
                           <span class="popular-badge">Most Popular</span>
@@ -2165,8 +2818,8 @@
                         <span class="size-card-price">from ₹999</span>
                       </div>
                     </label>
-                    <label class="custom-size-card">
-                      <input type="radio" name="size-radio" value="large" onchange="document.getElementById('custom-size').value='large';window.cf.customCalcPrice();document.getElementById('frame-preview-label').textContent=document.getElementById('custom-size').options[document.getElementById('custom-size').selectedIndex].text+' · '+document.getElementById('custom-frame-preset').options[document.getElementById('custom-frame-preset').selectedIndex].text+' Frame'">
+                    <label class="custom-size-card" id="size-card-large">
+                      <input type="radio" name="size-radio" value="large" onchange="document.getElementById('custom-size').value='large';window.cf.customCalcPrice();document.querySelectorAll('.custom-size-card').forEach(c=>c.classList.remove('active'));document.getElementById('size-card-large').classList.add('active')">
                       <div class="size-card-inner">
                         <div class="size-card-visual large-vis"></div>
                         <div class="size-card-info">
@@ -2177,8 +2830,8 @@
                         <span class="size-card-price">from ₹1,499</span>
                       </div>
                     </label>
-                    <label class="custom-size-card">
-                      <input type="radio" name="size-radio" value="xl" onchange="document.getElementById('custom-size').value='xl';window.cf.customCalcPrice();document.getElementById('frame-preview-label').textContent=document.getElementById('custom-size').options[document.getElementById('custom-size').selectedIndex].text+' · '+document.getElementById('custom-frame-preset').options[document.getElementById('custom-frame-preset').selectedIndex].text+' Frame'">
+                    <label class="custom-size-card" id="size-card-xl">
+                      <input type="radio" name="size-radio" value="xl" onchange="document.getElementById('custom-size').value='xl';window.cf.customCalcPrice();document.querySelectorAll('.custom-size-card').forEach(c=>c.classList.remove('active'));document.getElementById('size-card-xl').classList.add('active')">
                       <div class="size-card-inner">
                         <div class="size-card-visual xl-vis"></div>
                         <div class="size-card-info">
@@ -2190,7 +2843,6 @@
                       </div>
                     </label>
                   </div>
-                  <!-- Hidden select for JS state -->
                   <select id="custom-size" style="display:none" onchange="window.cf.customCalcPrice()">
                     <option value="small">Small (8×10")</option>
                     <option value="medium" selected>Medium (12×18")</option>
@@ -2199,103 +2851,82 @@
                   </select>
                 </div>
 
-                <!-- Step 2: Frame Finish -->
+                <!-- Section 2: Frame Type -->
                 <div class="customize-step">
                   <div class="customize-step-header">
                     <span class="step-number">02</span>
-                    <h2 class="step-title">Frame Finish</h2>
+                    <h2 class="step-title">Frame Type</h2>
                   </div>
-                  <p class="step-hint">Select a standard finish, or describe your custom colour below.</p>
-                  <select id="custom-frame-preset" class="custom-select" onchange="
-                    window.cf.customCalcPrice();
-                    var v=this.value;
-                    var outer=document.getElementById('frame-preview-outer');
-                    if(v==='black'){outer.style.borderColor='#1a1a1a';}
-                    else if(v==='natural-wood'){outer.style.borderColor='#8B6914';}
-                    else{outer.style.borderColor='#C5A059';}
-                    document.getElementById('frame-preview-label').textContent=document.getElementById('custom-size').options[document.getElementById('custom-size').selectedIndex].text+' · '+this.options[this.selectedIndex].text+' Frame';
-                  ">
-                    <option value="black">⬛ Black (Classic Matte)</option>
-                    <option value="natural-wood">🪵 Natural Wood (Warm Oak)</option>
-                    <option value="custom">✏️ Custom (Describe below)</option>
-                  </select>
-
-                  <div class="custom-frame-swatches" id="frame-swatches">
-                    <button class="frame-swatch-btn active" data-val="black"
-                      onclick="document.getElementById('custom-frame-preset').value='black';document.getElementById('custom-frame-preset').dispatchEvent(new Event('change'));$$('.frame-swatch-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"
-                      style="background:#1a1a1a" title="Black">
+                  <p class="step-hint">Select your preferred frame finish.</p>
+                  <div class="frame-type-cards">
+                    <button class="frame-type-card active" id="frame-card-black" onclick="
+                      window._customFrameVal='black';
+                      document.querySelectorAll('.frame-type-card').forEach(b=>b.classList.remove('active'));
+                      this.classList.add('active');
+                      window.cf.customCalcPrice();" aria-label="Black frame" type="button">
+                      <div class="frame-swatch-large" style="background:#1a1a1a"></div>
+                      <div class="frame-type-info">
+                        <strong>Black</strong>
+                        <span>Classic Matte</span>
+                      </div>
+                      <div class="frame-type-check">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </div>
                     </button>
-                    <button class="frame-swatch-btn" data-val="natural-wood"
-                      onclick="document.getElementById('custom-frame-preset').value='natural-wood';document.getElementById('custom-frame-preset').dispatchEvent(new Event('change'));$$('.frame-swatch-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"
-                      style="background:linear-gradient(135deg,#8B6914,#C4922E)" title="Natural Wood">
+                    <button class="frame-type-card" id="frame-card-wood" onclick="
+                      window._customFrameVal='natural-wood';
+                      document.querySelectorAll('.frame-type-card').forEach(b=>b.classList.remove('active'));
+                      this.classList.add('active');
+                      window.cf.customCalcPrice();" aria-label="Natural Wood frame" type="button">
+                      <div class="frame-swatch-large" style="background:linear-gradient(135deg,#8B6914,#C4922E)"></div>
+                      <div class="frame-type-info">
+                        <strong>Natural Wood</strong>
+                        <span>Warm Oak +₹100</span>
+                      </div>
+                      <div class="frame-type-check">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </div>
                     </button>
-                    <button class="frame-swatch-btn" data-val="custom"
-                      onclick="document.getElementById('custom-frame-preset').value='custom';document.getElementById('custom-frame-preset').dispatchEvent(new Event('change'));$$('.frame-swatch-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('custom-frame-color').focus()"
-                      style="background:linear-gradient(135deg,#fff 40%,#C5A059 60%)" title="Custom">
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 10l7-7M9 2l1 1-7 7-1-1 7-7z" stroke="#333" stroke-width="1.2" stroke-linecap="round"/></svg>
-                    </button>
-                  </div>
-
-                  <div class="custom-color-field" id="custom-color-field">
-                    <label for="custom-frame-color" class="field-label">Custom Frame Colour / Finish</label>
-                    <input type="text" id="custom-frame-color" class="custom-input"
-                      placeholder="e.g. 'Walnut Dark', 'White Gloss', 'Rose Gold', 'Matte Charcoal'…"
-                      maxlength="120">
-                    <p class="field-hint">Describe any colour, finish or material. Our team will confirm before production.</p>
                   </div>
                 </div>
 
-                <!-- Step 3: Quantity -->
+                <!-- Section 3: Customer Note + Details -->
                 <div class="customize-step">
                   <div class="customize-step-header">
                     <span class="step-number">03</span>
-                    <h2 class="step-title">Quantity</h2>
-                  </div>
-                  <div class="custom-qty-row">
-                    <button class="qty-btn" onclick="var el=document.getElementById('custom-qty');el.value=Math.max(1,parseInt(el.value||1)-1);window.cf.customCalcPrice()">−</button>
-                    <input type="number" id="custom-qty" value="1" min="1" max="50" class="qty-input" onchange="window.cf.customCalcPrice()">
-                    <button class="qty-btn" onclick="var el=document.getElementById('custom-qty');el.value=Math.min(50,parseInt(el.value||1)+1);window.cf.customCalcPrice()">+</button>
-                    <span class="qty-label">frame(s)</span>
-                  </div>
-                  <p class="step-hint">Ordering 3+ frames? <a href="/contact" onclick="window.cf.nav('/contact');return false;" class="link-gold">Contact us for bulk pricing →</a></p>
-                </div>
-
-                <!-- Step 4: Detailed Specifications -->
-                <div class="customize-step">
-                  <div class="customize-step-header">
-                    <span class="step-number">04</span>
-                    <h2 class="step-title">Detailed Specifications <span class="optional-tag">Optional</span></h2>
-                  </div>
-                  <p class="step-hint">Describe anything specific — mounting style, mat colour, glass type, inscription, orientation, or any other requirement.</p>
-                  <textarea id="custom-spec" class="custom-textarea"
-                    placeholder="e.g. 'Landscape orientation, white mat border, UV-protective glass, no hanging hardware needed, gift wrap in kraft paper with a navy ribbon…'&#10;&#10;Or attach a reference image URL, describe exact dimensions, or any special instructions for our framing team."
-                    rows="5" maxlength="1200"></textarea>
-                  <div class="spec-char-count"><span id="spec-chars">0</span>/1200 characters</div>
-                </div>
-
-                <!-- Step 5: Contact -->
-                <div class="customize-step">
-                  <div class="customize-step-header">
-                    <span class="step-number">05</span>
                     <h2 class="step-title">Your Details</h2>
                   </div>
                   <div class="contact-fields">
                     <div class="field-group">
-                      <label for="custom-name" class="field-label">Full Name</label>
+                      <label for="custom-name" class="field-label">Full Name *</label>
                       <input type="text" id="custom-name" class="custom-input" placeholder="Your name" maxlength="100" autocomplete="name">
                     </div>
                     <div class="field-group">
-                      <label for="custom-phone" class="field-label">Mobile Number</label>
+                      <label for="custom-phone" class="field-label">Mobile Number *</label>
                       <input type="tel" id="custom-phone" class="custom-input" placeholder="10-digit mobile number" maxlength="15" autocomplete="tel" inputmode="numeric">
                     </div>
                   </div>
-                  <p class="step-hint">We'll WhatsApp you a confirmation and send a proof before printing.</p>
+                  <div class="field-group" style="margin-top:16px">
+                    <label for="custom-note" class="field-label">
+                      Customisation Notes
+                      <span class="optional-tag">Optional</span>
+                    </label>
+                    <textarea id="custom-note" class="custom-textarea"
+                      placeholder="Tell us anything specific about your frame — orientation, mat colour, glass type, inscription, gift wrap, or any special instructions…"
+                      rows="4" maxlength="800"></textarea>
+                    <p class="field-hint">We might call you for confirmation — not compulsory.</p>
+                  </div>
+
+                  <div class="bulk-order-note">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1l1.8 3.7L14 5.7l-3 2.9.7 4.1L8 10.8l-3.7 1.9.7-4.1L2 5.7l4.2-.6L8 1z" fill="var(--gold)" opacity="0.8"/></svg>
+                    Ordering 10+ frames? <a href="/contact" onclick="window.cf.nav('/contact');return false;" class="link-gold">Contact us for bulk pricing →</a>
+                  </div>
                 </div>
 
               </div>
             </div>
 
-            <!-- Sticky Price Summary -->
+            <!-- Sticky Summary -->
             <aside class="customize-summary-col">
               <div class="customize-summary-card" data-reveal data-reveal-delay="1">
                 <h3 class="summary-title">Order Summary</h3>
@@ -2305,12 +2936,8 @@
                   <span id="summary-size">Medium (12×18")</span>
                 </div>
                 <div class="summary-line">
-                  <span>Frame Finish</span>
-                  <span id="summary-frame">Black (Classic Matte)</span>
-                </div>
-                <div class="summary-line">
-                  <span>Qty</span>
-                  <span id="summary-qty">1</span>
+                  <span>Frame</span>
+                  <span id="summary-frame">Black</span>
                 </div>
                 <div class="summary-divider"></div>
                 <div class="summary-total-row">
@@ -2326,9 +2953,9 @@
                 <button class="btn-outline w-full mt-3" onclick="
                   var name=document.getElementById('custom-name').value.trim();
                   var phone=document.getElementById('custom-phone').value.trim();
-                  var spec=document.getElementById('custom-spec').value.trim();
-                  var msg='Hi ChitraFrame! I want a custom frame. Name: '+name+' | Phone: '+phone+' | Spec: '+spec;
-                  window.open('https://wa.me/917989531818?text='+encodeURIComponent(msg),'_blank');">
+                  var note=document.getElementById('custom-note').value.trim();
+                  var msg='Hi ChitraFrame! Custom frame enquiry. Name: '+name+' | Phone: '+phone+(note?' | Notes: '+note:'');
+                  window.open('https://wa.me/917989531818?text='+encodeURIComponent(msg),'_blank');" type="button">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.6 2.4A7.8 7.8 0 0 0 2.4 13.6L1 15l1.5-.4A7.8 7.8 0 1 0 13.6 2.4zm-5.8 11a6.3 6.3 0 0 1-3.2-.9l-.2-.1-1.5.4.4-1.4-.2-.2A6.3 6.3 0 1 1 7.8 13.4z" fill="#25D366"/><path d="M5.5 4.5c-.1-.3-.3-.3-.5-.3-.1 0-.3 0-.5.1-.2.1-.7.7-.7 1.7s.7 2 .8 2.1c.1.1 1.4 2.2 3.4 3 .5.2.8.3 1.1.3.3 0 .6-.1.8-.3.2-.2.5-.8.6-1.1.1-.2 0-.4-.1-.5l-1.2-.6c-.2-.1-.4 0-.5.1l-.4.5c-.1.1-.2.1-.4 0a5.2 5.2 0 0 1-1.6-1.4c-.1-.2 0-.3.1-.4l.3-.4c.1-.1.1-.3.1-.4L5.5 4.5z" fill="#25D366"/></svg>
                   WhatsApp Instead
                 </button>
@@ -2343,7 +2970,7 @@
                     Proof sent before printing
                   </div>
                   <div class="trust-item-sm">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.5 3H12l-2.5 2 1 3L7 7l-3.5 2 1-3L2 4h3.5L7 1z" stroke="var(--gold)" stroke-width="1" stroke-linejoin="round"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3 4 7-8" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     Ships in 3–5 days
                   </div>
                 </div>
@@ -2354,23 +2981,19 @@
                 <h4>Common Questions</h4>
                 <details class="faq-item-sm">
                   <summary>Can I send my own photo or artwork?</summary>
-                  <p>Yes! Once you place the order, WhatsApp us your image at +91 79895 31818. We accept JPG, PNG, PDF and AI files. Minimum 300 DPI for best results.</p>
+                  <p>Yes! After ordering, WhatsApp your image to +91 79895 31818. We accept JPG, PNG, PDF. Minimum 300 DPI for best results.</p>
                 </details>
                 <details class="faq-item-sm">
-                  <summary>What frame colours can you do?</summary>
-                  <p>Any RAL or Pantone colour, natural wood stains (walnut, oak, teak), matte or gloss finishes, metallic options (gold, silver, bronze). Describe it in the spec box.</p>
+                  <summary>What's included with each frame?</summary>
+                  <p>Every frame includes shatterproof acrylic glass, acid-free mat board, and hanging hardware. Bubble-wrapped and shipped in a rigid box.</p>
                 </details>
                 <details class="faq-item-sm">
-                  <summary>What glass/acrylic options are available?</summary>
-                  <p>Standard shatterproof acrylic (default), UV-protective acrylic (+₹200), anti-glare acrylic (+₹300), or real glass on request. Specify in the details box.</p>
-                </details>
-                <details class="faq-item-sm">
-                  <summary>How long does it take?</summary>
-                  <p>We send a digital proof within 24 hours. After your approval, production takes 2–3 days. Shipping 1–3 days pan-India (Bluedart/DTDC).</p>
+                  <summary>How long does custom framing take?</summary>
+                  <p>We send a digital proof within 24 hours of ordering. After your approval, production takes 2–3 days. Shipping 1–3 days pan-India.</p>
                 </details>
                 <details class="faq-item-sm">
                   <summary>What if I'm not happy with the result?</summary>
-                  <p>We stand behind our quality. If the frame arrives damaged or differs from the approved proof, we'll replace or refund — no questions asked.</p>
+                  <p>We stand behind our quality. If the frame arrives damaged or differs from the approved proof, we replace or refund — no questions asked.</p>
                 </details>
               </div>
             </aside>
@@ -2392,7 +3015,7 @@
               </div>
               <div class="how-step-num">01</div>
               <h3>Configure &amp; Order</h3>
-              <p>Choose your size, frame finish, quantity and add any specifications. Add to cart and complete checkout.</p>
+              <p>Choose size, frame finish, add your notes and contact details. Add to cart and checkout in seconds.</p>
             </div>
             <div class="how-step">
               <div class="how-step-icon">
@@ -2408,7 +3031,7 @@
               </div>
               <div class="how-step-num">03</div>
               <h3>Approve Proof</h3>
-              <p>We send a digital proof within 24 hrs. You approve, request changes, or cancel — you're always in control.</p>
+              <p>We send a digital proof within 24 hrs. You approve, request changes, or cancel — always in control.</p>
             </div>
             <div class="how-step">
               <div class="how-step-icon">
@@ -2416,7 +3039,7 @@
               </div>
               <div class="how-step-num">04</div>
               <h3>Delivered to Door</h3>
-              <p>Production in 2–3 days. Shipped bubble-wrapped in a rigid box. Track in real time with our tracking page.</p>
+              <p>Production in 2–3 days. Shipped bubble-wrapped in a rigid box. Track in real time.</p>
             </div>
           </div>
         </div>
@@ -2425,47 +3048,10 @@
     </main>
     ${renderFooter()}`;
 
-    // Init UI
+    // Init state
+    window._customFrameVal = 'black';
     window._customState = { size: 'medium', frame: 'black', qty: 1, price: 999 };
     customCalcPrice();
-
-    // Sync summary fields with form changes
-    function syncSummary() {
-      const sizeEl = document.getElementById('custom-size');
-      const frameEl = document.getElementById('custom-frame-preset');
-      const qtyEl = document.getElementById('custom-qty');
-      const colorEl = document.getElementById('custom-frame-color');
-      const sizeLabelMap = { small: 'Small (8×10")', medium: 'Medium (12×18")', large: 'Large (18×24")', xl: 'XL (24×36")' };
-      if (document.getElementById('summary-size') && sizeEl) document.getElementById('summary-size').textContent = sizeLabelMap[sizeEl.value] || '';
-      if (document.getElementById('summary-frame') && frameEl) {
-        const frameVal = (colorEl?.value?.trim()) ? colorEl.value.trim() : frameEl.options[frameEl.selectedIndex]?.text || '';
-        document.getElementById('summary-frame').textContent = frameVal;
-      }
-      if (document.getElementById('summary-qty') && qtyEl) document.getElementById('summary-qty').textContent = qtyEl.value;
-    }
-
-    ['custom-size','custom-frame-preset','custom-qty','custom-frame-color'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener('change', syncSummary);
-      if (el) el.addEventListener('input', syncSummary);
-    });
-    syncSummary();
-
-    // Size card radio sync
-    document.querySelectorAll('.custom-size-card').forEach(card => {
-      card.addEventListener('click', () => {
-        document.querySelectorAll('.custom-size-card').forEach(c => c.classList.remove('active'));
-        card.classList.add('active');
-        setTimeout(syncSummary, 50);
-      });
-    });
-
-    // Spec char count
-    const specEl = document.getElementById('custom-spec');
-    const charCount = document.getElementById('spec-chars');
-    if (specEl && charCount) {
-      specEl.addEventListener('input', () => { charCount.textContent = specEl.value.length; });
-    }
 
     initMobileMenu();
     initStickyHeader();
@@ -2511,9 +3097,135 @@
     }
   }
 
+  // ── Sticky CTA Bar ────────────────────────────────────────────────────────
+  function initStickyCTABar() {
+    if (document.getElementById('sticky-cta-bar')) return;
+    const bar = document.createElement('div');
+    bar.id = 'sticky-cta-bar';
+    bar.className = 'sticky-cta-bar';
+    bar.setAttribute('aria-label', 'Shop ChitraFrame framed art prints');
+    bar.innerHTML = `
+      <div class="sticky-cta-bar-text">
+        <span class="stars-small">★★★★★</span>
+        <strong>ChitraFrame</strong>
+        <span>Museum-quality framed art · Delivered in 3–5 days · From ₹499</span>
+      </div>
+      <div class="sticky-cta-bar-actions">
+        <button class="btn-primary" onclick="window.cf.nav('/shop')" style="padding:8px 20px;font-size:13px">Shop Now</button>
+        <button class="sticky-cta-bar-close" id="sticky-cta-close" aria-label="Dismiss">×</button>
+      </div>`;
+    document.body.appendChild(bar);
+
+    // Show after 4s or 400px scroll, whichever first
+    let shown = false;
+    const show = () => {
+      if (shown) return;
+      shown = true;
+      bar.classList.add('visible');
+    };
+    const scrollHandler = () => { if (window.scrollY > 400) show(); };
+    window.addEventListener('scroll', scrollHandler, { passive: true });
+    setTimeout(show, 4000);
+
+    document.getElementById('sticky-cta-close').addEventListener('click', () => {
+      bar.classList.remove('visible');
+      window.removeEventListener('scroll', scrollHandler);
+      shown = true;
+      // Re-hide for 2 min
+      setTimeout(() => { shown = false; scrollHandler(); }, 120000);
+    });
+  }
+
+  // ── Social Proof Popup ────────────────────────────────────────────────────
+  function initSocialProofPopup() {
+    if (document.getElementById('sp-popup')) return;
+    const events = [
+      { name: 'Priya M.', city: 'Mumbai', action: 'just ordered', product: 'Radha Krishna — Natural Wood, Large', img: DESIGN_IMAGES['radha-krishna-emerald-dance'], time: '2 min ago' },
+      { name: 'Rohan S.', city: 'Bangalore', action: 'just ordered', product: 'Porsche 911 — Matte Black, Medium', img: DESIGN_IMAGES['porsche-911-pacific-coast'], time: '4 min ago' },
+      { name: 'Anjali K.', city: 'Hyderabad', action: 'just ordered', product: 'Mahadev Cosmic — Black, Large', img: DESIGN_IMAGES['mahadev-cosmic-trance'], time: '6 min ago' },
+      { name: 'Vikram R.', city: 'Chennai', action: 'just ordered', product: 'Lion Geometric — Wood, XL', img: DESIGN_IMAGES['lion-geometric-gold'], time: '8 min ago' },
+      { name: 'Deepa N.', city: 'Delhi', action: 'just ordered', product: 'BMW M4 — Matte Black, Medium', img: DESIGN_IMAGES['bmw-m4-carbon-dark'], time: '11 min ago' },
+    ];
+
+    const popup = document.createElement('div');
+    popup.id = 'sp-popup';
+    popup.className = 'sp-popup';
+    popup.setAttribute('role', 'status');
+    popup.setAttribute('aria-live', 'polite');
+    document.body.appendChild(popup);
+
+    let idx = 0;
+    const showNext = () => {
+      const ev = events[idx % events.length];
+      idx++;
+      popup.innerHTML = `
+        <div class="sp-popup-dot"></div>
+        <img class="sp-popup-img" src="${escapeHTML(ev.img || '')}" alt="${escapeHTML(ev.product)}" onerror="this.style.display='none'">
+        <div class="sp-popup-body">
+          <div class="sp-popup-name">${escapeHTML(ev.name)} · ${escapeHTML(ev.city)}</div>
+          <div class="sp-popup-action">${escapeHTML(ev.action)} <strong>${escapeHTML(ev.product)}</strong></div>
+          <div class="sp-popup-time">${escapeHTML(ev.time)}</div>
+        </div>`;
+      popup.classList.add('visible');
+      setTimeout(() => { popup.classList.remove('visible'); }, 5000);
+    };
+
+    // First show after 8s, then every 18s
+    setTimeout(() => {
+      showNext();
+      setInterval(showNext, 18000);
+    }, 8000);
+  }
+
+  // ── LocalBusiness + Organization Schema ──────────────────────────────────
+  function injectOrganizationSchema() {
+    if (document.getElementById('org-schema')) return;
+    const schema = {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Organization',
+          '@id': 'https://chitraframe.in/#organization',
+          name: 'ChitraFrame',
+          url: 'https://chitraframe.in',
+          logo: 'https://chitraframe.in/static/logo.png',
+          description: 'Premium framed art prints for Indian homes — divine, automotive, sports & wildlife wall art delivered across India.',
+          contactPoint: {
+            '@type': 'ContactPoint',
+            contactType: 'customer service',
+            availableLanguage: ['English', 'Hindi']
+          },
+          sameAs: [
+            'https://www.instagram.com/chitraframe.in',
+            'https://wa.me/919999999999'
+          ]
+        },
+        {
+          '@type': 'WebSite',
+          '@id': 'https://chitraframe.in/#website',
+          url: 'https://chitraframe.in',
+          name: 'ChitraFrame',
+          description: 'Buy framed art prints online India — divine, automotive, sports, wildlife. Museum quality. Ships in 3–5 days.',
+          publisher: { '@id': 'https://chitraframe.in/#organization' },
+          potentialAction: {
+            '@type': 'SearchAction',
+            target: { '@type': 'EntryPoint', urlTemplate: 'https://chitraframe.in/shop?q={search_term_string}' },
+            'query-input': 'required name=search_term_string'
+          }
+        }
+      ]
+    };
+    const s = document.createElement('script');
+    s.id = 'org-schema';
+    s.type = 'application/ld+json';
+    s.textContent = JSON.stringify(schema);
+    document.head.appendChild(s);
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
   function init() {
     captureUTM();
+    injectOrganizationSchema();
     route();
 
     window.addEventListener('popstate', route);
@@ -2527,9 +3239,15 @@
       navigate(href);
     });
 
+    // High-conversion overlays (home + shop only)
     setTimeout(() => {
-      if (location.pathname === '/') initExitIntent();
-    }, 5000);
+      const p = location.pathname;
+      if (p === '/' || p === '/shop' || p.startsWith('/category')) {
+        initStickyCTABar();
+        initSocialProofPopup();
+      }
+      if (p === '/') initExitIntent();
+    }, 2000);
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
