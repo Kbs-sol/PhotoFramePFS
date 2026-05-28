@@ -1634,7 +1634,7 @@
           <div><label class="block text-xs text-gray-400 mb-1">Description</label><textarea name="description" class="admin-input" rows="3">${p.description || ''}</textarea></div>
           <div class="grid grid-cols-2 gap-4">
             <div><label class="block text-xs text-gray-400 mb-1">Category</label><select name="category_id" class="admin-input">${cats.categories.map(c => `<option value="${c.id}" ${c.id === p.category_id ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div>
-            <div><label class="block text-xs text-gray-400 mb-1">Base Price</label><input type="number" name="base_price" value="${p.base_price}" class="admin-input"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Min Price (from variants)</label><input type="text" value="${p.base_price || 'Set in variants below'}" class="admin-input" readonly disabled style="opacity:0.5;cursor:not-allowed" title="Price is managed through product variants"></div>
           </div>
           <div>
             <label class="block text-xs text-gray-400 mb-1">Status</label>
@@ -1687,6 +1687,11 @@
       // Remove per-size/frame keys from payload (they're not DB columns)
       ['Small','Medium','Large','XL'].forEach(s => delete payload[`allowed_sizes_${s}`]);
       ['Standard','Premium'].forEach(f => delete payload[`allowed_frames_${f}`]);
+      // CRITICAL: Remove columns that don't exist in 'products' table
+      delete payload.base_price;  // pricing lives in product_variants, not products
+      delete payload.id;          // never update the primary key
+      // image_url is allowed on update but must not be empty string
+      if (payload.image_url === '') delete payload.image_url;
 
       try {
         if (id) await api('PUT', `/products/${id}`, payload);

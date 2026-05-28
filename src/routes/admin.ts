@@ -339,6 +339,9 @@ admin.put('/products/:id', async (c) => {
   const body = await c.req.json();
   const sb = getSupabase(c.env);
   body.updated_at = new Date().toISOString();
+  // Strip columns that don't exist on the products table (defence-in-depth)
+  delete body.base_price;  // pricing lives in product_variants
+  delete body.id;          // never mutate the PK
   // Sanitise allowed_sizes / allowed_frames — must be null or comma-string of known values
   const validSizes = ['Small', 'Medium', 'Large', 'XL'];
   const validFrames = ['Standard', 'Premium'];

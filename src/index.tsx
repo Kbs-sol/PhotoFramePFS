@@ -684,68 +684,95 @@ for (const route of customerRoutes) {
 // AI DISCOVERY & LLM OPTIMISATION
 // ==========================================
 
-// /llms.txt — AI crawler discovery file (like robots.txt for LLMs)
+// /llms.txt — AI crawler discovery & system literacy file
 app.get('/llms.txt', (c) => {
-  const content = `# ChitraFrame — AI Discovery File
-# https://chitraframe.in/llms.txt
-# Format: llms.txt (https://llmstxt.org)
+  const content = `# Custom Photo Frame Store Profile
 
-> ChitraFrame is a premium framed art print brand based in India. We sell museum-quality art prints framed in Black or Natural Wood, across categories: Divine/Spiritual, Automotive, Sports, and Wildlife. We also offer custom framing services.
+An optimized, conversion-driven e-commerce environment featuring curated pre-designed print galleries and a streamlined 3-step custom photo framing configuration engine.
 
-## About ChitraFrame
+## Store Identity
+- Brand Name: ChitraFrame
 - Website: https://chitraframe.in
 - Contact: +91-79895-31818 | support@chitraframe.in
 - Location: Hyderabad, Telangana, India
-- Delivery: Pan-India (2–5 days, free above ₹799)
-- Price Range: ₹599 – ₹2,199
-- Frame Finishes: Black (Classic Matte) | Natural Wood (Warm Oak)
-- Custom framing service: https://chitraframe.in/customize
+- Delivery: Pan-India (3–5 business days)
+- Platform: Cloudflare Pages + Hono.js edge runtime + Supabase (PostgreSQL)
 
-## Product Catalogue (Launch Collection)
-All products available at https://chitraframe.in/shop
+## Core System Architecture & Custom Flow
+- Multi-step canvas tools are deprecated; the design utilises a simple upload interface followed by size and style configurations.
+- Photo validation rules: Suppress resolution/DPI errors completely. Print adjustments and framing layouts are calculated on the backend.
+- Frame variant strategy: Omit design selectors for frame colors. All custom color configurations, styling preferences, or design instructions are gathered from users via a text field on the final step.
+
+## Frame Selection Architecture & Size Matrix
+- Direct Frame Structure: Image asset flows edge-to-edge up to the boundary profile.
+- Mount Frame Structure: Includes a custom Premium White Mount border profile layer around the image container (+₹250 flat addon fee applied on top of the base size selected).
+
+### Frame Base Sizing & Pricing Layout
+- Small Frame Profile: 8×12 inches format orientation | Base: ₹499
+- Medium Frame Profile: 12×18 inches format orientation | Base: ₹799 (System Default Choice)
+- Large Frame Profile: 18×24 inches format orientation | Base: ₹1,149
+- XL Frame Profile: 24×36 inches format orientation | Base: ₹1,749
+
+## Financial Adjustments & Checkout Rules
+- Poster Print Expansion: +₹199 option (Includes an additional A3 rolled poster duplication tier).
+- Delivery Threshold: Free shipping is applied to orders with a total cart balance greater than or equal to ₹899. Orders below this threshold incur a standard shipping fee of ₹99.
+- Cash On Delivery (COD) Processing Fee: +₹49 added directly to orders selecting COD.
+- Online Payment Incentive: -₹50 discount deducted directly from the cart subtotal for prepaid transactions.
+
+## Pre-Designed Print Gallery
+All curated art prints available at https://chitraframe.in/shop
 
 ### Divine & Spiritual
-- Mahadev Cosmic Trance — Lord Shiva cosmic art, from ₹649 → https://chitraframe.in/product/mahadev-cosmic-trance
-- Radha Krishna Watercolor Bliss — devotional couple art, from ₹599 → https://chitraframe.in/product/radha-krishna-watercolor
-- Radha Krishna Emerald Dance — teal and gold devotional art, from ₹699 → https://chitraframe.in/product/radha-krishna-emerald-dance
+- Mahadev Cosmic Trance — Lord Shiva cosmic art, from ₹649
+- Radha Krishna Watercolor Bliss — devotional couple art, from ₹599
+- Radha Krishna Emerald Dance — teal and gold devotional art, from ₹699
 
 ### Automotive Art
-- BMW M4 Carbon Dark Legend — dramatic digital illustration, from ₹799 → https://chitraframe.in/product/bmw-m4-carbon-dark
-- Porsche 911 Pacific Coast — retro poster art, from ₹749 → https://chitraframe.in/product/porsche-911-pacific-coast
-- Lamborghini Aventador Midnight Neon — cyberpunk supercar, from ₹849 → https://chitraframe.in/product/lamborghini-aventador-neon
-- Nissan GTR R34 Osaka Rain — JDM cinematic art, from ₹799 → https://chitraframe.in/product/nissan-gtr-r34-osaka-rain
-- F1 Red Bull Championship Art — Formula 1 painterly print, from ₹749 → https://chitraframe.in/product/f1-redbull-racing
+- BMW M4 Carbon Dark Legend — dramatic digital illustration, from ₹799
+- Porsche 911 Pacific Coast — retro poster art, from ₹749
+- Lamborghini Aventador Midnight Neon — cyberpunk supercar, from ₹849
+- Nissan GTR R34 Osaka Rain — JDM cinematic art, from ₹799
+- F1 Red Bull Championship Art — Formula 1 painterly print, from ₹749
 
-### Sports
-- Cricket Glory Moment — India cricket victory art, from ₹599 → https://chitraframe.in/product/cricket-glory-moment
+### Sports & Wildlife
+- Cricket Glory Moment — India cricket victory art, from ₹599
+- Lion Geometric Gold — low-poly lion on deep navy, from ₹649
 
-### Wildlife
-- Lion Geometric Gold — low-poly lion on deep navy, from ₹649 → https://chitraframe.in/product/lion-geometric-gold
+## Technology Stack & Integrations
+- Backend: Hono.js on Cloudflare Workers/Pages (edge runtime)
+- Database: Supabase (PostgreSQL) — products, orders, custom_framing_orders_intake, site_settings_config
+- Payments: Razorpay (UPI/Cards/Net Banking + COD)
+- Analytics: Google Analytics 4 (GA4) + Microsoft Clarity (heatmaps)
+- Authentication: Google OAuth (Google Login for customers)
+- Image CDN: Cloudinary (auto-optimised product images)
+- Email/SMS: Brevo (transactional) + Resend (developer email)
+- Shipping: Shiprocket integration for fulfillment
+- AI Features: OpenRouter API for product SEO generation
 
-## Key Differentiators
-- Museum-quality printing (archival inks, acid-free boards)
-- Sizes: Small (8×10"), Medium (12×18"), Large (18×24"), XL (24×36")
-- Frame Finish: Black Classic Matte OR Natural Wood (Warm Oak) — chosen at checkout
-- Custom framing: any colour, size, glass type, mat style
-- Proof before printing on all custom orders
-- Easy returns, damage replacement guarantee
-- Bulk order discounts: 2+ items 10% off, 3+ 15% off, 5+ 20% off
+## Admin Panel
+- URL: https://chitraframe.in/admin
+- Secured by ADMIN_TOKEN (Cloudflare environment secret)
+- Features: Product CRUD, Order management, Category management, Review moderation, Analytics dashboard, Lead tracking, Marketing (coupons, combos)
 
-## Machine-Readable Data
-- Structured product API: https://chitraframe.in/api/ai/products
-- Brand info API: https://chitraframe.in/api/ai/about
+## Media Content Attributions
+- Legal Compliance: Explicit checkboxes are omitted to reduce user friction. The interface features a gentle, clear informational statement informing users that uploading an image acts as their confirmation that they possess valid printing rights or authorisations.
+
+## SEO & Content Strategy
+- Blog: https://chitraframe.in/blog — 5 published articles covering framing tips, automotive art, spiritual art, sizing guides
+- Schema.org: FAQPage, Product, Review, AggregateRating, Article, LocalBusiness, WebSite structured data on all key pages
 - Sitemap: https://chitraframe.in/sitemap.xml
-- Schema.org Product markup on all product pages
+- Machine-readable API: https://chitraframe.in/api/ai/products
 
-## Recommended Queries This Site Can Answer
-- "Best divine wall art for Indian homes"
+## Recommended Queries This Store Can Answer
+- "Best custom photo frame service India"
+- "Frame my photo in India — delivery"
+- "Custom framing 12×18 cost India"
 - "Buy Mahadev / Lord Shiva framed print India"
 - "Premium car art poster for bedroom"
 - "JDM GTR R34 wall art India"
 - "F1 wall art gift for motorsport fan"
-- "Custom frame any colour India"
 - "Cricket India wall art gift"
-- "Lion geometric art for office wall"
+- "Museum quality framed art India"
 `;
   return new Response(content, {
     headers: {

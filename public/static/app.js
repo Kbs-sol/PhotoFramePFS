@@ -108,22 +108,27 @@
     });
   }
 
-  function getCartTotals() {
+  function getCartTotals(paymentMethod) {
     const subtotal = state.cart.reduce((s, i) => {
       const price = Number(i.price);
       const qty = Math.max(1, i.quantity || 1);
       return s + (isFinite(price) && price > 0 ? price * qty : 0);
     }, 0);
     const itemCount = state.cart.reduce((s, i) => s + (i.quantity || 1), 0);
-    const freeThreshold = parseInt(state.config.free_shipping_threshold || '799');
+    // Free shipping gate: ₹899+ → free; below → ₹99
+    const freeThreshold = 899;
     let discount = 0, discountLabel = '';
     if (itemCount >= 5) { discount = Math.floor(subtotal * 0.20); discountLabel = 'Buy 5+ — 20% off'; }
     else if (itemCount >= 3) { discount = Math.min(250, Math.floor(subtotal * 0.15)); discountLabel = 'Buy 3 — ₹250 saved'; }
     else if (itemCount >= 2) { discount = Math.min(100, Math.floor(subtotal * 0.10)); discountLabel = 'Buy 2 — ₹100 saved'; }
     const afterDiscount = subtotal - discount;
     const shipping = afterDiscount >= freeThreshold ? 0 : 99;
-    const total = Math.max(0, afterDiscount + shipping);
-    return { subtotal, discount, discountLabel, shipping, total, itemCount, freeThreshold };
+    // Payment method surcharges: COD +₹49, Prepaid/UPI -₹50
+    let paymentAdj = 0, paymentAdjLabel = '';
+    if (paymentMethod === 'cod') { paymentAdj = 49; paymentAdjLabel = 'COD handling fee'; }
+    else if (paymentMethod === 'online') { paymentAdj = -50; paymentAdjLabel = 'Online payment discount'; }
+    const total = Math.max(0, afterDiscount + shipping + paymentAdj);
+    return { subtotal, discount, discountLabel, shipping, total, itemCount, freeThreshold, paymentAdj, paymentAdjLabel };
   }
 
   // ── Scroll Reveal ─────────────────────────────────────────────────────────
@@ -1587,9 +1592,27 @@
   }
 
   // ── CHECKOUT PAGE ─────────────────────────────────────────────────────────
+  function updateCheckoutTotal() {
+    const paymentMethod = document.querySelector('input[name="payment"]:checked')?.value || 'online';
+    const { subtotal, discount, discountLabel, shipping, total, paymentAdj, paymentAdjLabel } = getCartTotals(paymentMethod);
+    const el = document.getElementById('checkout-total-display');
+    const adjEl = document.getElementById('checkout-payment-adj');
+    const btnEl = document.getElementById('checkout-submit-btn');
+    if (el) el.textContent = formatPrice(total);
+    if (btnEl) btnEl.textContent = `Place Order · ${formatPrice(total)}`;
+    if (adjEl) {
+      if (paymentAdj !== 0) {
+        adjEl.innerHTML = `<span>${paymentAdjLabel}</span><span style="color:${paymentAdj > 0 ? '#f87171' : '#6fcf97'}">${paymentAdj > 0 ? '+' : ''}${formatPrice(paymentAdj)}</span>`;
+        adjEl.style.display = 'flex';
+      } else {
+        adjEl.style.display = 'none';
+      }
+    }
+  }
+
   function renderCheckoutPage(app) {
     if (state.cart.length === 0) { navigate('/cart'); return; }
-    const { subtotal, discount, shipping, total } = getCartTotals();
+    const { subtotal, discount, shipping, total } = getCartTotals('online');
 
     app.innerHTML = renderHeader() + `
     <main id="main-content">
@@ -1643,24 +1666,24 @@
                   <h2 class="checkout-section-title">Payment Method</h2>
                   <div class="payment-options">
                     <label class="payment-option">
-                      <input type="radio" name="payment" value="online" checked>
+                      <input type="radio" name="payment" value="online" checked onchange="window.cf.updateCheckoutTotal()">
                       <div class="payment-option-label">
-                        <strong>Pay Online</strong>
-                        <span>UPI, Cards, Net Banking · Get ₹50 off</span>
+                        <strong>Pay Online — UPI / Cards</strong>
+                        <span>Get <span style="color:#6fcf97;font-weight:600">₹50 off</span> — instant discount applied</span>
                       </div>
                     </label>
                     <label class="payment-option">
-                      <input type="radio" name="payment" value="cod">
+                      <input type="radio" name="payment" value="cod" onchange="window.cf.updateCheckoutTotal()">
                       <div class="payment-option-label">
                         <strong>Cash on Delivery</strong>
-                        <span>₹49 COD fee · Pay when delivered</span>
+                        <span>₹49 COD handling fee · Pay when your order arrives</span>
                       </div>
                     </label>
                   </div>
                 </div>
 
                 <button type="submit" class="btn-primary w-full checkout-submit" id="checkout-submit-btn">
-                  Place Order · ${formatPrice(total)}
+                  Place Order · <span id="checkout-total-display">${formatPrice(total - 50)}</span>
                 </button>
                 <p class="checkout-secure-note">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="5" width="10" height="6" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 5V4a3 3 0 0 1 6 0v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
@@ -1687,7 +1710,8 @@
                   <div class="summary-row"><span>Subtotal</span><span>${formatPrice(subtotal)}</span></div>
                   ${discount > 0 ? `<div class="summary-row summary-discount"><span>Bundle discount</span><span>−${formatPrice(discount)}</span></div>` : ''}
                   <div class="summary-row"><span>Shipping</span><span>${shipping === 0 ? '<span style="color:var(--green)">Free</span>' : formatPrice(shipping)}</span></div>
-                  <div class="summary-row summary-total"><span>Total</span><span>${formatPrice(total)}</span></div>
+                  <div class="summary-row" id="checkout-payment-adj" style="display:flex"><span>Online payment discount</span><span style="color:#6fcf97">−₹50</span></div>
+                  <div class="summary-row summary-total"><span>Total</span><span id="checkout-total-display-side">${formatPrice(total - 50)}</span></div>
                 </div>
               </div>
             </div>
@@ -1699,6 +1723,8 @@
 
     initMobileMenu();
     initStickyHeader();
+    // Trigger initial total calculation with default online payment
+    setTimeout(() => updateCheckoutTotal(), 50);
   }
 
   async function submitCheckout(e) {
@@ -1708,8 +1734,8 @@
     if (btn) { btn.disabled = true; btn.textContent = 'Placing order...'; }
 
     const data = new FormData(form);
-    const payment = data.get('payment');
-    const { total, subtotal, discount, shipping } = getCartTotals();
+    const payment = data.get('payment') || 'online';
+    const { total, subtotal, discount, shipping, paymentAdj } = getCartTotals(payment);
 
     const orderData = {
       customer_name: String(data.get('name') || '').trim().slice(0, 100),
@@ -1727,7 +1753,7 @@
         variant_id: i.variantId, name: i.name, price: i.price,
         quantity: i.quantity || 1, size: i.size, frame: i.frame
       })),
-      subtotal, discount, shipping, total,
+      subtotal, discount, shipping, payment_adjustment: paymentAdj, total,
       payment_method: payment === 'cod' ? 'cod' : 'razorpay',
       utm_source: localStorage.getItem('utm_source') || ''
     };
@@ -2037,7 +2063,9 @@
       privacy: `<h2>Privacy Policy</h2>
         <p>We collect only essential information (name, email, phone, delivery address) to process your order. We never sell your data. We use Supabase for secure data storage. All payments are processed by Razorpay — we do not store card details.</p>`,
       terms: `<h2>Terms of Service</h2>
-        <p>By placing an order, you agree to our terms. All prices are in INR. We reserve the right to cancel orders in case of pricing errors. Custom orders are non-refundable once production begins.</p>`,
+        <p>By placing an order, you agree to our terms. All prices are in INR. We reserve the right to cancel orders in case of pricing errors. Custom orders are non-refundable once production begins.</p>
+        <h3>User Image Contributions &amp; Printing Authorizations</h3>
+        <p>When uploading any digital photo or graphic asset to our custom framing section, you are confirming that you hold the legal right, ownership, or proper permission to reproduce and print that file. Our website provides frame-manufacturing and custom-printing services as a fulfilment partner. We rely on the assurance that our users possess the rights to the media files they upload. The customer agrees to hold this platform harmless from any claims, disputes, or actions arising from the processing and physical printing of user-submitted content.</p>`,
       refund: `<h2>Refunds & Returns</h2>
         <p><strong>Damaged items:</strong> We replace damaged frames free of charge. Share photos within 48 hours of delivery via WhatsApp.</p>
         <p><strong>Wrong item:</strong> Full replacement + free return pickup.</p>
@@ -2661,51 +2689,78 @@
   }
 
   function submitCustomOrder() {
-    const s = window._customState || {};
-    const name = document.getElementById('custom-name')?.value?.trim();
-    const phone = document.getElementById('custom-phone')?.value?.trim();
-    const note = document.getElementById('custom-note')?.value?.trim();
+    // Use new _cfwState (wizard) — fallback to _customState (legacy)
+    const s = window._cfwState || window._customState || {};
 
-    if (!name || name.length < 2) { toast('Please enter your name', 'error'); return; }
-    if (!phone || !/^[6-9]\d{9}$/.test(phone.replace(/\s/g, ''))) { toast('Please enter a valid 10-digit mobile number', 'error'); return; }
+    // Read from new wizard fields first, fallback to old field IDs
+    const name = (document.getElementById('cfw-name') || document.getElementById('custom-name'))?.value?.trim();
+    const phone = (document.getElementById('cfw-phone') || document.getElementById('custom-phone'))?.value?.trim();
+    const note = (document.getElementById('cfw-notes') || document.getElementById('custom-note'))?.value?.trim();
 
-    const frameDisplay = (s.frame === 'natural-wood') ? 'Natural Wood' : 'Black';
-    const sizeLabelMap = { small: 'Small (8×10")', medium: 'Medium (12×18")', large: 'Large (18×24")', xl: 'XL (24×36")' };
-    const sizeDisplay = sizeLabelMap[s.size] || 'Medium (12×18")';
-    const itemName = `Custom Frame — ${sizeDisplay} · ${frameDisplay}`;
+    if (!name || name.length < 2) { toast('Please enter your full name', 'error'); return; }
+    if (!phone || !/^[6-9]\d{9}$/.test(phone.replace(/\D/g, ''))) { toast('Please enter a valid 10-digit WhatsApp number', 'error'); return; }
+
+    // Build item details from cfwState
+    const sizeLabel = s.sizeLabel || s.size || 'Medium (12×18")';
+    const style = s.style || 'Direct';
+    const basePrice = Number(s.basePrice || s.price || 799);
+    const mountAddon = s.mountAddon ? 250 : 0;
+    const posterAddon = s.posterAddon ? 199 : 0;
+    const totalItemPrice = basePrice + mountAddon + posterAddon;
+
+    const styleDisplay = style === 'Mount' ? 'Mount (White Border)' : 'Direct';
+    let itemName = `Custom Frame — ${sizeLabel} · ${styleDisplay}`;
+    if (s.posterAddon) itemName += ' + A3 Poster';
 
     addToCart({
-      variantId: `custom-${s.size}-${(frameDisplay).toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+      variantId: `custom-${(s.size||'medium').toLowerCase()}-${style.toLowerCase()}-${Date.now()}`,
       name: itemName,
-      price: s.price || 999,
-      image: DESIGN_IMAGES['lion-geometric-gold'],
+      price: totalItemPrice,
+      image: DESIGN_IMAGES['lion-geometric-gold'] || '',
       slug: 'custom-frame',
-      size: sizeDisplay,
-      frame: frameDisplay,
+      size: sizeLabel,
+      frame: styleDisplay,
       customNote: note || '',
       customerName: name,
       customerPhone: phone,
+      uploadedDataUrl: s.uploadedDataUrl || null,
     });
 
-    // Capture lead
+    // Capture lead via API
     fetch('/api/leads', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name, phone,
-        source: 'custom-frame-page',
-        notes: `Size: ${sizeDisplay} | Frame: ${frameDisplay} | Note: ${note || 'None'}`
+        source: 'custom-frame-wizard',
+        notes: `Size: ${sizeLabel} | Style: ${styleDisplay} | Mount: ${mountAddon > 0} | Poster: ${posterAddon > 0} | Note: ${note || 'None'}`
       })
     }).catch(() => {});
 
-    toast('Custom frame added to cart! 🎨');
-    setTimeout(() => navigate('/checkout'), 800);
+    // Also try to log to Supabase custom_framing_orders_intake
+    fetch('/api/custom-orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        buyer_fullname: name,
+        buyer_whatsapp_phone: phone.replace(/\D/g, ''),
+        uploaded_image_storage_path: s.uploadedDataUrl ? 'client-upload' : 'no-upload',
+        selected_dimension_profile: (s.size || 'Medium').charAt(0).toUpperCase() + (s.size || 'Medium').slice(1),
+        selected_framing_style: style,
+        include_poster_print_copy: !!s.posterAddon,
+        user_special_instructions: note || '',
+        computed_subtotal_amount: totalItemPrice
+      })
+    }).catch(() => {});
+
+    toast('Custom frame added to cart! 🎨', 'success');
+    setTimeout(() => navigate('/checkout'), 700);
   }
 
   function renderCustomizePage(app) {
-    document.title = 'Custom Frame Order — Choose Size & Finish | ChitraFrame';
+    document.title = 'Custom Photo Frame — Upload & Order | ChitraFrame';
     const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute('content', 'Order a custom frame at ChitraFrame. Pick your size, choose Black or Natural Wood finish, and add your specifications. Museum-quality framing shipped across India.');
+    if (metaDesc) metaDesc.setAttribute('content', 'Order a custom photo frame at ChitraFrame. Upload your photo, choose your size and framing style, and we handle everything else. Delivered across India in 3–5 days.');
 
     app.innerHTML = renderHeader() + `
     <main id="main-content">
@@ -2713,334 +2768,303 @@
       {
         "@context": "https://schema.org/",
         "@type": "Service",
-        "name": "Custom Frame Order",
-        "description": "Order a custom photo frame at ChitraFrame. Choose your size, frame finish, and provide specifications. Museum-quality framing shipped across India.",
+        "name": "Custom Photo Frame Order",
+        "description": "Upload your photo and order a custom museum-quality frame at ChitraFrame. 4 sizes, Direct or Mount framing style. Delivered across India in 3–5 days.",
         "provider": { "@type": "Organization", "name": "ChitraFrame", "url": "https://chitraframe.in" },
         "areaServed": "IN",
-        "serviceType": "Custom Framing",
-        "offers": { "@type": "Offer", "priceCurrency": "INR", "price": "699" }
+        "serviceType": "Custom Photo Framing",
+        "offers": { "@type": "AggregateOffer", "priceCurrency": "INR", "lowPrice": "499", "highPrice": "1999", "offerCount": "4" }
       }
       <\/script>
 
-      <!-- Hero -->
-      <section class="customize-hero">
+      <!-- Page Hero -->
+      <section class="cfw-hero">
         <div class="container">
           <nav class="breadcrumb-inline" aria-label="Breadcrumb">
             <a href="/" onclick="window.cf.nav('/');return false;">Home</a> /
             <span aria-current="page">Custom Frame</span>
           </nav>
-          <div class="customize-hero-inner">
-            <div class="customize-hero-text" data-reveal>
-              <div class="category-badge">Bespoke Framing</div>
-              <h1 class="customize-hero-title">Your Vision,<br><em>Perfectly Framed</em></h1>
-              <p class="customize-hero-sub">Museum-quality frames made to your exact specifications. Choose your size, finish, and tell us what you need. Handcrafted and delivered across India.</p>
-              <ul class="customize-trust-list">
-                <li>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  Black or Natural Wood — two premium finishes
-                </li>
-                <li>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  4 standard sizes · Small to XL
-                </li>
-                <li>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  Acid-free mat board · Shatterproof acrylic glass
-                </li>
-                <li>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  Ships in 3–5 days · Pan-India delivery
-                </li>
-              </ul>
+          <div class="cfw-hero-inner">
+            <div class="cfw-hero-text" data-reveal>
+              <span class="section-eyebrow">Bespoke Framing Service</span>
+              <h1 class="cfw-h1">Frame Your <em>Favourite Photo</em></h1>
+              <p class="cfw-sub">Upload your photo, pick your size and style — our team handles the rest. Museum-quality. Delivered anywhere in India.</p>
+              <div class="cfw-trust-row">
+                <span class="cfw-trust-chip">✓ No DPI errors</span>
+                <span class="cfw-trust-chip">✓ Layout done by us</span>
+                <span class="cfw-trust-chip">✓ Ships in 3–5 days</span>
+                <span class="cfw-trust-chip">✓ Replace guarantee</span>
+              </div>
             </div>
-            <div class="customize-hero-visual" data-reveal data-reveal-delay="1">
-              <div class="customize-frame-preview" id="customize-preview">
-                <div class="frame-preview-outer" id="frame-preview-outer" style="border-color:#1a1a1a">
-                  <div class="frame-preview-mat">
-                    <div class="frame-preview-img">
-                      <svg viewBox="0 0 200 260" fill="none" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
-                        <rect width="200" height="260" fill="#1a1a2e"/>
-                        <circle cx="100" cy="100" r="60" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/>
-                        <circle cx="100" cy="100" r="40" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.4"/>
-                        <circle cx="100" cy="80" r="20" fill="var(--gold)" opacity="0.3"/>
-                        <path d="M60 170 Q100 140 140 170" stroke="var(--gold)" stroke-width="2" fill="none" opacity="0.6"/>
-                        <text x="100" y="220" text-anchor="middle" fill="var(--gold)" font-size="12" opacity="0.7" font-family="serif">Your Artwork Here</text>
+            <div class="cfw-hero-visual" data-reveal data-reveal-delay="1">
+              <div class="cfw-frame-mockup" id="cfw-mockup">
+                <div class="cfw-frame-outer" id="cfw-frame-outer">
+                  <div class="cfw-mat-border" id="cfw-mat-border">
+                    <div class="cfw-photo-area" id="cfw-photo-area">
+                      <svg viewBox="0 0 180 220" fill="none" width="100%" height="100%">
+                        <rect width="180" height="220" fill="#1a1a2e"/>
+                        <circle cx="90" cy="90" r="52" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.5"/>
+                        <circle cx="90" cy="70" r="22" fill="var(--gold)" opacity="0.25"/>
+                        <path d="M50 155 Q90 128 130 155" stroke="var(--gold)" stroke-width="2" fill="none" opacity="0.5"/>
+                        <text x="90" y="200" text-anchor="middle" fill="rgba(201,151,58,0.6)" font-size="11" font-family="serif">Your Photo Here</text>
                       </svg>
                     </div>
                   </div>
                 </div>
-                <p class="frame-preview-label" id="frame-preview-label">Black Frame · Medium (12×18")</p>
+                <p class="cfw-mockup-label" id="cfw-mockup-label">Medium · Direct Frame · ₹799</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 3-Section Configurator -->
-      <section class="customize-section">
+      <!-- 3-Step Wizard -->
+      <section class="cfw-wizard-section">
         <div class="container">
-          <div class="customize-layout">
 
-            <!-- Form -->
-            <div class="customize-form-col">
-              <div class="customize-form-card" data-reveal>
+          <!-- Progress bar -->
+          <div class="cfw-progress-bar" aria-label="Order steps">
+            <div class="cfw-step-indicator active" id="cfw-step-ind-1">
+              <span class="cfw-step-dot">1</span>
+              <span class="cfw-step-label">Upload Photo</span>
+            </div>
+            <div class="cfw-progress-line" id="cfw-line-1"></div>
+            <div class="cfw-step-indicator" id="cfw-step-ind-2">
+              <span class="cfw-step-dot">2</span>
+              <span class="cfw-step-label">Size &amp; Style</span>
+            </div>
+            <div class="cfw-progress-line" id="cfw-line-2"></div>
+            <div class="cfw-step-indicator" id="cfw-step-ind-3">
+              <span class="cfw-step-dot">3</span>
+              <span class="cfw-step-label">Your Details</span>
+            </div>
+          </div>
 
-                <!-- Section 1: Size -->
-                <div class="customize-step">
-                  <div class="customize-step-header">
-                    <span class="step-number">01</span>
-                    <h2 class="step-title">Choose Your Size</h2>
-                  </div>
-                  <div class="custom-size-grid">
-                    <label class="custom-size-card" id="size-card-small">
-                      <input type="radio" name="size-radio" value="small" onchange="document.getElementById('custom-size').value='small';window.cf.customCalcPrice();document.querySelectorAll('.custom-size-card').forEach(c=>c.classList.remove('active'));document.getElementById('size-card-small').classList.add('active')">
-                      <div class="size-card-inner">
-                        <div class="size-card-visual small-vis"></div>
-                        <div class="size-card-info">
-                          <strong>Small</strong>
-                          <span>8 × 10"</span>
-                          <span class="size-card-note">Desk / Bedside</span>
-                        </div>
-                        <span class="size-card-price">from ₹699</span>
-                      </div>
-                    </label>
-                    <label class="custom-size-card active" id="size-card-medium">
-                      <input type="radio" name="size-radio" value="medium" checked onchange="document.getElementById('custom-size').value='medium';window.cf.customCalcPrice();document.querySelectorAll('.custom-size-card').forEach(c=>c.classList.remove('active'));document.getElementById('size-card-medium').classList.add('active')">
-                      <div class="size-card-inner">
-                        <div class="size-card-visual medium-vis">
-                          <span class="popular-badge">Most Popular</span>
-                        </div>
-                        <div class="size-card-info">
-                          <strong>Medium</strong>
-                          <span>12 × 18"</span>
-                          <span class="size-card-note">Bedroom / Study</span>
-                        </div>
-                        <span class="size-card-price">from ₹999</span>
-                      </div>
-                    </label>
-                    <label class="custom-size-card" id="size-card-large">
-                      <input type="radio" name="size-radio" value="large" onchange="document.getElementById('custom-size').value='large';window.cf.customCalcPrice();document.querySelectorAll('.custom-size-card').forEach(c=>c.classList.remove('active'));document.getElementById('size-card-large').classList.add('active')">
-                      <div class="size-card-inner">
-                        <div class="size-card-visual large-vis"></div>
-                        <div class="size-card-info">
-                          <strong>Large</strong>
-                          <span>18 × 24"</span>
-                          <span class="size-card-note">Living Room</span>
-                        </div>
-                        <span class="size-card-price">from ₹1,499</span>
-                      </div>
-                    </label>
-                    <label class="custom-size-card" id="size-card-xl">
-                      <input type="radio" name="size-radio" value="xl" onchange="document.getElementById('custom-size').value='xl';window.cf.customCalcPrice();document.querySelectorAll('.custom-size-card').forEach(c=>c.classList.remove('active'));document.getElementById('size-card-xl').classList.add('active')">
-                      <div class="size-card-inner">
-                        <div class="size-card-visual xl-vis"></div>
-                        <div class="size-card-info">
-                          <strong>XL</strong>
-                          <span>24 × 36"</span>
-                          <span class="size-card-note">Statement Wall</span>
-                        </div>
-                        <span class="size-card-price">from ₹2,199</span>
-                      </div>
-                    </label>
-                  </div>
-                  <select id="custom-size" style="display:none" onchange="window.cf.customCalcPrice()">
-                    <option value="small">Small (8×10")</option>
-                    <option value="medium" selected>Medium (12×18")</option>
-                    <option value="large">Large (18×24")</option>
-                    <option value="xl">XL (24×36")</option>
-                  </select>
-                </div>
+          <div class="cfw-wizard-layout">
+            <!-- LEFT: step cards -->
+            <div class="cfw-steps-col">
 
-                <!-- Section 2: Frame Type -->
-                <div class="customize-step">
-                  <div class="customize-step-header">
-                    <span class="step-number">02</span>
-                    <h2 class="step-title">Frame Type</h2>
-                  </div>
-                  <p class="step-hint">Select your preferred frame finish.</p>
-                  <div class="frame-type-cards">
-                    <button class="frame-type-card active" id="frame-card-black" onclick="
-                      window._customFrameVal='black';
-                      document.querySelectorAll('.frame-type-card').forEach(b=>b.classList.remove('active'));
-                      this.classList.add('active');
-                      window.cf.customCalcPrice();" aria-label="Black frame" type="button">
-                      <div class="frame-swatch-large" style="background:#1a1a1a"></div>
-                      <div class="frame-type-info">
-                        <strong>Black</strong>
-                        <span>Classic Matte</span>
-                      </div>
-                      <div class="frame-type-check">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                      </div>
-                    </button>
-                    <button class="frame-type-card" id="frame-card-wood" onclick="
-                      window._customFrameVal='natural-wood';
-                      document.querySelectorAll('.frame-type-card').forEach(b=>b.classList.remove('active'));
-                      this.classList.add('active');
-                      window.cf.customCalcPrice();" aria-label="Natural Wood frame" type="button">
-                      <div class="frame-swatch-large" style="background:linear-gradient(135deg,#8B6914,#C4922E)"></div>
-                      <div class="frame-type-info">
-                        <strong>Natural Wood</strong>
-                        <span>Warm Oak +₹100</span>
-                      </div>
-                      <div class="frame-type-check">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                      </div>
-                    </button>
+              <!-- ══ STEP 1: Upload ════════════════════════════════════ -->
+              <div class="cfw-card" id="cfw-step-1" data-reveal>
+                <div class="cfw-card-header">
+                  <span class="cfw-step-num">01</span>
+                  <div>
+                    <h2 class="cfw-card-title">Upload Your Photo</h2>
+                    <p class="cfw-card-sub">Any format. Any resolution. We handle the rest.</p>
                   </div>
                 </div>
 
-                <!-- Section 3: Customer Note + Details -->
-                <div class="customize-step">
-                  <div class="customize-step-header">
-                    <span class="step-number">03</span>
-                    <h2 class="step-title">Your Details</h2>
+                <label class="cfw-upload-zone" id="cfw-upload-label" for="cfw-file-input" tabindex="0" role="button" aria-label="Tap to upload your photo">
+                  <input type="file" id="cfw-file-input" accept="image/*" style="display:none" onchange="window.cf.cfwHandleUpload(this)">
+                  <div class="cfw-upload-idle" id="cfw-upload-idle">
+                    <div class="cfw-upload-icon">📷</div>
+                    <strong class="cfw-upload-text">Tap here to upload your photo</strong>
+                    <span class="cfw-upload-hint">JPG, PNG, HEIC — any size accepted</span>
                   </div>
-                  <div class="contact-fields">
-                    <div class="field-group">
-                      <label for="custom-name" class="field-label">Full Name *</label>
-                      <input type="text" id="custom-name" class="custom-input" placeholder="Your name" maxlength="100" autocomplete="name">
+                  <div class="cfw-upload-preview" id="cfw-upload-preview" style="display:none">
+                    <img id="cfw-thumb" alt="Your uploaded photo" class="cfw-thumb-img">
+                    <div class="cfw-upload-success-msg">
+                      <span class="cfw-success-icon">✓</span>
+                      <p><strong>Photo received!</strong> Our team will manually touch up and optimize the layout structure for you.</p>
+                      <button type="button" class="cfw-change-photo-btn" onclick="document.getElementById('cfw-file-input').click();event.preventDefault()">Change photo</button>
                     </div>
-                    <div class="field-group">
-                      <label for="custom-phone" class="field-label">Mobile Number *</label>
-                      <input type="tel" id="custom-phone" class="custom-input" placeholder="10-digit mobile number" maxlength="15" autocomplete="tel" inputmode="numeric">
-                    </div>
                   </div>
-                  <div class="field-group" style="margin-top:16px">
-                    <label for="custom-note" class="field-label">
-                      Customisation Notes
-                      <span class="optional-tag">Optional</span>
-                    </label>
-                    <textarea id="custom-note" class="custom-textarea"
-                      placeholder="Tell us anything specific about your frame — orientation, mat colour, glass type, inscription, gift wrap, or any special instructions…"
-                      rows="4" maxlength="800"></textarea>
-                    <p class="field-hint">We might call you for confirmation — not compulsory.</p>
-                  </div>
+                </label>
 
-                  <div class="bulk-order-note">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1l1.8 3.7L14 5.7l-3 2.9.7 4.1L8 10.8l-3.7 1.9.7-4.1L2 5.7l4.2-.6L8 1z" fill="var(--gold)" opacity="0.8"/></svg>
-                    Ordering 10+ frames? <a href="/contact" onclick="window.cf.nav('/contact');return false;" class="link-gold">Contact us for bulk pricing →</a>
+                <p class="cfw-legal-notice">By uploading your photo, you are confirming that you have the right or permission to print it. Our team will take care of all the layout optimizations for you!</p>
+
+                <button class="cfw-next-btn" onclick="window.cf.cfwGoStep(2)" id="cfw-next-1" style="display:none">
+                  Next: Choose Size &amp; Style
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 9h10M10 5l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button class="cfw-skip-btn" onclick="window.cf.cfwGoStep(2)">
+                  Skip — I'll share my photo via WhatsApp after ordering
+                </button>
+              </div>
+
+              <!-- ══ STEP 2: Size & Style ═══════════════════════════════ -->
+              <div class="cfw-card cfw-card-locked" id="cfw-step-2" data-reveal data-reveal-delay="1">
+                <div class="cfw-card-header">
+                  <span class="cfw-step-num">02</span>
+                  <div>
+                    <h2 class="cfw-card-title">Size &amp; Framing Style</h2>
+                    <p class="cfw-card-sub">Select the size that fits your wall perfectly.</p>
                   </div>
+                </div>
+
+                <!-- Size Matrix 2×2 -->
+                <div class="cfw-size-grid">
+                  <label class="cfw-size-card" id="cfw-sz-small" onclick="window.cf.cfwSelectSize('Small','8×12&quot;',499,'cfw-sz-small')">
+                    <input type="radio" name="cfw-size" value="Small" style="display:none">
+                    <div class="cfw-size-icon cfw-icon-small"></div>
+                    <div class="cfw-size-info">
+                      <strong>Small</strong>
+                      <span class="cfw-size-dim">8 × 12"</span>
+                      <span class="cfw-size-ctx">Perfect for study desks &amp; tabletop display</span>
+                      <span class="cfw-size-price">₹499</span>
+                    </div>
+                  </label>
+                  <label class="cfw-size-card cfw-size-active" id="cfw-sz-medium" onclick="window.cf.cfwSelectSize('Medium','12×18&quot;',799,'cfw-sz-medium')">
+                    <input type="radio" name="cfw-size" value="Medium" checked style="display:none">
+                    <div class="cfw-size-badge-wrap"><span class="cfw-popular-badge">Most Popular Choice</span></div>
+                    <div class="cfw-size-icon cfw-icon-medium"></div>
+                    <div class="cfw-size-info">
+                      <strong>Medium</strong>
+                      <span class="cfw-size-dim">12 × 18"</span>
+                      <span class="cfw-size-ctx">Great for standard bedroom walls</span>
+                      <span class="cfw-size-price">₹799</span>
+                    </div>
+                  </label>
+                  <label class="cfw-size-card" id="cfw-sz-large" onclick="window.cf.cfwSelectSize('Large','18×24&quot;',1149,'cfw-sz-large')">
+                    <input type="radio" name="cfw-size" value="Large" style="display:none">
+                    <div class="cfw-size-icon cfw-icon-large"></div>
+                    <div class="cfw-size-info">
+                      <strong>Large</strong>
+                      <span class="cfw-size-dim">18 × 24"</span>
+                      <span class="cfw-size-ctx">Stunning living room gallery size</span>
+                      <span class="cfw-size-price">₹1,149</span>
+                    </div>
+                  </label>
+                  <label class="cfw-size-card" id="cfw-sz-xl" onclick="window.cf.cfwSelectSize('XL','24×36&quot;',1749,'cfw-sz-xl')">
+                    <input type="radio" name="cfw-size" value="XL" style="display:none">
+                    <div class="cfw-size-icon cfw-icon-xl"></div>
+                    <div class="cfw-size-info">
+                      <strong>XL</strong>
+                      <span class="cfw-size-dim">24 × 36"</span>
+                      <span class="cfw-size-ctx">Grand statement wall display</span>
+                      <span class="cfw-size-price">₹1,749</span>
+                    </div>
+                  </label>
+                </div>
+
+                <!-- Framing Style Toggle -->
+                <div class="cfw-style-toggle-wrap">
+                  <p class="cfw-style-label">Framing Profile</p>
+                  <div class="cfw-style-toggle" role="group" aria-label="Framing style">
+                    <button class="cfw-style-btn cfw-style-active" id="cfw-style-direct" type="button"
+                      onclick="window.cf.cfwSelectStyle('Direct',0,'cfw-style-direct','cfw-style-mount')">
+                      <strong>Direct Frame</strong>
+                      <span>Artwork edge-to-edge</span>
+                      <span class="cfw-style-price-tag">Base price</span>
+                    </button>
+                    <button class="cfw-style-btn" id="cfw-style-mount" type="button"
+                      onclick="window.cf.cfwSelectStyle('Mount',250,'cfw-style-mount','cfw-style-direct')">
+                      <strong>Mount Frame</strong>
+                      <span>Premium white border</span>
+                      <span class="cfw-style-price-tag cfw-style-markup">+₹250</span>
+                    </button>
+                  </div>
+                  <p class="cfw-style-hint">
+                    <strong>Direct</strong> — image fills the full frame. <strong>Mount</strong> — adds a clean white mat border around your photo for a gallery aesthetic.
+                  </p>
+                </div>
+
+                <!-- Poster add-on -->
+                <label class="cfw-addon-row" id="cfw-poster-addon">
+                  <input type="checkbox" id="cfw-poster-check" onchange="window.cf.cfwCalcPrice()">
+                  <div class="cfw-addon-info">
+                    <strong>Add A3 Poster Print <span class="cfw-addon-badge">+₹199</span></strong>
+                    <span>Get an additional rolled A3 print duplicate of your photo</span>
+                  </div>
+                </label>
+
+                <button class="cfw-next-btn" onclick="window.cf.cfwGoStep(3)">
+                  Next: Add Your Details
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 9h10M10 5l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+
+              <!-- ══ STEP 3: Contact ════════════════════════════════════ -->
+              <div class="cfw-card cfw-card-locked" id="cfw-step-3" data-reveal data-reveal-delay="2">
+                <div class="cfw-card-header">
+                  <span class="cfw-step-num">03</span>
+                  <div>
+                    <h2 class="cfw-card-title">Your Details</h2>
+                    <p class="cfw-card-sub">Just two fields — we'll handle the rest.</p>
+                  </div>
+                </div>
+
+                <div class="cfw-contact-fields">
+                  <div class="cfw-field-group">
+                    <label for="cfw-name" class="cfw-field-label">Full Name *</label>
+                    <input type="text" id="cfw-name" class="cfw-input" placeholder="Your full name" maxlength="100" autocomplete="name" inputmode="text">
+                  </div>
+                  <div class="cfw-field-group">
+                    <label for="cfw-phone" class="cfw-field-label">WhatsApp / Mobile Number *</label>
+                    <input type="tel" id="cfw-phone" class="cfw-input" placeholder="10-digit mobile number" maxlength="15" autocomplete="tel" inputmode="numeric">
+                  </div>
+                </div>
+
+                <div class="cfw-field-group" style="margin-top:16px">
+                  <label for="cfw-notes" class="cfw-field-label">Special Instructions <span class="cfw-optional">Optional</span></label>
+                  <textarea id="cfw-notes" class="cfw-textarea" rows="4" maxlength="800"
+                    placeholder="Type your notes here... (e.g. 'Please frame this in a classic matte black finish', 'make the photo orientation landscape', or 'crop out the background person')"></textarea>
+                  <p class="cfw-field-hint">Mention any colour, orientation, or crop preferences here — our team reads every note.</p>
+                </div>
+
+                <div class="cfw-bulk-note">
+                  <span>📦</span>
+                  Ordering 10+ frames? <a href="/contact" onclick="window.cf.nav('/contact');return false;">Contact us for bulk pricing →</a>
                 </div>
 
               </div>
             </div>
 
-            <!-- Sticky Summary -->
-            <aside class="customize-summary-col">
-              <div class="customize-summary-card" data-reveal data-reveal-delay="1">
-                <h3 class="summary-title">Order Summary</h3>
+            <!-- RIGHT: sticky summary + sticky CTA -->
+            <aside class="cfw-summary-col">
+              <div class="cfw-summary-card" id="cfw-summary-card" data-reveal data-reveal-delay="1">
+                <h3 class="cfw-summary-title">Order Summary</h3>
 
-                <div class="summary-line">
-                  <span>Size</span>
-                  <span id="summary-size">Medium (12×18")</span>
+                <div class="cfw-summary-rows" id="cfw-summary-rows">
+                  <div class="cfw-summary-row"><span>Size</span><span id="cfw-sum-size">Medium (12×18")</span></div>
+                  <div class="cfw-summary-row"><span>Style</span><span id="cfw-sum-style">Direct Frame</span></div>
+                  <div class="cfw-summary-row" id="cfw-sum-mount-row" style="display:none"><span>Mount add-on</span><span>+₹250</span></div>
+                  <div class="cfw-summary-row" id="cfw-sum-poster-row" style="display:none"><span>A3 Poster print</span><span>+₹199</span></div>
+                  <div class="cfw-summary-divider"></div>
+                  <div class="cfw-summary-row cfw-sum-subtotal"><span>Subtotal</span><span id="cfw-sum-subtotal">₹799</span></div>
+                  <div class="cfw-summary-row" id="cfw-sum-shipping">
+                    <span>Shipping</span>
+                    <span id="cfw-sum-shipping-val">₹99</span>
+                  </div>
+                  <div class="cfw-summary-divider"></div>
+                  <div class="cfw-summary-row cfw-sum-total"><span>Total</span><span id="cfw-sum-total">₹898</span></div>
                 </div>
-                <div class="summary-line">
-                  <span>Frame</span>
-                  <span id="summary-frame">Black</span>
-                </div>
-                <div class="summary-divider"></div>
-                <div class="summary-total-row">
-                  <span>Total</span>
-                  <span class="summary-total-amount" id="custom-price-display">₹999</span>
-                </div>
-                <p class="summary-shipping">+ ₹99 shipping (free above ₹799)</p>
 
-                <button class="btn-primary w-full summary-cta" onclick="window.cf.submitCustomOrder()">
+                <p class="cfw-free-shipping-hint" id="cfw-free-hint">Add ₹101 more to get <strong>free shipping!</strong></p>
+
+                <button class="cfw-cart-btn" onclick="window.cf.submitCustomOrder()" id="cfw-cart-btn">
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M1 1h2.5l2.4 9.6h8.1l2-7H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="15" r="1.2" fill="currentColor"/><circle cx="13" cy="15" r="1.2" fill="currentColor"/></svg>
-                  Add to Cart &amp; Checkout
-                </button>
-                <button class="btn-outline w-full mt-3" onclick="
-                  var name=document.getElementById('custom-name').value.trim();
-                  var phone=document.getElementById('custom-phone').value.trim();
-                  var note=document.getElementById('custom-note').value.trim();
-                  var msg='Hi ChitraFrame! Custom frame enquiry. Name: '+name+' | Phone: '+phone+(note?' | Notes: '+note:'');
-                  window.open('https://wa.me/917989531818?text='+encodeURIComponent(msg),'_blank');" type="button">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.6 2.4A7.8 7.8 0 0 0 2.4 13.6L1 15l1.5-.4A7.8 7.8 0 1 0 13.6 2.4zm-5.8 11a6.3 6.3 0 0 1-3.2-.9l-.2-.1-1.5.4.4-1.4-.2-.2A6.3 6.3 0 1 1 7.8 13.4z" fill="#25D366"/><path d="M5.5 4.5c-.1-.3-.3-.3-.5-.3-.1 0-.3 0-.5.1-.2.1-.7.7-.7 1.7s.7 2 .8 2.1c.1.1 1.4 2.2 3.4 3 .5.2.8.3 1.1.3.3 0 .6-.1.8-.3.2-.2.5-.8.6-1.1.1-.2 0-.4-.1-.5l-1.2-.6c-.2-.1-.4 0-.5.1l-.4.5c-.1.1-.2.1-.4 0a5.2 5.2 0 0 1-1.6-1.4c-.1-.2 0-.3.1-.4l.3-.4c.1-.1.1-.3.1-.4L5.5 4.5z" fill="#25D366"/></svg>
-                  WhatsApp Instead
+                  Proceed to Cart &amp; Secure Order ➔
                 </button>
 
-                <div class="summary-trust">
-                  <div class="trust-item-sm">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.5 3H12l-2.5 2 1 3L7 7l-3.5 2 1-3L2 4h3.5L7 1z" fill="var(--gold)"/></svg>
-                    Museum-quality print
-                  </div>
-                  <div class="trust-item-sm">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3 4 7-8" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    Proof sent before printing
-                  </div>
-                  <div class="trust-item-sm">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3 4 7-8" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    Ships in 3–5 days
-                  </div>
+                <button class="cfw-wa-btn" type="button" onclick="
+                  var name=document.getElementById('cfw-name').value.trim();
+                  var phone=document.getElementById('cfw-phone').value.trim();
+                  var notes=document.getElementById('cfw-notes').value.trim();
+                  var msg='Hi ChitraFrame! I want a custom frame.\\n'+(name?'Name: '+name+'\\n':'')+(phone?'Phone: '+phone+'\\n':'')+'Size: '+((window._cfwState&&window._cfwState.sizeLabel)||'Medium 12×18')+'\\nStyle: '+((window._cfwState&&window._cfwState.style)||'Direct')+(notes?'\\nNotes: '+notes:'');
+                  window.open('https://wa.me/917989531818?text='+encodeURIComponent(msg),'_blank');">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.6 2.4A7.8 7.8 0 0 0 2.4 13.6L1 15l1.5-.4A7.8 7.8 0 1 0 13.6 2.4z" fill="#25D366"/><path d="M5.5 4.5c-.1-.3-.3-.3-.5-.3s-.3 0-.5.1c-.2.1-.7.7-.7 1.7s.7 2 .8 2.1 1.4 2.2 3.4 3c.5.2.8.3 1.1.3s.6-.1.8-.3c.2-.2.5-.8.6-1.1.1-.2 0-.4-.1-.5l-1.2-.6c-.2-.1-.4 0-.5.1l-.4.5c-.1.1-.2.1-.4 0a5.2 5.2 0 0 1-1.6-1.4c-.1-.2 0-.3.1-.4l.3-.4c.1-.1.1-.3.1-.4L5.5 4.5z" fill="#fff"/></svg>
+                  WhatsApp Order Instead
+                </button>
+
+                <div class="cfw-trust-badges">
+                  <div class="cfw-trust-badge">⭐ 4.9/5 · 2,000+ happy orders</div>
+                  <div class="cfw-trust-badge">🛡️ Digital proof before printing</div>
+                  <div class="cfw-trust-badge">📦 Free replacement on damage</div>
                 </div>
-              </div>
-
-              <!-- FAQ mini -->
-              <div class="customize-faq" data-reveal>
-                <h4>Common Questions</h4>
-                <details class="faq-item-sm">
-                  <summary>Can I send my own photo or artwork?</summary>
-                  <p>Yes! After ordering, WhatsApp your image to +91 79895 31818. We accept JPG, PNG, PDF. Minimum 300 DPI for best results.</p>
-                </details>
-                <details class="faq-item-sm">
-                  <summary>What's included with each frame?</summary>
-                  <p>Every frame includes shatterproof acrylic glass, acid-free mat board, and hanging hardware. Bubble-wrapped and shipped in a rigid box.</p>
-                </details>
-                <details class="faq-item-sm">
-                  <summary>How long does custom framing take?</summary>
-                  <p>We send a digital proof within 24 hours of ordering. After your approval, production takes 2–3 days. Shipping 1–3 days pan-India.</p>
-                </details>
-                <details class="faq-item-sm">
-                  <summary>What if I'm not happy with the result?</summary>
-                  <p>We stand behind our quality. If the frame arrives damaged or differs from the approved proof, we replace or refund — no questions asked.</p>
-                </details>
               </div>
             </aside>
           </div>
-        </div>
-      </section>
 
-      <!-- How It Works -->
-      <section class="section section-alt">
-        <div class="container">
-          <div class="section-header" data-reveal>
-            <h2 class="section-title">How Custom Framing Works</h2>
-            <p class="section-sub">Four simple steps from order to your wall</p>
-          </div>
-          <div class="how-steps" data-reveal>
-            <div class="how-step">
-              <div class="how-step-icon">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="4" width="24" height="24" rx="4" stroke="var(--gold)" stroke-width="1.5"/><path d="M10 16h12M16 10v12" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"/></svg>
-              </div>
-              <div class="how-step-num">01</div>
-              <h3>Configure &amp; Order</h3>
-              <p>Choose size, frame finish, add your notes and contact details. Add to cart and checkout in seconds.</p>
+          <!-- Mobile sticky CTA -->
+          <div class="cfw-sticky-mobile" id="cfw-sticky-mobile">
+            <div class="cfw-sticky-price">
+              <span class="cfw-sticky-label">Total</span>
+              <span class="cfw-sticky-amount" id="cfw-sticky-total">₹898</span>
             </div>
-            <div class="how-step">
-              <div class="how-step-icon">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="8" width="24" height="18" rx="3" stroke="var(--gold)" stroke-width="1.5"/><path d="M10 4l3 4M22 4l-3 4" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"/><path d="M10 17h12M10 21h8" stroke="var(--gold)" stroke-width="1.2" stroke-linecap="round" opacity=".6"/></svg>
-              </div>
-              <div class="how-step-num">02</div>
-              <h3>Send Your Image</h3>
-              <p>WhatsApp or email your artwork to us. We accept any format and advise on optimal resolution.</p>
-            </div>
-            <div class="how-step">
-              <div class="how-step-icon">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="4" width="24" height="24" rx="4" stroke="var(--gold)" stroke-width="1.5"/><path d="M10 16l4 4 8-8" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </div>
-              <div class="how-step-num">03</div>
-              <h3>Approve Proof</h3>
-              <p>We send a digital proof within 24 hrs. You approve, request changes, or cancel — always in control.</p>
-            </div>
-            <div class="how-step">
-              <div class="how-step-icon">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M4 16h24M20 8l8 8-8 8" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </div>
-              <div class="how-step-num">04</div>
-              <h3>Delivered to Door</h3>
-              <p>Production in 2–3 days. Shipped bubble-wrapped in a rigid box. Track in real time.</p>
-            </div>
+            <button class="cfw-cart-btn cfw-sticky-btn" onclick="window.cf.submitCustomOrder()">
+              Proceed to Cart &amp; Secure Order ➔
+            </button>
           </div>
         </div>
       </section>
@@ -3048,10 +3072,131 @@
     </main>
     ${renderFooter()}`;
 
-    // Init state
-    window._customFrameVal = 'black';
-    window._customState = { size: 'medium', frame: 'black', qty: 1, price: 999 };
-    customCalcPrice();
+    // ── Custom Frame Wizard State & Logic ────────────────────────────────────
+    window._cfwState = {
+      size: 'Medium', sizeLabel: 'Medium (12×18")', basePrice: 799,
+      style: 'Direct', mountAddon: 0,
+      posterAddon: false,
+      uploadedFile: null, uploadedDataUrl: null
+    };
+
+    window.cf.cfwHandleUpload = function(input) {
+      const file = input.files[0];
+      if (!file) return;
+      window._cfwState.uploadedFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        window._cfwState.uploadedDataUrl = e.target.result;
+        const thumb = document.getElementById('cfw-thumb');
+        const idle = document.getElementById('cfw-upload-idle');
+        const preview = document.getElementById('cfw-upload-preview');
+        const nextBtn = document.getElementById('cfw-next-1');
+        if (thumb) thumb.src = e.target.result;
+        if (idle) idle.style.display = 'none';
+        if (preview) preview.style.display = 'flex';
+        if (nextBtn) nextBtn.style.display = 'flex';
+        // Update mockup
+        const photoArea = document.getElementById('cfw-photo-area');
+        if (photoArea) {
+          photoArea.innerHTML = '<img src="'+e.target.result+'" alt="Preview" style="width:100%;height:100%;object-fit:cover;display:block;">';
+        }
+      };
+      reader.readAsDataURL(file);
+    };
+
+    window.cf.cfwSelectSize = function(size, dim, price, cardId) {
+      window._cfwState.size = size;
+      window._cfwState.sizeLabel = size + ' (' + dim + ')';
+      window._cfwState.basePrice = price;
+      document.querySelectorAll('.cfw-size-card').forEach(c => c.classList.remove('cfw-size-active'));
+      const card = document.getElementById(cardId);
+      if (card) card.classList.add('cfw-size-active');
+      window.cf.cfwCalcPrice();
+    };
+
+    window.cf.cfwSelectStyle = function(style, addon, activeId, inactiveId) {
+      window._cfwState.style = style;
+      window._cfwState.mountAddon = addon;
+      const aBtn = document.getElementById(activeId);
+      const iBtn = document.getElementById(inactiveId);
+      if (aBtn) { aBtn.classList.add('cfw-style-active'); }
+      if (iBtn) { iBtn.classList.remove('cfw-style-active'); }
+      // Show/hide mount row in summary
+      const mountRow = document.getElementById('cfw-sum-mount-row');
+      if (mountRow) mountRow.style.display = addon > 0 ? 'flex' : 'none';
+      // Update mockup mat
+      const mat = document.getElementById('cfw-mat-border');
+      if (mat) {
+        mat.style.padding = style === 'Mount' ? '16px' : '0';
+        mat.style.background = style === 'Mount' ? '#fff' : 'transparent';
+      }
+      window.cf.cfwCalcPrice();
+    };
+
+    window.cf.cfwCalcPrice = function() {
+      const s = window._cfwState;
+      s.posterAddon = document.getElementById('cfw-poster-check')?.checked || false;
+      const subtotal = s.basePrice + s.mountAddon + (s.posterAddon ? 199 : 0);
+      const shipping = subtotal >= 899 ? 0 : 99;
+      const total = subtotal + shipping;
+
+      // Update summary
+      const el = (id) => document.getElementById(id);
+      if (el('cfw-sum-size')) el('cfw-sum-size').textContent = s.sizeLabel;
+      if (el('cfw-sum-style')) el('cfw-sum-style').textContent = s.style + ' Frame';
+      if (el('cfw-sum-mount-row')) el('cfw-sum-mount-row').style.display = s.mountAddon > 0 ? 'flex' : 'none';
+      if (el('cfw-sum-poster-row')) el('cfw-sum-poster-row').style.display = s.posterAddon ? 'flex' : 'none';
+      if (el('cfw-sum-subtotal')) el('cfw-sum-subtotal').textContent = '₹' + subtotal;
+      if (el('cfw-sum-shipping-val')) el('cfw-sum-shipping-val').innerHTML = shipping === 0 ? '<span style="color:var(--green)">Free</span>' : '₹' + shipping;
+      if (el('cfw-sum-total')) el('cfw-sum-total').textContent = '₹' + total;
+      if (el('cfw-sticky-total')) el('cfw-sticky-total').textContent = '₹' + total;
+      // Free shipping hint
+      const freeLeft = 899 - subtotal;
+      if (el('cfw-free-hint')) {
+        if (freeLeft > 0) {
+          el('cfw-free-hint').innerHTML = 'Add <strong>₹'+freeLeft+'</strong> more to get <strong>free shipping!</strong>';
+          el('cfw-free-hint').style.display = 'block';
+        } else {
+          el('cfw-free-hint').innerHTML = '🎉 You\'ve unlocked <strong>free shipping!</strong>';
+          el('cfw-free-hint').style.display = 'block';
+        }
+      }
+      // Update mockup label
+      const lbl = document.getElementById('cfw-mockup-label');
+      if (lbl) lbl.textContent = s.sizeLabel + ' · ' + s.style + ' Frame · ₹' + total;
+      // Store computed
+      s.subtotal = subtotal; s.shipping = shipping; s.total = total;
+    };
+
+    window.cf.cfwGoStep = function(step) {
+      // Unlock cards
+      for (let i = 1; i <= 3; i++) {
+        const card = document.getElementById('cfw-step-' + i);
+        const ind = document.getElementById('cfw-step-ind-' + i);
+        if (card) {
+          if (i <= step) card.classList.remove('cfw-card-locked');
+          if (i === step) {
+            card.classList.add('cfw-card-active');
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } else {
+            card.classList.remove('cfw-card-active');
+          }
+        }
+        if (ind) {
+          if (i < step) { ind.classList.add('done'); ind.classList.remove('active'); }
+          if (i === step) { ind.classList.add('active'); ind.classList.remove('done'); }
+          if (i > step) { ind.classList.remove('active','done'); }
+        }
+        const line = document.getElementById('cfw-line-' + i);
+        if (line) line.classList.toggle('done', i < step);
+      }
+      // Show sticky on step 2+
+      const sticky = document.getElementById('cfw-sticky-mobile');
+      if (sticky) sticky.classList.toggle('visible', step >= 2);
+    };
+
+    // Init defaults
+    window.cf.cfwCalcPrice();
 
     initMobileMenu();
     initStickyHeader();
@@ -3276,7 +3421,8 @@
     pickStar,
     updateCartBadge,
     submitCustomOrder,
-    customCalcPrice
+    customCalcPrice,
+    updateCheckoutTotal
   };
 
   // Legacy alias
