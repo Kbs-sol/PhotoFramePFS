@@ -1279,7 +1279,7 @@ admin.patch('/combos/:id/toggle', async (c) => {
 admin.post('/reviews/:id/approve', async (c) => {
   const id = c.req.param('id');
   const sb = getSupabase(c.env);
-  const { data } = await sb.from('reviews').update({ is_approved: true, is_hidden: false, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  const { data } = await sb.from('reviews').update({ is_approved: true, is_hidden: false }).eq('id', id).select().single();
   // Update product average rating
   if (data?.product_id) {
     const { data: prodReviews } = await sb.from('reviews').select('rating').eq('product_id', data.product_id).eq('is_approved', true);
@@ -1294,7 +1294,7 @@ admin.post('/reviews/:id/approve', async (c) => {
 admin.post('/reviews/:id/hide', async (c) => {
   const id = c.req.param('id');
   const sb = getSupabase(c.env);
-  const { data } = await sb.from('reviews').update({ is_hidden: true, is_approved: false, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  const { data } = await sb.from('reviews').update({ is_hidden: true, is_approved: false }).eq('id', id).select().single();
   return c.json({ success: true, review: data });
 });
 
@@ -1302,7 +1302,7 @@ admin.post('/reviews/:id/feature', async (c) => {
   const id = c.req.param('id');
   const sb = getSupabase(c.env);
   const { data: cur } = await sb.from('reviews').select('is_featured').eq('id', id).single();
-  const { data } = await sb.from('reviews').update({ is_featured: !cur?.is_featured, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  const { data } = await sb.from('reviews').update({ is_featured: !cur?.is_featured }).eq('id', id).select().single();
   return c.json({ success: true, review: data });
 });
 
@@ -1310,7 +1310,7 @@ admin.post('/reviews/:id/reply', async (c) => {
   const id = c.req.param('id');
   const { reply } = await c.req.json();
   const sb = getSupabase(c.env);
-  const { data } = await sb.from('reviews').update({ admin_reply: reply || null, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  const { data } = await sb.from('reviews').update({ admin_reply: reply || null }).eq('id', id).select().single();
   return c.json({ success: true, review: data });
 });
 
@@ -1548,7 +1548,7 @@ admin.post('/review-requests', async (c) => {
     .select('id').eq('order_id', orderId).single();
   if (existing) return c.json({ success: true, note: 'already_sent' });
   await sb.from('review_requests').insert({
-    order_id: orderId, customer_email: email, customer_name: name || null
+    order_id: orderId, email, name: name || null
   });
   // Send review request email
   try {
@@ -1571,6 +1571,87 @@ admin.get('/review-requests', async (c) => {
   const sb = getSupabase(c.env);
   const { data } = await sb.from('review_requests').select('*').order('sent_at', { ascending: false }).limit(100);
   return c.json({ requests: data || [] });
+});
+
+// ==========================================
+// LOGISTICS — /orders/* ALIASES
+// Mirrors what admin.js calls: /orders/:id/shiprocket, /orders/:id/awb,
+// /orders/:id/pickup, /orders/bulk-sync (maps to /logistics/* endpoints)
+// ==========================================
+
+// POST /orders/bulk-sync  (alias for /logistics/sync-pending)
+admin.post('/orders/bulk-sync', async (c) => {
+  if (!c.env.SUPABASE_URL) return c.json({ synced: 0, failed: 0, results: [] });
+  const sb = getSupabase(c.env);
+  const { data: orders } = await sb.from('orders')
+    .select('*')
+    .eq('shiprocket_synced', false)
+    .not('status', 'in', '(cancelled,cod_pending)')
+    .limit(20);
+  const results: any[] = [];
+  for (const order of orders || []) {
+    const result = await createShiprocketOrder(c.env, order);
+    if (result.success && (result as any).shiprocketOrderIds) {
+      await sb.from('orders').update({
+        shiprocket_synced: true,
+        shiprocket_order_id: (result as any).shiprocketOrderIds.join(','),
+        updated_at: new Date().toISOString()
+      }).eq('order_id', order.order_id);
+    }
+    results.push({ orderId: order.order_id, ...result });
+  }
+  return c.json({ synced: results.filter((r: any) => r.success).length, failed: results.filter((r: any) => !r.success).length, results });
+});
+
+// POST /orders/:orderId/shiprocket  (alias for /logistics/create-shiprocket-order)
+admin.post('/orders/:orderId/shiprocket', async (c) => {
+  const orderId = c.req.param('orderId');
+  const sb = getSupabase(c.env);
+  const { data: order } = await sb.from('orders').select('*').eq('order_id', orderId).single();
+  if (!order) return c.json({ error: 'Order not found' }, 404);
+  const result = await createShiprocketOrder(c.env, order);
+  if (result.success && (result as any).shiprocketOrderIds) {
+    await sb.from('orders').update({
+      shiprocket_synced: true,
+      shiprocket_order_id: (result as any).shiprocketOrderIds.join(','),
+      updated_at: new Date().toISOString()
+    }).eq('order_id', orderId);
+  }
+  return c.json(result);
+});
+
+// POST /orders/:orderId/awb  (alias for /logistics/generate-awb)
+admin.post('/orders/:orderId/awb', async (c) => {
+  const orderId = c.req.param('orderId');
+  const sb = getSupabase(c.env);
+  const { data: order } = await sb.from('orders').select('shiprocket_order_id').eq('order_id', orderId).single();
+  if (!order?.shiprocket_order_id) return c.json({ error: 'Shiprocket order not created yet' }, 400);
+  const srIds = order.shiprocket_order_id.split(',');
+  const result = await generateAWB(c.env, srIds);
+  if (result.success && (result as any).awbNumbers) {
+    await sb.from('orders').update({
+      awb_number: (result as any).awbNumbers.join(','),
+      updated_at: new Date().toISOString()
+    }).eq('order_id', orderId);
+  }
+  return c.json(result);
+});
+
+// POST /orders/:orderId/pickup  (alias for /logistics/schedule-pickup)
+admin.post('/orders/:orderId/pickup', async (c) => {
+  const orderId = c.req.param('orderId');
+  const sb = getSupabase(c.env);
+  const { data: order } = await sb.from('orders').select('shiprocket_order_id').eq('order_id', orderId).single();
+  if (!order?.shiprocket_order_id) return c.json({ error: 'Shiprocket order not created' }, 400);
+  const srIds = order.shiprocket_order_id.split(',');
+  const result = await schedulePickup(c.env, srIds);
+  if (result.success) {
+    await sb.from('orders').update({
+      pickup_status: 'scheduled',
+      updated_at: new Date().toISOString()
+    }).eq('order_id', orderId);
+  }
+  return c.json(result);
 });
 
 // ─── Order Detail (for review-request trigger) ────────────────────────────────

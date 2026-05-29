@@ -588,22 +588,43 @@
       <!-- ══ HERO — Editorial Split ══ -->
       <section class="hero-v2" aria-labelledby="hero-h1" itemscope itemtype="https://schema.org/WebPage">
 
-        <!-- Left panel: full-bleed image mosaic -->
+        <!-- Image panel: 3-product mosaic — full-bleed on desktop, scroll strip on mobile -->
         <div class="hero-v2-visual" aria-hidden="true">
-          <div class="hero-v2-img hero-v2-img--main" onclick="window.cf.nav('/category/spiritual')" role="button" tabindex="0" aria-label="Shop Divine art" onkeydown="if(event.key==='Enter')window.cf.nav('/category/spiritual')">
-            <img src="${DESIGN_IMAGES['radha-krishna-emerald-dance']}" alt="Radha Krishna Emerald Dance framed art" loading="eager" fetchpriority="high" width="480" height="640">
-            <div class="hero-v2-cat-pill">Divine</div>
-          </div>
-          <div class="hero-v2-stack">
-            <div class="hero-v2-img" onclick="window.cf.nav('/category/automotive')" role="button" tabindex="0" aria-label="Shop Automotive art" onkeydown="if(event.key==='Enter')window.cf.nav('/category/automotive')">
-              <img src="${DESIGN_IMAGES['bmw-m4-carbon-dark']}" alt="BMW M4 Carbon Dark Legend framed art" loading="eager" width="280" height="280">
-              <div class="hero-v2-cat-pill">Automotive</div>
+
+          <!-- Desktop layout: 1 tall main image + 2 stacked (hidden on mobile) -->
+          <div class="hero-v2-desktop-mosaic">
+            <div class="hero-v2-img hero-v2-img--main" onclick="window.cf.nav('/category/spiritual')" role="button" tabindex="0" aria-label="Shop Divine art" onkeydown="if(event.key==='Enter')window.cf.nav('/category/spiritual')">
+              <img src="${DESIGN_IMAGES['radha-krishna-emerald-dance']}" alt="Radha Krishna Emerald Dance framed art" loading="eager" fetchpriority="high" width="480" height="640">
+              <div class="hero-v2-cat-pill">Divine</div>
             </div>
-            <div class="hero-v2-img" onclick="window.cf.nav('/product/mahadev-cosmic-trance')" role="button" tabindex="0" aria-label="Shop Mahadev art" onkeydown="if(event.key==='Enter')window.cf.nav('/product/mahadev-cosmic-trance')">
-              <img src="${DESIGN_IMAGES['mahadev-cosmic-trance']}" alt="Mahadev Cosmic Trance framed art" loading="eager" width="280" height="280">
-              <div class="hero-v2-cat-pill">Spiritual</div>
+            <div class="hero-v2-stack">
+              <div class="hero-v2-img" onclick="window.cf.nav('/category/automotive')" role="button" tabindex="0" aria-label="Shop Automotive art" onkeydown="if(event.key==='Enter')window.cf.nav('/category/automotive')">
+                <img src="${DESIGN_IMAGES['bmw-m4-carbon-dark']}" alt="BMW M4 Carbon Dark Legend framed art" loading="lazy" width="280" height="280">
+                <div class="hero-v2-cat-pill">Automotive</div>
+              </div>
+              <div class="hero-v2-img" onclick="window.cf.nav('/product/mahadev-cosmic-trance')" role="button" tabindex="0" aria-label="Shop Mahadev art" onkeydown="if(event.key==='Enter')window.cf.nav('/product/mahadev-cosmic-trance')">
+                <img src="${DESIGN_IMAGES['mahadev-cosmic-trance']}" alt="Mahadev Cosmic Trance framed art" loading="lazy" width="280" height="280">
+                <div class="hero-v2-cat-pill">Spiritual</div>
+              </div>
             </div>
           </div>
+
+          <!-- Mobile layout: horizontal swipeable card strip (hidden on desktop) -->
+          <div class="hero-v2-mobile-strip">
+            <div class="hero-v2-mobile-card" onclick="window.cf.nav('/category/spiritual')" role="button" tabindex="-1">
+              <img src="${DESIGN_IMAGES['radha-krishna-emerald-dance']}" alt="Radha Krishna framed art" loading="eager" fetchpriority="high">
+              <div class="hero-v2-mobile-label">Divine</div>
+            </div>
+            <div class="hero-v2-mobile-card" onclick="window.cf.nav('/category/automotive')" role="button" tabindex="-1">
+              <img src="${DESIGN_IMAGES['bmw-m4-carbon-dark']}" alt="BMW M4 framed art" loading="lazy">
+              <div class="hero-v2-mobile-label">Automotive</div>
+            </div>
+            <div class="hero-v2-mobile-card" onclick="window.cf.nav('/product/mahadev-cosmic-trance')" role="button" tabindex="-1">
+              <img src="${DESIGN_IMAGES['mahadev-cosmic-trance']}" alt="Mahadev framed art" loading="lazy">
+              <div class="hero-v2-mobile-label">Spiritual</div>
+            </div>
+          </div>
+
           <!-- floating price chip -->
           <div class="hero-v2-price-chip">Starting ₹499</div>
         </div>

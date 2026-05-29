@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS public.customers (
   is_blocked   BOOLEAN NOT NULL DEFAULT false,
   cod_blocked  BOOLEAN NOT NULL DEFAULT false,
   total_orders INTEGER NOT NULL DEFAULT 0,
-  total_spend  NUMERIC(12,2) NOT NULL DEFAULT 0,
+  total_spend  INT4 NOT NULL DEFAULT 0,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS public.customer_addresses (
 -- 3b. ORDERS
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.orders (
-  id                     BIGSERIAL PRIMARY KEY,
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id               TEXT UNIQUE NOT NULL,   -- e.g. 'PFI260530001'
   customer_id            UUID REFERENCES public.customers(id),
   customer_name          TEXT NOT NULL,
@@ -182,7 +182,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
   awb_number             TEXT,
   carrier                TEXT,
   carrier_tracking_url   TEXT,
-  volumetric_weight      NUMERIC(8,3),
+  volumetric_weight      TEXT,
   -- UTM Attribution
   utm_source             TEXT,
   utm_medium             TEXT,
@@ -232,7 +232,7 @@ CREATE TABLE IF NOT EXISTS public.coupons (
   usage_count          INTEGER NOT NULL DEFAULT 0,
   category_restrict    TEXT[],      -- restrict to category slugs
   product_exclude      UUID[],      -- exclude specific product IDs
-  combo_exclude        UUID[],      -- exclude specific combo IDs
+  combo_exclude        BOOL NOT NULL DEFAULT false,  -- exclude combos from discount
   auto_apply_condition TEXT,        -- JSON condition for auto-apply
   is_active            BOOLEAN NOT NULL DEFAULT true,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -424,7 +424,7 @@ CREATE TABLE IF NOT EXISTS public.login_attempts (
 
 -- Application error log
 CREATE TABLE IF NOT EXISTS public.error_log (
-  id            BIGSERIAL PRIMARY KEY,
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   endpoint      TEXT,
   method        TEXT,
   error_message TEXT,

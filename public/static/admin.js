@@ -803,7 +803,7 @@
       { key: 'price_cod_fee',     label: 'COD Fee',                    default: 49,   note: 'Added to order total for COD orders' },
       { key: 'price_prepaid_discount', label: 'Prepaid Discount',      default: 50,   note: 'Deducted from prepaid order total' },
       { key: 'price_shipping',    label: 'Shipping (under free threshold)', default: 99, note: 'Standard shipping fee' },
-      { key: 'price_free_shipping_threshold', label: 'Free Shipping Threshold (₹)', default: 799, note: 'Cart subtotal above which shipping is free' }
+      { key: 'price_free_shipping_threshold', label: 'Free Shipping Threshold (₹)', default: 899, note: 'Cart subtotal above which shipping is free' }
     ];
 
     el.innerHTML = `
@@ -1343,31 +1343,6 @@
         toast('Failed to confirm COD', 'error');
       }
     },
-    async syncPending() {
-      const result = await api('POST', '/logistics/sync-pending');
-      toast(`Synced ${result.synced}/${result.total} orders`, 'success');
-      loadSection(currentSection);
-    },
-    async createShiprocketOrder(orderId) {
-      const result = await api('POST', '/logistics/create-shiprocket-order', { orderId });
-      toast(result.success ? 'Shiprocket order created!' : `Error: ${result.error}`, result.success ? 'success' : 'error');
-      loadSection('logistics');
-    },
-    async generateAWB(orderId) {
-      const result = await api('POST', '/logistics/generate-awb', { orderId });
-      toast(result.success ? `AWB: ${result.awb}` : `Error: ${result.error}`, result.success ? 'success' : 'error');
-      loadSection('logistics');
-    },
-    async generateLabel(orderId) {
-      const result = await api('POST', '/logistics/generate-label', { orderId });
-      toast(result.success ? 'Labels generated!' : `Error: ${result.error}`, result.success ? 'success' : 'error');
-      loadSection('logistics');
-    },
-    async schedulePickup(orderId) {
-      const result = await api('POST', '/logistics/schedule-pickup', { orderId });
-      toast(result.success ? 'Pickup scheduled!' : `Error: ${result.error}`, result.success ? 'success' : 'error');
-      loadSection('logistics');
-    },
     async approveClaim(claimId) {
       const result = await api('POST', `/claims/${claimId}/approve`);
       toast(result.success ? `Replacement: ${result.replacementOrderId}` : 'Error', result.success ? 'success' : 'error');
@@ -1541,6 +1516,18 @@
         loadSection('logistics');
       } catch (e) { toast(e.response?.data?.error || 'Pickup failed', 'error'); }
     },
+    async generateLabel(id) {
+      try {
+        const res = await api('POST', '/logistics/generate-label', { orderId: id });
+        if (res.success && res.labelUrls && res.labelUrls.length) {
+          res.labelUrls.forEach((url) => window.open(url, '_blank'));
+          toast('Label(s) generated!', 'success');
+        } else {
+          toast(res.error || 'Label generation failed', 'error');
+        }
+        loadSection('logistics');
+      } catch (e) { toast(e.response?.data?.error || 'Label generation failed', 'error'); }
+    },
     async filterOrders() {
       const status = $('#order-status-filter')?.value;
       const payment = $('#order-payment-filter')?.value;
@@ -1653,14 +1640,65 @@
               ${['Standard','Premium'].map(f => `<label class="flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" name="allowed_frames_${f}" class="accent-yellow-400" ${!p.allowed_frames || p.allowed_frames.includes(f) ? 'checked' : ''}> ${f}</label>`).join('')}
             </div>
           </div>
-          <div class="border-t border-gray-800 pt-4">
-            <label class="block text-xs text-gray-400 mb-2">Image URL (Cloudinary Preferred)</label>
-            <div class="flex gap-2">
-              <input type="text" id="new-image-url" name="image_url" value="${p.image_url || ''}" class="admin-input" placeholder="Paste URL or upload -->">
-              <input type="file" id="image-upload-cloudinary" style="display:none" accept="image/*" onchange="admin.uploadToCloudinary(this, '#new-image-url', 'products')">
-              <button type="button" onclick="document.getElementById('image-upload-cloudinary').click()" class="admin-btn admin-btn-primary" title="Upload to Cloudinary (click to browse)"><i class="fas fa-upload mr-1"></i>Upload Image</button>
+          <div class="border-t border-gray-800 pt-4 space-y-5">
+
+            <!-- OG/SEO image — for social sharing & product card thumbnail -->
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 text-black text-[10px] font-bold">1</span>
+                <label class="text-xs font-semibold text-white">Main / OG Image <span class="text-gray-500 font-normal">(product card thumbnail &amp; social share)</span></label>
+              </div>
+              ${p.og_image_url ? `
+              <div class="flex items-start gap-3 p-2 bg-gray-900 rounded-lg border border-gray-700 mb-2">
+                <img src="${escapeHTML(p.og_image_url)}" class="w-20 h-20 object-cover rounded border border-gray-600 shrink-0" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2280%22><rect fill=%22%23222%22 width=%2280%22 height=%2280%22/><text fill=%22%23555%22 x=%2240%22 y=%2244%22 text-anchor=%22middle%22 font-size=%228%22>No img</text></svg>'">
+                <div class="min-w-0 flex-1">
+                  <p class="text-[10px] text-gray-400 mb-1 truncate">${escapeHTML(p.og_image_url)}</p>
+                  <span class="inline-block text-[10px] px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded font-medium">Current OG Image</span>
+                </div>
+              </div>` : `<div class="flex items-center gap-2 p-2 bg-gray-900/50 rounded-lg border border-dashed border-gray-700 mb-2 text-xs text-gray-500"><i class="fas fa-image"></i> No OG image set yet</div>`}
+              <div class="flex gap-2">
+                <input type="text" id="new-image-url" name="og_image_url" value="${escapeHTML(p.og_image_url || '')}" class="admin-input text-xs flex-1" placeholder="Paste Cloudinary URL or upload →">
+                <input type="file" id="image-upload-cloudinary" style="display:none" accept="image/*" onchange="admin.uploadToCloudinary(this, '#new-image-url', 'products')">
+                <button type="button" onclick="document.getElementById('image-upload-cloudinary').click()" class="admin-btn admin-btn-primary text-xs shrink-0"><i class="fas fa-upload mr-1"></i>Upload</button>
+              </div>
+              <p class="text-[10px] text-gray-600 mt-1">Used for SEO meta &amp; social sharing. Also shown on product cards when no gallery image is set.</p>
             </div>
-            <p class="text-[10px] text-gray-500 mt-1">Recommended: Use Cloudinary for automated sizing and optimization.</p>
+
+            <!-- Gallery images — product page slideshow -->
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] font-bold">2+</span>
+                <label class="text-xs font-semibold text-white">Gallery Images <span class="text-gray-500 font-normal">(product page slideshow — up to 8)</span></label>
+                ${id && p.images && p.images.length ? `<span class="ml-auto text-[10px] px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-full font-medium">${p.images.length} image${p.images.length !== 1 ? 's' : ''}</span>` : ''}
+              </div>
+
+              ${id ? `
+              <div id="gallery-grid-${id}" class="grid grid-cols-4 gap-2 mb-3 ${(!p.images || !p.images.length) ? 'hidden' : ''}">
+                ${(p.images || []).map((img, idx) => `
+                <div class="relative group gallery-img-tile" data-img-id="${img.id}">
+                  <div class="aspect-square overflow-hidden rounded-lg border border-gray-700 bg-gray-900">
+                    <img src="${escapeHTML(img.image_url)}" class="w-full h-full object-cover transition-transform group-hover:scale-105" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2280%22><rect fill=%22%23222%22 width=%2280%22 height=%2280%22/><text fill=%22%23555%22 x=%2240%22 y=%2244%22 text-anchor=%22middle%22 font-size=%228%22>Error</text></svg>'">
+                  </div>
+                  <span class="absolute top-1 left-1 w-5 h-5 bg-black/70 rounded text-[10px] text-white flex items-center justify-center font-bold">${idx + 1}</span>
+                  <button type="button" onclick="admin.deleteProductImage('${img.id}', this)"
+                    class="absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-500 rounded-full text-white text-xs flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove image"><i class="fas fa-times"></i></button>
+                </div>`).join('')}
+              </div>
+              ${!p.images || !p.images.length ? `<div class="flex items-center gap-2 p-3 bg-gray-900/50 rounded-lg border border-dashed border-gray-700 mb-3"><i class="fas fa-images text-gray-600"></i><span class="text-xs text-gray-500">No gallery images yet — add below</span></div>` : ''}
+              <div class="bg-gray-900 rounded-lg border border-gray-800 p-3">
+                <p class="text-[11px] text-gray-400 font-semibold mb-2"><i class="fas fa-plus-circle text-green-500 mr-1"></i>Add Image to Gallery</p>
+                <div class="flex gap-2">
+                  <input type="text" id="add-img-url-${id}" class="admin-input text-xs flex-1" placeholder="Paste Cloudinary URL here...">
+                  <input type="file" id="gallery-upload-${id}" style="display:none" accept="image/*" onchange="admin.uploadGalleryImage(this, '${id}')">
+                  <button type="button" onclick="document.getElementById('gallery-upload-${id}').click()" class="admin-btn admin-btn-primary text-xs shrink-0"><i class="fas fa-upload mr-1"></i>Upload</button>
+                  <button type="button"
+                    onclick="admin.addProductImage('${id}', document.getElementById('add-img-url-${id}').value, document.getElementById('gallery-grid-${id}'), ${(p.images || []).length})"
+                    class="admin-btn admin-btn-ghost text-xs shrink-0"><i class="fas fa-plus mr-1"></i>Add URL</button>
+                </div>
+                <p class="text-[10px] text-gray-600 mt-1.5">First image = shown by default on product page.</p>
+              </div>` : `<div class="flex items-center gap-2 p-3 bg-amber-500/10 rounded-lg border border-amber-500/30"><i class="fas fa-info-circle text-amber-400 text-sm"></i><span class="text-xs text-amber-300">Save product first, then reopen editor to add gallery images.</span></div>`}
+            </div>
           </div>
         </form>
       `;
@@ -1690,8 +1728,10 @@
       // CRITICAL: Remove columns that don't exist in 'products' table
       delete payload.base_price;  // pricing lives in product_variants, not products
       delete payload.id;          // never update the primary key
-      // image_url is allowed on update but must not be empty string
-      if (payload.image_url === '') delete payload.image_url;
+      // og_image_url is the correct column name (NOT image_url)
+      // If empty, omit it so existing value is preserved
+      if (payload.og_image_url === '') delete payload.og_image_url;
+      delete payload.image_url;   // stale key — never send this
 
       try {
         if (id) await api('PUT', `/products/${id}`, payload);
@@ -1880,6 +1920,65 @@
     editCategory(id) { admin.showCategoryForm(id); },
     editPage(slug) { toast('Page editor coming soon', 'info'); },
 
+    async deleteProductImage(imgId, btn) {
+      if (!confirm('Remove this image from gallery?')) return;
+      const orig = btn.innerHTML;
+      btn.innerHTML = '…';
+      try {
+        await api('DELETE', `/images/${imgId}`);
+        btn.closest('.gallery-img-tile')?.remove();
+        toast('Image removed', 'success');
+      } catch(e) { toast('Failed to remove image', 'error'); btn.innerHTML = orig; }
+    },
+
+    async addProductImage(productId, url, gridEl, currentCount) {
+      if (!url || !url.startsWith('http')) { toast('Enter a valid image URL', 'error'); return; }
+      try {
+        const res = await api('POST', `/products/${productId}/images`, { image_url: url, display_order: currentCount || 99 });
+        toast('Image added to gallery!', 'success');
+        const inp = document.getElementById(`add-img-url-${productId}`);
+        if (inp) inp.value = '';
+        if (gridEl) {
+          const imgId = res?.image?.id || res?.id || '';
+          const newIdx = gridEl.querySelectorAll('.gallery-img-tile').length + 1;
+          const tile = document.createElement('div');
+          tile.className = 'relative group gallery-img-tile';
+          tile.dataset.imgId = imgId;
+          tile.innerHTML = `
+            <div class="aspect-square overflow-hidden rounded-lg border border-gray-700 bg-gray-900">
+              <img src="${escapeHTML(url)}" class="w-full h-full object-cover transition-transform group-hover:scale-105">
+            </div>
+            <span class="absolute top-1 left-1 w-5 h-5 bg-black/70 rounded text-[10px] text-white flex items-center justify-center font-bold">${newIdx}</span>
+            <button type="button" onclick="admin.deleteProductImage('${imgId}', this)"
+              class="absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-500 rounded-full text-white text-xs flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Remove image"><i class="fas fa-times"></i></button>
+          `;
+          gridEl.classList.remove('hidden');
+          gridEl.appendChild(tile);
+        }
+      } catch(e) { toast('Failed to add image: ' + (e.response?.data?.error || e.message), 'error'); }
+    },
+
+    async uploadGalleryImage(fileInput, productId) {
+      const gridEl = document.getElementById(`gallery-grid-${productId}`);
+      const currentCount = gridEl ? gridEl.querySelectorAll('.gallery-img-tile').length : 0;
+      const tempId = `gallery-upload-url-${productId}`;
+      let tempInput = document.getElementById(tempId);
+      if (!tempInput) {
+        tempInput = document.createElement('input');
+        tempInput.type = 'hidden';
+        tempInput.id = tempId;
+        document.body.appendChild(tempInput);
+      }
+      await admin.uploadToCloudinary(fileInput, `#${tempId}`, 'products');
+      setTimeout(async () => {
+        const url = tempInput.value;
+        if (url && url.startsWith('http')) {
+          await admin.addProductImage(productId, url, gridEl, currentCount);
+        }
+      }, 200);
+    },
+
     filterAdTab(tab, btn) {
       $$('#ad-table tbody tr').forEach(tr => {
         tr.style.display = (tab === 'all' || tr.dataset.category === tab) ? '' : 'none';
@@ -1888,25 +1987,36 @@
       btn?.classList.add('active');
     },
     async showComboForm(id = null) {
-      let c = { name: '', description: '', badge_text: '', savings_percent: '', category: 'all', display_order: 10, is_featured: false };
+      // Live DB schema: combos(id, name, slug, description, image_url, items jsonb,
+      //   original_price int4, combo_price int4, is_active bool)
+      // NOT badge_text / savings_percent (old schema removed)
+      let c = { name: '', slug: '', description: '', image_url: '', original_price: 0, combo_price: 0, items: '[]', is_active: true };
       if (id) {
         const data = await api('GET', '/combos');
-        c = (data.combos || []).find(x => x.id === id) || c;
+        const found = (data.combos || []).find(x => x.id === id);
+        if (found) {
+          c = { ...found, items: JSON.stringify(found.items || [], null, 2) };
+        }
       }
       const content = `
         <form id="combo-form" class="space-y-4">
           <input type="hidden" name="id" value="${id || ''}">
-          <div><label class="block text-xs text-gray-400 mb-1">Combo Name</label><input type="text" name="name" value="${c.name}" class="admin-input" placeholder="Divine Trio Pack" required></div>
-          <div><label class="block text-xs text-gray-400 mb-1">Description</label><textarea name="description" class="admin-input" rows="2">${c.description || ''}</textarea></div>
           <div class="grid grid-cols-2 gap-4">
-            <div><label class="block text-xs text-gray-400 mb-1">Badge Text</label><input type="text" name="badge_text" value="${c.badge_text || ''}" class="admin-input" placeholder="Best Value"></div>
-            <div><label class="block text-xs text-gray-400 mb-1">Savings %</label><input type="number" name="savings_percent" value="${c.savings_percent || ''}" class="admin-input" placeholder="10"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Combo Name <span class="text-red-400">*</span></label><input type="text" name="name" value="${escapeHTML(c.name)}" class="admin-input" placeholder="Divine Trio Pack" required></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Slug (URL-safe)</label><input type="text" name="slug" value="${escapeHTML(c.slug||'')}" class="admin-input" placeholder="divine-trio-pack"></div>
           </div>
+          <div><label class="block text-xs text-gray-400 mb-1">Description</label><textarea name="description" class="admin-input" rows="2">${escapeHTML(c.description || '')}</textarea></div>
           <div class="grid grid-cols-2 gap-4">
-            <div><label class="block text-xs text-gray-400 mb-1">Category Filter</label><select name="category" class="admin-input"><option value="all" ${c.category==='all'?'selected':''}>All Categories</option><option value="divine" ${c.category==='divine'?'selected':''}>Divine</option><option value="automotive" ${c.category==='automotive'?'selected':''}>Automotive</option></select></div>
-            <div><label class="block text-xs text-gray-400 mb-1">Display Order</label><input type="number" name="display_order" value="${c.display_order || 10}" class="admin-input"></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Original Price (₹) <span class="text-red-400">*</span></label><input type="number" name="original_price" value="${c.original_price || 0}" class="admin-input" min="0" required></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Combo Price (₹) <span class="text-red-400">*</span></label><input type="number" name="combo_price" value="${c.combo_price || 0}" class="admin-input" min="0" required></div>
           </div>
-          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="is_featured" ${c.is_featured?'checked':''}> <span class="text-sm">Featured (shown prominently)</span></label>
+          <div><label class="block text-xs text-gray-400 mb-1">Image URL (optional)</label><input type="text" name="image_url" value="${escapeHTML(c.image_url||'')}" class="admin-input" placeholder="https://..."></div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Items JSON <span class="text-gray-600 font-normal">(array of {product_id, size, frame_type, qty})</span></label>
+            <textarea name="items" class="admin-input font-mono text-xs" rows="5" placeholder='[{"product_id":"uuid","size":"Medium","frame_type":"Standard","qty":1}]'>${escapeHTML(typeof c.items === 'string' ? c.items : JSON.stringify(c.items||[], null, 2))}</textarea>
+            <p class="text-[10px] text-gray-600 mt-1">Each item: product_id (UUID), size (Small/Medium/Large/XL), frame_type (Standard/Premium), qty (int)</p>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="is_active" ${c.is_active?'checked':''}> <span class="text-sm">Active (visible on site)</span></label>
         </form>
       `;
       admin.modal(id ? 'Edit Combo' : 'Create Combo', content, `<button onclick="admin.saveCombo()" class="admin-btn admin-btn-primary">Save Combo</button>`);
@@ -1914,15 +2024,25 @@
     async saveCombo() {
       const fd = new FormData($('#combo-form'));
       const id = fd.get('id');
-      const payload = Object.fromEntries(fd.entries());
-      payload.is_featured = fd.has('is_featured');
+      const payload: any = {
+        name: fd.get('name'),
+        slug: fd.get('slug') || fd.get('name')?.toString().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
+        description: fd.get('description') || null,
+        image_url: fd.get('image_url') || null,
+        original_price: parseInt(fd.get('original_price') as string) || 0,
+        combo_price: parseInt(fd.get('combo_price') as string) || 0,
+        is_active: fd.has('is_active'),
+      };
+      try {
+        payload.items = JSON.parse(fd.get('items') as string || '[]');
+      } catch(e) { toast('Items JSON is invalid — check your JSON format', 'error'); return; }
       try {
         if (id) await api('PUT', `/combos/${id}`, payload);
         else await api('POST', '/combos', payload);
         toast('Combo saved!', 'success');
         $('.modal-overlay')?.remove();
         loadSection('combos');
-      } catch (e) { toast('Error saving combo', 'error'); }
+      } catch (e) { toast('Error saving combo: ' + (e.response?.data?.error || e.message), 'error'); }
     },
     async toggleCombo(id, active) {
       await api('PUT', `/combos/${id}`, { is_active: active });
@@ -1943,7 +2063,7 @@
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div><label class="block text-xs text-gray-400 mb-1">Category</label><select name="category" class="admin-input"><option value="all">All / General</option><option value="divine">Divine</option><option value="automotive">Automotive</option></select></div>
-            <div><label class="block text-xs text-gray-400 mb-1">Spend (₹)</label><input type="number" name="spend" class="admin-input" placeholder="500" required></div>
+            <div><label class="block text-xs text-gray-400 mb-1">Ad Spend (₹)</label><input type="number" name="ad_spend" class="admin-input" placeholder="500" required></div>
           </div>
           <div class="grid grid-cols-3 gap-4">
             <div><label class="block text-xs text-gray-400 mb-1">Impressions</label><input type="number" name="impressions" class="admin-input" placeholder="10000"></div>
@@ -1982,7 +2102,7 @@
       if (!json) return;
       try {
         const reviews = JSON.parse(json);
-        await api('POST', '/reviews/bulk-import', { reviews });
+        await api('POST', '/reviews/import', { reviews });
         toast(`Imported ${reviews.length} reviews!`, 'success');
         loadSection('reviews');
       } catch (e) { toast('Invalid JSON or import failed', 'error'); }
