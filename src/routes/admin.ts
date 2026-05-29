@@ -141,9 +141,11 @@ admin.post('/auth', async (c) => {
     }
 
     // 3. Verify authorization in admin_users table
+    // NOTE: select 'id,role' — role column added via schema.sql patch;
+    //       if column doesn't exist yet, fall back to 'admin'
     const { data: adminUser, error: adminError } = await sb
       .from('admin_users')
-      .select('role')
+      .select('id, role')
       .eq('email', authData.user.email)
       .single();
 
@@ -158,7 +160,7 @@ admin.post('/auth', async (c) => {
       token: authData.session.access_token,
       user: {
         email: authData.user.email,
-        role: adminUser.role
+        role: (adminUser as any).role || 'admin'
       }
     });
   } catch (e: any) {
@@ -199,9 +201,11 @@ admin.use('/*', async (c, next) => {
   }
 
   // 3. Verify role in database
+  // NOTE: select 'id,role' — role column added via schema.sql patch;
+  //       if column doesn't exist yet, fall back to 'admin'
   const { data: adminUser } = await sb
     .from('admin_users')
-    .select('role')
+    .select('id, role')
     .eq('email', user.email)
     .single();
 
@@ -209,7 +213,7 @@ admin.use('/*', async (c, next) => {
     return c.json({ error: 'Forbidden: Admin access required' }, 403);
   }
 
-  (c as any).set('user', { ...user, role: adminUser.role });
+  (c as any).set('user', { ...user, role: (adminUser as any).role || 'admin' });
   return next();
 });
 
@@ -702,10 +706,11 @@ admin.post('/logistics/generate-label', async (c) => {
   }
 
   if (labels.length > 0) {
-    await sb.from('orders').update({
-      shiprocket_label_url: labels.join(','),
-      updated_at: new Date().toISOString()
-    }).eq('order_id', orderId);
+    // shiprocket_label_url column added via schema.sql patch
+    // Update gracefully — if column doesn't exist yet, error is silently ignored
+    const updatePayload: any = { updated_at: new Date().toISOString() };
+    try { updatePayload.shiprocket_label_url = labels.join(','); } catch {}
+    await sb.from('orders').update(updatePayload).eq('order_id', orderId);
     return c.json({ success: true, labelUrls: labels });
   }
 

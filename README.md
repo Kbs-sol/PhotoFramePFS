@@ -1,462 +1,460 @@
-# ChitraFrame
+# PhotoFrameIn — E-Commerce Platform
 
-> Premium photo frames with **real glass & solid wood** — not cheap acrylic.  
-> Dark-luxury D2C e-commerce · chitraframe.in + bestphotoframe.in · India.
+**Premium framed wall art e-commerce** — Hono.js on Cloudflare Pages/Workers + Supabase PostgreSQL.
 
-**Stack:** Hono.js + Cloudflare Pages/Workers · Supabase (PostgreSQL) · Cloudinary · Razorpay · Shiprocket · Brevo/Resend
-
----
-
-## Live URLs
-| Environment | URL |
-|-------------|-----|
-| Production | https://photoframepfs.pages.dev _(Cloudflare Pages — project: photoframepfs)_ |
-| Primary Domain | https://chitraframe.in |
-| Secondary Domain | https://bestphotoframe.in |
-| Admin Panel | `/admin/dashboard` |
-| Sitemap | `/sitemap.xml` |
-
-## Brand
-
-| Item | Value |
-|------|-------|
-| Brand Name | ChitraFrame |
-| Primary Domain | chitraframe.in |
-| Secondary Domain | bestphotoframe.in |
-| Contact Email | support@chitraframe.in |
-| Brand Gold | `#B8860B` (dark goldenrod) |
-| Brand Green | `#16A34A` (emerald) |
-| Favicon | `/favicon.svg` — Devanagari `च` in dark frame |
+> **Live Supabase Project**: `lxcustacsvamlrtiqkvi.supabase.co`  
+> **Cloudflare Project**: `photoframein` (wrangler.jsonc)  
+> **GitHub**: `https://github.com/Kbs-sol/PhotoFramePFS`
 
 ---
 
-## Project Structure
+## Table of Contents
+1. [Project Overview](#project-overview)
+2. [Architecture](#architecture)
+3. [Directory Structure](#directory-structure)
+4. [API Reference](#api-reference)
+5. [Database Schema](#database-schema)
+6. [Environment Variables](#environment-variables)
+7. [Deployment](#deployment)
+8. [Admin Panel](#admin-panel)
+9. [Engineering Notes](#engineering-notes)
+10. [Completed Features](#completed-features)
+11. [Pending / Next Steps](#pending--next-steps)
+
+---
+
+## Project Overview
+
+PhotoFrameIn (also branded ChitraFrame) sells premium wall art prints in custom frames delivered to customers across India.
+
+### Key Numbers
+- **11 products** across 6 categories (Automotive, Spiritual, Sports, Motivational, Wildlife, Anime/JDM)
+- **13 variants per product** (4 sizes × 3 frame types + 1 custom frame variant)
+- **Shiprocket** integration for logistics (AWB, label, pickup scheduling)
+- **Razorpay** for prepaid payments + COD support
+- **Brevo + Resend** dual-stack transactional email
+- **Cloudinary** CDN for product images (`cloud: dax4yqumu`)
+
+---
+
+## Architecture
+
+```
+Browser (Vanilla JS SPA)
+    │
+    ▼
+Cloudflare Pages (Edge CDN)
+    │
+    ├── static/           ← public/ dir served via hono/cloudflare-workers serveStatic
+    │   ├── app.js        ← 3,537-line IIFE SPA (no framework)
+    │   ├── admin.js      ← Admin panel SPA
+    │   └── styles.css
+    │
+    └── _worker.js        ← Hono app (compiled via vite + @hono/vite-cloudflare-pages)
+        │
+        ├── /api/products/*     → src/routes/products.ts
+        ├── /api/orders/*       → src/routes/orders.ts
+        ├── /api/checkout/*     → src/routes/checkout.ts
+        ├── /api/admin/*        → src/routes/admin.ts
+        ├── /api/auth/*         → src/routes/auth.ts
+        ├── /api/analytics/*    → src/routes/analytics.ts
+        ├── /api/upload/*       → src/routes/upload.ts
+        └── /api/*              → src/routes/marketing.ts
+            │
+            ▼
+        Supabase PostgreSQL (lxcustacsvamlrtiqkvi.supabase.co)
+        31 tables — see schema.sql
+```
+
+### Edge Runtime Constraints
+- **No filesystem** at runtime — all assets must be in `public/` at build time
+- **10ms CPU limit** (Cloudflare free tier) — all heavy work offloaded to Supabase
+- **No persistent state** — module-level vars (token cache, counters) exist per-isolate
+- **`waitUntil()`** — analytics writes are non-blocking (never delay responses)
+
+---
+
+## Directory Structure
 
 ```
 webapp/
 ├── src/
-│   ├── index.tsx              # Hono app — routes, CSP, SEO shell
+│   ├── index.tsx              # App entry — mounts all routes, CSP headers
+│   ├── renderer.tsx           # JSX renderer for Hono
 │   ├── routes/
-│   │   ├── admin.ts           # Full admin CRUD API
-│   │   ├── analytics.ts       # Funnel event tracking
-│   │   ├── auth.ts            # Magic link + Google OAuth
-│   │   ├── checkout.ts        # Pincode, shipping, order creation
-│   │   ├── orders.ts          # Order tracking, damage claims
-│   │   ├── products.ts        # Product listing, reviews
-│   │   └── upload.ts          # Cloudinary signed upload
+│   │   ├── products.ts        # GET /api/products, /api/products/:slug, /api/categories
+│   │   ├── orders.ts          # POST /api/orders, GET /api/orders/track
+│   │   ├── checkout.ts        # POST /api/checkout/*, payment verification
+│   │   ├── admin.ts           # /api/admin/* (CRUD for all entities)
+│   │   ├── auth.ts            # /api/auth/* (magic link, Google OAuth)
+│   │   ├── analytics.ts       # /api/analytics/* (funnel events, view tracking)
+│   │   ├── upload.ts          # /api/upload (Cloudinary signed upload)
+│   │   └── marketing.ts       # /api/promotions, /api/sitemap, /api/llms.txt
 │   └── lib/
-│       ├── supabase.ts        # DB client + config helpers
-│       ├── email.ts           # Brevo → Resend fallback
-│       ├── email-templates.ts # Transactional email HTML
-│       ├── alerts.ts          # Owner alert emails
-│       └── shipping.ts        # Shiprocket helpers
-├── public/static/
-│   ├── app.js                 # Customer-facing SPA (~2100 lines)
-│   ├── admin.js               # Admin panel SPA (~1700 lines)
-│   ├── styles.css             # Customer styles
-│   └── admin.css              # Admin styles
-├── supabase/
-│   └── master.sql             # Single DB script — run once in Supabase SQL Editor
-├── .env.example               # All required env var keys (copy → .dev.vars)
-├── wrangler.jsonc             # Cloudflare config + full secrets reference
-├── SYSTEM_LITERACY.md         # Full developer/AI guide
-└── ecosystem.config.cjs       # PM2 config for local dev
+│       ├── supabase.ts        # Client caching (WeakMap), generateOrderId, logError
+│       ├── coupons.ts         # Shared validateCoupon() + incrementCouponUsage()
+│       ├── email.ts           # Brevo + Resend dual-stack, module-level counters
+│       ├── email-templates.ts # Order confirmation, shipping, review request HTML
+│       ├── shipping.ts        # Shiprocket API (token cached 23h)
+│       └── alerts.ts          # Resource usage alerting
+│
+├── public/
+│   └── static/
+│       ├── app.js             # Customer-facing SPA (vanilla JS IIFE)
+│       ├── admin.js           # Admin panel SPA
+│       ├── admin.css          # Admin panel styles
+│       └── styles.css         # Customer storefront styles
+│
+├── migrations/
+│   ├── 0002_custom_frame_schema.sql   # Legacy (superseded by schema.sql)
+│   └── 0003_security_and_perf.sql     # Legacy (superseded by schema.sql)
+│
+├── schema.sql                 # ← MASTER SCHEMA (single source of truth, 800+ lines)
+│                              #   Use this for fresh setups and reference
+│
+├── wrangler.jsonc             # Cloudflare Pages config
+├── vite.config.ts             # Vite + @hono/vite-cloudflare-pages
+├── tsconfig.json              # TypeScript config (JSX: react-jsx + hono/jsx)
+├── ecosystem.config.cjs       # PM2 dev server config
+├── package.json               # Dependencies
+└── .dev.vars                  # Local secrets (gitignored)
 ```
 
 ---
 
-## Quick Start
+## API Reference
 
-### 1. Install
-```bash
-npm install
-```
+### Customer-Facing Routes
 
-### 2. Configure secrets
-```bash
-cp .env.example .dev.vars
-# Fill in: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY,
-#          RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET,
-#          ADMIN_TOKEN, ADMIN_PASSWORD,
-#          CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/products` | List all active products with images + variants |
+| GET | `/api/products/:slug` | Get single product by slug |
+| GET | `/api/categories` | List all active categories |
+| GET | `/api/products/category/:slug` | Products in a category |
+| GET | `/api/products/search?q=` | Full-text product search |
+| GET | `/api/products/related/:slug` | Related/recommended products |
+| GET | `/api/config/public` | Public site config `{ config: { key: value } }` |
+| GET | `/api/orders/track?order_id=` | Order tracking by order ID or phone |
+| POST | `/api/orders` | Create new order (COD or post-payment) |
+| POST | `/api/checkout/create-order` | Create Razorpay order |
+| POST | `/api/checkout/verify-payment` | Verify Razorpay signature |
+| POST | `/api/checkout/apply-coupon` | Validate coupon code |
+| GET | `/api/auth/magic-link?email=` | Send magic link email |
+| GET | `/api/auth/verify?token=&email=` | Verify magic link token |
+| GET | `/api/auth/google` | Google OAuth redirect |
+| POST | `/api/analytics/event` | Log funnel event |
+| GET | `/api/sitemap.xml` | XML sitemap |
+| GET | `/llms.txt` | AI discovery file |
 
-### 3. Set up database
-```
-Open Supabase Dashboard → SQL Editor → paste supabase/master.sql → Run
-```
+### Admin Routes (require `Authorization: Bearer <token>`)
 
-### 4. Run locally
-```bash
-npm run build
-pm2 start ecosystem.config.cjs
-# → http://localhost:3000
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/admin/auth` | Login → returns token |
+| GET | `/api/admin/dashboard` | Revenue, orders, funnel stats |
+| GET/POST | `/api/admin/products` | List / create products |
+| PUT/DELETE | `/api/admin/products/:id` | Update / delete product |
+| POST | `/api/admin/products/:id/variants` | Add variant |
+| PUT | `/api/admin/variants/:id` | Update variant |
+| POST/DELETE | `/api/admin/products/:id/images` | Add / remove product image |
+| GET/POST/PUT/DELETE | `/api/admin/categories` | Category CRUD |
+| GET | `/api/admin/orders?status=&from=&to=` | List orders with filters |
+| GET | `/api/admin/orders/:orderId` | Order detail with emails + claims |
+| PUT | `/api/admin/orders/:orderId/status` | Update order status |
+| POST | `/api/admin/orders/:orderId/confirm-cod` | Confirm COD order |
+| GET | `/api/admin/customers` | Customer list with search |
+| GET/POST/PUT | `/api/admin/coupons` | Coupon management |
+| GET/PUT | `/api/admin/reviews` | Review moderation |
+| GET/POST/PUT | `/api/admin/blog` | Blog post management |
+| GET/PUT | `/api/admin/pages/:slug` | Static page content |
+| GET/POST/PUT/DELETE | `/api/admin/faq` | FAQ management |
+| GET/PUT | `/api/admin/settings` | System config key-value store |
+| GET/POST/PUT | `/api/admin/combos` | Bundle/combo management |
+| GET | `/api/admin/leads` | Lead list |
+| GET | `/api/admin/analytics/products` | Product performance metrics |
+| GET | `/api/admin/analytics/ads` | UTM attribution report |
+| GET | `/api/admin/analytics/rto` | Pincode RTO risk |
+| POST | `/api/admin/logistics/create-shiprocket-order` | Push order to Shiprocket |
+| POST | `/api/admin/logistics/generate-awb` | Generate AWB number |
+| POST | `/api/admin/logistics/schedule-pickup` | Schedule pickup |
+| POST | `/api/admin/logistics/generate-label` | Generate shipping label PDF |
+| POST | `/api/admin/logistics/sync-pending` | Batch sync unsynced orders |
+| POST | `/api/admin/claims/:id/approve` | Approve damage claim → replacement order |
+| POST | `/api/admin/claims/:id/decline` | Decline damage claim |
+| GET | `/api/admin/errors` | Application error log |
+| POST | `/api/admin/backup` | Export all tables as JSON |
+| GET | `/api/admin/usage` | Free-tier resource usage monitor |
 
 ---
 
-## Deploy to Cloudflare Pages
+## Database Schema
 
-```bash
-# Set all secrets first (see wrangler.jsonc for full list)
-wrangler pages secret put SUPABASE_URL --project-name photoframein
-# ... repeat for all secrets
+**31 tables** in Supabase PostgreSQL. See `schema.sql` for the complete DDL.
 
-# Deploy
-npm run deploy
-```
+### Core Tables
 
----
+| Table | Purpose |
+|-------|---------|
+| `products` | Product catalogue (25 cols, SEO, analytics, customization) |
+| `product_variants` | Size × Frame combos with pricing + Shiprocket dimensions |
+| `product_images` | Cloudinary URLs per product (4 images per product, ordered) |
+| `categories` | 6 categories with hover colors and intent-collection flag |
+| `orders` | Full order record including Razorpay, Shiprocket, UTM |
+| `customers` | Customer profiles (linked to Supabase Auth or guest) |
+| `coupons` | Flat/% coupons with usage tracking and expiry |
+| `system_config` | Key-value runtime settings (67 keys as of last seed) |
 
-## Key Features
+### Analytics Tables
 
-| Feature | Implementation |
-|---------|---------------|
-| 🛒 Cart & Checkout | Razorpay prepaid + COD (WhatsApp confirmation) |
-| 📦 Shipping | Shiprocket integration — AWB, label, pickup |
-| 🖼️ Custom Frames | Cloudinary direct upload from browser |
-| 📊 Admin Panel | Full CRUD — products, orders, combos, analytics |
-| 📈 Ad Tracking | `ad_performance` table — spend, CAC, ROAS by category |
-| 🔒 Security | JWT admin auth, RLS on all tables, XSS-safe escaping |
-| 📧 Email | Brevo (300/day) → Resend fallback, order + lead flows |
-| 📱 SEO | Dynamic meta, sitemap.xml, JSON-LD schemas |
+| Table | Purpose |
+|-------|---------|
+| `sales_funnel_events` | view → cart → checkout → purchase funnel |
+| `analytics_events` | General event log |
+| `ad_performance` | Ad spend + revenue attribution |
+| `view_stats` | Lightweight page view counter |
+| `pincode_risk` | RTO risk by pincode prefix |
+
+### Security Tables
+
+| Table | Purpose |
+|-------|---------|
+| `login_attempts` | Persistent admin brute-force rate limiting |
+| `error_log` | Application errors from `logError()` |
+| `email_log` | Email delivery audit trail |
+| `email_failures` | Failed emails queued for retry |
+| `admin_users` | Admin email → role mapping |
 
 ---
 
 ## Environment Variables
 
-See `.env.example` for the full list with descriptions.  
-See `wrangler.jsonc` comments for the Cloudflare secrets reference.
+Store in `.dev.vars` locally, Cloudflare Dashboard → Workers → Settings → Variables in production.
 
-> **Never commit `.dev.vars`** — it is gitignored.
+```ini
+# Required — Supabase
+SUPABASE_URL=https://lxcustacsvamlrtiqkvi.supabase.co
+SUPABASE_SERVICE_KEY=eyJ...          # Service role JWT (full DB access)
+SUPABASE_ANON_KEY=eyJ...             # Anon key (for auth flows)
+
+# Required — Admin
+ADMIN_PASSWORD=your-secure-password  # Owner password for static login
+ADMIN_TOKEN=your-secure-token        # Bearer token for API calls
+OWNER_EMAIL=theframehouse.order@gmail.com
+
+# Required — Payments
+RAZORPAY_KEY_ID=rzp_live_...
+RAZORPAY_KEY_SECRET=...
+
+# Required — Shipping
+SHIPROCKET_EMAIL=your@email.com
+SHIPROCKET_PASSWORD=your-password
+PICKUP_PINCODE=501504
+
+# Email (at least one required)
+BREVO_API_KEY=xkeysib-...            # Up to 300 emails/day free
+RESEND_API_KEY=re_...                # Fallback: 100 emails/day free
+
+# Optional
+FROM_EMAIL=noreply@photoframein.com
+FROM_NAME=PhotoFrameIn
+SITE_URL=https://photoframein.com
+MAGIC_LINK_SECRET=your-random-secret  # HMAC-SHA256 key for magic links
+ALERT_EMAIL=alerts@photoframein.com
+COD_ENABLED=true
+FREE_SHIPPING_THRESHOLD=899
+CLOUDINARY_CLOUD=dax4yqumu
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
+```
 
 ---
 
-## Database
+## Deployment
 
-`supabase/master.sql` is the **single source of truth**.  
-It is idempotent — safe to re-run. Contains:
-- 29 tables (products, orders, reviews, combos, leads, ad_performance, …)
-- All indexes, RLS policies, RPC functions
-- Seed data (categories, combos, FAQ, default pages)
+### Local Development
+```bash
+# Install dependencies (already done in pre-initialized project)
+npm install
+
+# Start dev server
+npm run build
+pm2 start ecosystem.config.cjs
+
+# Test
+curl http://localhost:3000/api/products
+```
+
+### Deploy to Cloudflare Pages
+```bash
+# Authenticate
+npx wrangler login
+
+# Build
+npm run build
+
+# Deploy
+npx wrangler pages deploy dist --project-name photoframein
+```
+
+### Database Setup (Fresh Instance)
+1. Open Supabase SQL Editor for project `lxcustacsvamlrtiqkvi`
+2. Paste and run `schema.sql` (entire file — safe to re-run, all IF NOT EXISTS)
+3. Seed product data via admin panel or direct Supabase table editor
 
 ---
 
 ## Admin Panel
 
-Access: `/admin/dashboard`  
-Login: `ADMIN_PASSWORD` env var (set as Cloudflare secret)
+Access at `/admin.html`. Login with owner email + password.
 
-Sections: Dashboard · Products · Categories · Orders · Media · Logistics · Customers · Leads · Analytics · Coupons · Reviews · Content · Combos & Bundles · Ad Performance · Settings
-
-**Logo Editor (Settings → Site Logo Editor):**  
-Upload logo image via Cloudinary or set text/emoji logo. Supports image URL, upload, or emoji+text fallback.
-
----
-
-## API Service Setup & Connections
-
-### 1. Supabase (PostgreSQL Database)
-- **Signup:** https://supabase.com → New project
-- **Get credentials:** Project Settings → API → `URL` and `service_role` key
-- **Cloudflare Secrets to set:**
-  ```
-  SUPABASE_URL = https://xxxx.supabase.co
-  SUPABASE_SERVICE_KEY = eyJ...
-  ```
-- **Run schema:** Copy `supabase/master.sql` → Supabase SQL Editor → Run
-
-### 2. Cloudinary (Image Storage & CDN)
-- **Signup:** https://cloudinary.com → Free plan (25GB)
-- **Get credentials:** Dashboard → Cloud Name, API Key, API Secret
-- **Create unsigned upload preset:** Settings → Upload → Add upload preset → Signing mode: Unsigned → name it `pfi_unsigned`
-- **Cloudflare Secrets to set:**
-  ```
-  CLOUDINARY_CLOUD_NAME = your-cloud-name
-  CLOUDINARY_API_KEY = 123456789
-  CLOUDINARY_API_SECRET = xxxx
-  CLOUDINARY_UPLOAD_PRESET = pfi_unsigned
-  ```
-- **Admin Settings fields:** `cloudinary_cloud_name`, `cloudinary_upload_preset` (stored in Supabase config table)
-
-### 3. Razorpay (Payment Gateway)
-- **Signup:** https://razorpay.com → Create account → Activate
-- **Get credentials:** Settings → API Keys → Generate Key ID & Secret
-- **Cloudflare Secrets to set:**
-  ```
-  RAZORPAY_KEY_ID = rzp_live_xxxx
-  RAZORPAY_KEY_SECRET = xxxx
-  ```
-- **Test mode:** Use `rzp_test_xxxx` keys for development
-- **Webhook:** Dashboard → Webhooks → Add URL `https://your-domain.pages.dev/api/payments/webhook`
-
-### 4. Google OAuth (Login with Google)
-- **Console:** https://console.cloud.google.com → New Project
-- **Enable:** APIs & Services → OAuth consent screen → External → Fill details
-- **Create credentials:** APIs & Services → Credentials → OAuth 2.0 Client ID → Web application
-- **Authorized redirect URIs:** `https://your-domain.pages.dev/api/auth/google/callback`
-- **Cloudflare Secrets to set:**
-  ```
-  GOOGLE_CLIENT_ID = xxxx.apps.googleusercontent.com
-  GOOGLE_CLIENT_SECRET = xxxx
-  ```
-
-### 5. Shiprocket (Logistics & Shipping)
-- **Signup:** https://app.shiprocket.in → Create account
-- **Get credentials:** Settings → API → Generate Token
-- **Cloudflare Secrets to set:**
-  ```
-  SHIPROCKET_EMAIL = your@email.com
-  SHIPROCKET_PASSWORD = your-password
-  ```
-- **Pickup location:** Admin → Settings → `pickup_pincode`
-
-### 6. OpenRouter (AI / SEO Content Generation)
-- **Signup:** https://openrouter.ai → Create account
-- **Get API key:** Keys → Create key
-- **Cloudflare Secret to set:**
-  ```
-  OPENROUTER_API_KEY = sk-or-xxxx
-  ```
-- **Model config:** Admin → Settings → `openrouter_model` (e.g. `openai/gpt-4o-mini`)
-
-### 7. Microsoft Clarity (Heatmaps & Session Recordings)
-- **Signup:** https://clarity.microsoft.com → New project → Web
-- **Get ID:** Project Settings → Copy the Clarity Project ID
-- **Cloudflare Secret to set:**
-  ```
-  MICROSOFT_CLARITY_ID = xxxxxxxxxx
-  ```
-
-### 8. Google Analytics 4 (GA4)
-- **Setup:** https://analytics.google.com → New Property → Web Stream
-- **Get Measurement ID:** Admin → Data Streams → your stream → Measurement ID (G-XXXXXXXX)
-- **Cloudflare Secret to set:**
-  ```
-  GA4_MEASUREMENT_ID = G-XXXXXXXXXX
-  ```
-
-### 9. Brevo / Resend (Transactional Email)
-- **Brevo signup:** https://app.brevo.com → SMTP & API → API Keys
-- **OR Resend:** https://resend.com → API Keys → Create
-- **Cloudflare Secrets to set:**
-  ```
-  BREVO_API_KEY = xkeysib-xxxx    (if using Brevo)
-  RESEND_API_KEY = re_xxxx        (if using Resend)
-  ```
-
-### Setting all Cloudflare Secrets at once
-```bash
-# Run these from /home/user/webapp after wrangler login
-npx wrangler pages secret put SUPABASE_URL --project-name photoframepfs
-npx wrangler pages secret put SUPABASE_SERVICE_KEY --project-name photoframepfs
-npx wrangler pages secret put CLOUDINARY_CLOUD_NAME --project-name photoframepfs
-npx wrangler pages secret put CLOUDINARY_API_KEY --project-name photoframepfs
-npx wrangler pages secret put CLOUDINARY_API_SECRET --project-name photoframepfs
-npx wrangler pages secret put RAZORPAY_KEY_ID --project-name photoframepfs
-npx wrangler pages secret put RAZORPAY_KEY_SECRET --project-name photoframepfs
-npx wrangler pages secret put GOOGLE_CLIENT_ID --project-name photoframepfs
-npx wrangler pages secret put GOOGLE_CLIENT_SECRET --project-name photoframepfs
-npx wrangler pages secret put SHIPROCKET_EMAIL --project-name photoframepfs
-npx wrangler pages secret put SHIPROCKET_PASSWORD --project-name photoframepfs
-npx wrangler pages secret put OPENROUTER_API_KEY --project-name photoframepfs
-npx wrangler pages secret put MICROSOFT_CLARITY_ID --project-name photoframepfs
-npx wrangler pages secret put GA4_MEASUREMENT_ID --project-name photoframepfs
-npx wrangler pages secret put ADMIN_PASSWORD --project-name photoframepfs
-npx wrangler pages secret put JWT_SECRET --project-name photoframepfs
-```
-
-**After setting secrets:** Redeploy `npm run deploy` — all 5 live-site 404 errors will resolve.
+**Features**:
+- Dashboard: Revenue, orders, email usage, funnel stats
+- Products: Full CRUD, variant management, image management
+- Orders: Status updates, Shiprocket sync, COD confirmation
+- Logistics: Create SR orders, generate AWB, schedule pickup, generate labels
+- Coupons: Create/edit flat or percentage coupons
+- Reviews: Moderation (approve/hide)
+- Blog: Post management
+- FAQ: CRUD
+- Settings: Edit any `system_config` key live
+- Analytics: Product performance, UTM attribution, RTO risk
+- Damage Claims: Approve (auto-creates replacement order) or decline
+- Customers: View + block management
 
 ---
 
-## Razorpay Client-Side SDK Integration (Step-by-Step)
+## Engineering Notes
 
-The backend API (`/api/checkout/create-razorpay-order` and `/api/checkout/verify-payment`) is already live. The client-side flow in `public/static/app.js` works as follows:
+### Phase 3 Audit — 17 Critical Issues Resolved
 
-### Flow
-1. Customer fills checkout form → selects **Prepaid** → clicks **PAY NOW**
-2. `POST /api/orders/create` → creates order with `status: pending_payment` → returns `orderId`
-3. `POST /api/checkout/create-razorpay-order` → returns `{ orderId (rzp), amount, currency, key }`
-4. Razorpay JS SDK (`checkout.razorpay.com/v1/checkout.js`) is loaded dynamically
-5. `new Razorpay({ ... }).open()` shows the payment modal
-6. On success handler → `POST /api/checkout/verify-payment` with HMAC signature
-7. Server verifies signature → marks order `paid` → sends manager email → syncs Shiprocket
-8. Client clears cart → shows success page
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | `/api/products/:slug` → 503 | Changed to 404 with clean message |
+| 2 | `/api/orders/track` → 500 crash | Added `noSupabase` guard → 503 |
+| 3 | `calculateShipping` ignores threshold | Returns 0 for prepaid ≥ 899 |
+| 4 | Shiprocket +300-500ms per request | Module-level 23h token cache |
+| 5 | N+1 variant queries in checkout | Single `.in()` batch query |
+| 6 | Coupon logic duplicated | Shared `lib/coupons.ts` utility |
+| 7 | Analytics writes block PDP | Moved to `waitUntil()` |
+| 8 | Brevo DB query per email | Module-level in-memory counter |
+| 9 | IST calculation bug | UTC total minutes + 330 mod 1440 |
+| 10 | `error_log` wrong column names | Fixed to `error_message`/`stack_trace` |
+| 11 | `free_shipping_threshold: '799'` | Fixed to `'899'` in all 3 files |
+| 12 | CSP `unsafe-inline` on scripts | Removed; added `upgrade-insecure-requests` |
+| 13 | Insecure magic-link token | HMAC-SHA256 with server secret |
+| 14 | Admin rate limit resets on cold start | Dual-layer: in-memory + DB-backed |
+| 15 | `getSupabase()` new client per call | WeakMap cache per `env` object |
+| 16 | `generateOrderId` race condition | Atomic upsert via RPC |
+| 17 | Analytics DB tables missing | Created `0003_security_and_perf.sql` |
 
-### Test Keys (Development)
-- Use `rzp_test_XXXXXXXX` key in `.dev.vars` as `RAZORPAY_KEY_ID`
-- Test UPI: `success@razorpay` | Test card: `4111 1111 1111 1111` / any future date / any CVV
+### Phase 2 Audit — Live Supabase Integration
 
-### Go Live
-1. Complete Razorpay KYC at https://dashboard.razorpay.com → Settings → Business Profile
-2. Replace test keys with live keys (`rzp_live_xxx`) in Cloudflare secrets
-3. Set webhook URL: Razorpay Dashboard → Webhooks → `https://photoframepfs.pages.dev/api/payments/webhook`
-4. Enable events: `payment.captured`, `payment.failed`, `refund.created`
+| Finding | Resolution |
+|---------|------------|
+| `/api/admin/config` 404 | Frontend uses `/settings` — no issue |
+| Product images returning `[]` | Orphaned image rows deleted; 44 correct rows seeded |
+| `admin_users` missing `role` col | Added in `schema.sql` patch; code defaults to `'admin'` |
+| `orders` missing `shiprocket_label_url` | Added in `schema.sql` patch; code handles missing col |
+| Coupon field names | `max_uses` → `total_limit`, `min_order` → `min_subtotal` |
+| `system_config` table empty | Seeded 67 config keys via admin settings endpoint |
 
----
+### Key Library Decisions
 
-## Palette (v3.0 — Warm Gold & Emerald)
-
-| Token | Hex | Usage |
-|-------|-----|-------|
-| `--gold` | `#B8860B` | Primary brand gold — headers, prices, CTAs |
-| `--gold-light` | `#D4A017` | Hover/highlight state |
-| `--gold-dim` | `#8B6914` | Dimmed/disabled gold |
-| `--green` | `#16A34A` | Emerald — success, free shipping, stock |
-| `--green-light` | `#22C55E` | Hover/success state |
-| `--red` | `#CC0000` | CTA buttons, warnings |
-| `--saffron` | `#FF7A1A` | Secondary accent (divine/automotive categories) |
-
-### Glassmorphism Utility Classes
-- `.glass` — dark frosted glass background + blur
-- `.glass-gold` — gold-tinted glass panel
-- `.glass-emerald` — emerald-tinted glass panel
-- `.card-lift` — hover lift + gold glow shadow
-- `.shimmer-gold` — animated glint effect on gold elements
-- `.pulse-ring` — green pulse ring (live/stock indicator)
-- `.btn-gold-glow` — gradient gold CTA with box-shadow glow
-- `.promise-card` — glass card for "Glass Promise" conversion section
-- `.animate-slide-up`, `.animate-pop`, `.gold-flash` — micro-animations
-
-## Editable Pricing Table
-
-Prices are stored in Supabase `site_config` table and editable from **Admin → Pricing**.
-
-| Config Key | Description | Default |
-|------------|-------------|---------|
-| `price_small` | Small frame (8×12") | ₹499 |
-| `price_medium` | Medium frame (12×18") | ₹799 |
-| `price_large` | Large frame (18×24") | ₹1,149 |
-| `price_xl` | XL frame (24×36") | ₹1,749 |
-| `price_premium_addon` | Premium white mount add-on | ₹250 |
-| `price_poster` | A3 poster print add-on | ₹199 |
-| **`poster_addon_price`** | **Poster print upsell price (separate quick-save field in Admin → Pricing)** | **₹199** |
-| `price_acrylic_addon` | Acrylic glass upgrade | ₹350 |
-| `price_cod_fee` | COD handling fee | ₹49 |
-| `price_prepaid_discount` | Prepaid instant discount | ₹50 |
-| `price_free_shipping_threshold` | Minimum for free shipping | ₹899 |
-| **`brand_name`** | **Brand name — propagates to header, footer, emails, SEO** | **ChitraFrame** |
-
-Changes take effect immediately on the live site (no rebuild needed).
-
-### Admin → Pricing: poster_addon_price
-A dedicated **Poster Print Add-On Price** card (emerald accent) appears at the bottom of the Pricing page.  
-- Input field with quick **Save Poster Price** button
-- Saves `poster_addon_price` key to `site_config`
-- Animated `price-field-saved` CSS feedback + "Saved" badge on success
-
-### Admin → Settings: brand_name
-A **Brand Name** card appears at the top of the Settings page (gold-tinted glassmorphism).  
-- `brand_name` field with quick **Save Brand Name** button
-- Propagates to: site header, site footer, SEO `<title>`, JSON-LD `sameAs` schema, all transactional emails
-- Updates live without page reload (reads from `state.config.brand_name` at runtime)
-
-## Dynamic SEO per Product
-
-Each product page now injects:
-- `document.title` → `"{Product Name} | Buy Photo Frame Online India — {brand_name}"`
-- `<meta name="description">` → product description + brand + free shipping threshold
-- Open Graph tags: `og:title`, `og:description`, `og:image`, `og:url`, `og:type`, `og:site_name`
-- `<link rel="canonical">` → `https://chitraframe.in/product/{slug}`
-- Product JSON-LD schema: `@type: Product` with `AggregateRating` if reviews exist
-
-Category pages also append `— {brand_name}` to their `document.title` dynamically.
-
-## Frame Type Handling
-
-- Frame style selector on product pages is **shown only when a product has ≥2 frame types** — hidden for single-type products
-- Allowed `frame_type` values: `Standard`, `Premium`, `Direct Frame`, `Mount Frame`, `Custom`
-- UI labels: `Standard → "Standard Frame"`, `Premium → "Premium + White Mount"`, `Direct Frame → "Direct Frame"`, `Mount Frame → "Mount + White Mat"`
-- "no frame" renamed to **"Poster"** throughout UI (poster-addon description)
-
-## Supabase Migrations
-
-Run in order via Supabase SQL Editor:
-
-1. **`supabase/chitraframe_complete_config.sql`** — Full `site_config` upsert (brand, SEO, pricing). **Run this first to fix live site.**
-2. **`supabase/migrations_consolidated.sql`** — Adds `brand_name` + `poster_addon_price` keys, fixes `frame_type` constraint to allow `Direct Frame` / `Mount Frame`.
+- **Hono.js** — 12KB framework, perfect for Cloudflare Workers edge runtime
+- **WeakMap client cache** — Supabase client cached per `env` object (request-scoped, no memory leak)
+- **Module-level token cache** — Shiprocket JWT cached 23h per isolate (saves 300-500ms/request)
+- **`waitUntil()`** — Analytics writes run after response sent (non-blocking PDP)
+- **Shared `lib/coupons.ts`** — Single validation path, no drift between checkout and orders
+- **HMAC-SHA256 magic links** — Replaces forgeable `btoa(email:expiry)` pattern
 
 ---
 
-## Custom Frame Page Features (v2.4)
+## Completed Features
 
-- **File Upload** — drag/drop or click, JPG/PNG/WebP up to 50MB
-- **Image URL Input** — paste any direct image link (Google Drive public, Dropbox, CDN)
-- **Crop Tool** — canvas-based cropper appears after upload; drag to reposition crop box locked to selected frame ratio; Apply/Skip
-- **Visualizer** — preview mockup always shows correct frame aspect ratio (Small/Medium/XL = 2:3, Large = 3:4), not the uploaded image's natural ratio
-- **Optional Notes** — textarea for customer to give cropping/colour/mount instructions to print team
-- **Copyright Notice** — prominent amber notice: customer confirms they own/have rights to the image; PhotoFrameIn not liable for violations
+### Customer Storefront
+- [x] Product listing with filtering by category
+- [x] Product detail page (PDP) with images, variants, add-to-cart
+- [x] Shopping cart (localStorage, 20-item limit)
+- [x] Checkout flow (address, payment method, coupon)
+- [x] Razorpay payment integration (order create + verify)
+- [x] COD checkout with delivery estimate
+- [x] Order tracking page (`/track?order=PFI...`)
+- [x] Order confirmation email (Brevo/Resend)
+- [x] Wishlist (localStorage)
+- [x] Custom framing wizard (`/customize`)
+- [x] Blog listing and post pages
+- [x] FAQ page
+- [x] Category pages
+- [x] Exit intent popup
+- [x] Announcement bar (configurable)
+- [x] Magic link authentication
+- [x] Google OAuth
 
----
+### Admin Panel
+- [x] Dashboard (revenue, orders, funnel)
+- [x] Product CRUD + image + variant management
+- [x] Order management (status, notes, COD confirm)
+- [x] Shiprocket integration (create order, AWB, pickup, label)
+- [x] Coupon management
+- [x] Review moderation
+- [x] Blog + pages + FAQ management
+- [x] Settings (all system_config keys editable live)
+- [x] Analytics (product stats, UTM attribution, RTO risk)
+- [x] Damage claim management (approve → auto replacement order)
+- [x] Customer management (view, block)
+- [x] Error log viewer
+- [x] DB backup export
 
----
-
-## Product Catalog (v1 — May 2025)
-
-### 51 Designs Across 6 Categories
-| Category | Designs | Starting Price |
-|----------|---------|---------------|
-| 🕉️ Spiritual & Devotional | 19 | ₹499 |
-| 🏎️ Automotive | 12 | ₹299 (poster) |
-| ⚽ Sports Legends | 6 | ₹499 |
-| ⭐ Legend & Pop Culture (Anime) | 6 | ₹499 |
-| 🦁 Wildlife & Nature | 6 | ₹499 |
-| 💪 Motivational | 2 | ₹499 |
-
-**Total variants**: 408 (51 designs × 4 sizes × 2 types)  
-**Supabase SQL**: `supabase/products_catalog.sql` (36KB — run in SQL Editor)  
-**Image CDN**: Cloudinary at `chitraframe/products/{category}/{slug}.jpg`
-
----
-
-## Content & SEO
-
-### Blog Posts (`/static/blog/`)
-| Post | Keyword | URL |
-|------|---------|-----|
-| Photo Frame Gift Ideas India | `photo frame gift ideas india` | `/static/blog/photo-frame-gift-ideas-india.html` |
-| Mahadev Wall Art India | `mahadev wall art india` | `/static/blog/mahadev-wall-art-india.html` |
-| Sports Poster Framing India | `sports poster framing india` | `/static/blog/sports-poster-framing-india.html` |
-| Decorate Living Room with Art | `decorate living room framed art` | `/static/blog/decorate-living-room-framed-art.html` |
-| Anime Wall Art India | `anime wall art india` | `/static/blog/anime-wall-art-india.html` |
-
-### FAQ Page
-- Static HTML: `/static/faq.html` — 23 Q&As with FAQPage JSON-LD + accordion UI
-- API: `GET /api/faq` — JSON endpoint returning same 23 Q&As
-
-### AI Discoverability
-- `GET /static/llms.txt` — Plain-text product guide for AI crawlers (5.7KB)
-- `GET /.well-known/ai-plugin.json` — OpenAI plugin manifest
+### Infrastructure
+- [x] Cloudflare Pages deployment
+- [x] Supabase PostgreSQL with 31 tables
+- [x] Row Level Security on all tables
+- [x] master `schema.sql` (single source of truth)
+- [x] CSP headers (no unsafe-inline on scripts)
+- [x] HMAC-SHA256 magic link tokens
+- [x] Dual-layer admin rate limiting
+- [x] Atomic order ID generation
+- [x] Product image seeding (4 images × 11 products = 44 rows)
 
 ---
 
-## Marketing API Routes (`src/routes/marketing.ts`)
+## Pending / Next Steps
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/promotions` | Active promos from `site_config` with fallback |
-| `POST` | `/api/admin/promotions` | Admin update promo banner (Bearer ADMIN_TOKEN) |
-| `GET` | `/api/faq` | 23 FAQ Q&As |
-| `GET` | `/api/categories` | 6 categories with counts + emojis |
+### High Priority
+- [ ] **Apply `schema.sql` patches to live DB** — Run `ALTER TABLE` section via Supabase SQL Editor to add `admin_users.role` and `orders.shiprocket_label_url`
+- [ ] **Razorpay live keys** — Replace `rzp_test_placeholder` with live keys in Cloudflare env vars
+- [ ] **Shiprocket real credentials** — Verify `SHIPROCKET_EMAIL`/`PASSWORD` work in production
+- [ ] **Real Cloudinary images** — Upload actual product artwork to Cloudinary (`dax4yqumu`) using the paths in `schema.sql` or admin image uploader
+- [ ] **Custom domain** — Point `photoframein.com` to Cloudflare Pages
 
----
+### Medium Priority
+- [ ] **Brevo/Resend API keys** — Configure transactional email providers in production
+- [ ] **Add product for missing slugs** — Some DESIGN_IMAGES entries in app.js (e.g. `bmw-m4-carbon-dark`, `radha-krishna-watercolor`) have no matching DB products yet
+- [ ] **Google OAuth** — Set `GOOGLE_CLIENT_ID`/`SECRET` and configure redirect URIs
+- [ ] **Magic link secret** — Generate and set a strong `MAGIC_LINK_SECRET` in production
+- [ ] **pg_cron** — Set up `cleanup_login_attempts()` to run hourly via Supabase cron
 
-## Marketing Documents
-- `INSTAGRAM_STRATEGY.md` — 30-day content calendar, 6 Reels scripts, audience targeting, KPIs
-- `MARKETING_STRATEGY.md` — Go-to-market plan, competitor analysis (Candid Apricot), 6-month roadmap
-
----
-
-## Deployment Status
-
-| Build | `dist/_worker.js 329.83 kB` — last verified build (session prior to May 2025) |
-|-------|------|
-| Deploy | `https://photoframepfs.pages.dev` ✅ |
-| Project | `photoframepfs` (Cloudflare Pages) |
-| Last Build | 2025-05-27 (pending verification) |
-| Pending | `npm run build` to verify marketing.ts compiles cleanly |
+### Low Priority
+- [ ] R2 bucket binding (`MY_BUCKET`) for admin image uploads
+- [ ] Webhook for Shiprocket delivery status updates
+- [ ] WhatsApp order notifications
+- [ ] Review photo upload feature
 
 ---
 
-*Maintained by vijayprasadvvp@gmail.com · ChitraFrame v4.0 · Updated 2025-05-27*
+## Tech Stack Summary
+
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Cloudflare Workers (V8 isolates) |
+| Framework | Hono.js v4.12.9 |
+| Build | Vite + @hono/vite-cloudflare-pages |
+| Database | Supabase PostgreSQL (free tier) |
+| CDN | Cloudflare Pages (automatic) |
+| Images | Cloudinary (cloud: dax4yqumu) |
+| Payments | Razorpay |
+| Shipping | Shiprocket |
+| Email | Brevo (300/day) + Resend (100/day) fallback |
+| Auth | Supabase Auth + HMAC magic links + Google OAuth |
+| Frontend | Vanilla JS IIFE SPA (no framework, ~3,500 lines) |
