@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { Bindings } from '..';
 import { getSupabase, getConfigs } from '../lib/supabase';
 import { isValidPincode, isHyderabad, validatePincode, checkServiceability, SIZE_DIMENSIONS, calculateShipping } from '../lib/shipping';
+import { validateCoupon } from '../lib/coupons';
 
 const checkout = new Hono<{ Bindings: Bindings }>();
 
@@ -34,7 +35,7 @@ checkout.post('/shipping-estimate', async (c) => {
 
   if (!isValidPincode(pincode)) return c.json({ error: 'Invalid pincode' }, 400);
 
-  const freeThreshold = parseInt(config.free_shipping_threshold || '799');
+  const freeThreshold = parseInt(config.free_shipping_threshold || '899');
   const pickupPincode = config.pickup_pincode || '501504';
 
   // Calculate cart total and find largest size
@@ -100,32 +101,51 @@ checkout.post('/create-razorpay-order', async (c) => {
     }
 
     // CRITICAL: Re-calculate amount from DB to prevent price manipulation
+    // FIX #6: Batch all product_variant lookups into a single .in() query — eliminates N+1
     let serverAmount = 0;
     if (items && Array.isArray(items) && items.length > 0 && c.env.SUPABASE_URL) {
       const sb = getSupabase(c.env);
+
+      // Split items into custom-frame items (no DB lookup needed) and real variants
+      const realVariantIds: string[] = [];
       for (const item of items) {
-        if (item.variantId?.toString().startsWith('custom-')) {
-          // For custom frames use the provided price but cap it
-          serverAmount += Math.max(499, Math.min(Number(item.price) || 999, 9999)) * (item.quantity || 1);
-        } else {
-          const { data: variant } = await sb.from('product_variants')
-            .select('price').eq('id', item.variantId).eq('is_active', true).single();
-          if (!variant) return c.json({ error: `Invalid item: ${item.variantId}` }, 400);
-          serverAmount += variant.price * (item.quantity || 1);
+        if (!item.variantId?.toString().startsWith('custom-')) {
+          realVariantIds.push(item.variantId);
         }
       }
-      // Apply coupon discount if provided
-      if (couponCode) {
-        const { data: coupon } = await sb.from('coupons')
-          .select('*').eq('code', couponCode.toUpperCase()).eq('is_active', true).single();
-        if (coupon && !(coupon.expiry_date && new Date(coupon.expiry_date) < new Date())) {
-          if (coupon.type === 'percentage') {
-            const d = Math.floor(serverAmount * coupon.value / 100);
-            serverAmount -= coupon.max_discount ? Math.min(d, coupon.max_discount) : d;
-          } else {
-            serverAmount -= coupon.value;
-          }
+
+      // Single batched query — one round-trip instead of N
+      let variantPriceMap: Record<string, number> = {};
+      if (realVariantIds.length > 0) {
+        const { data: variants } = await sb.from('product_variants')
+          .select('id, price')
+          .in('id', realVariantIds)
+          .eq('is_active', true);
+
+        if (variants) {
+          for (const v of variants) variantPriceMap[v.id] = v.price;
         }
+      }
+
+      // Now calculate server amount using the prefetched map
+      for (const item of items) {
+        if (item.variantId?.toString().startsWith('custom-')) {
+          // For custom frames use the provided price but cap it at safety bounds
+          serverAmount += Math.max(499, Math.min(Number(item.price) || 999, 9999)) * (item.quantity || 1);
+        } else {
+          const price = variantPriceMap[item.variantId];
+          if (!price) return c.json({ error: `Invalid or inactive item: ${item.variantId}` }, 400);
+          serverAmount += price * (item.quantity || 1);
+        }
+      }
+
+      // Apply coupon discount using shared utility
+      if (couponCode) {
+        const couponResult = await validateCoupon(sb, couponCode, serverAmount);
+        if (couponResult.valid) {
+          serverAmount -= couponResult.discount;
+        }
+        // Don't return error here — just skip the discount if invalid; the main order creation will handle it
       }
       serverAmount = Math.max(1, serverAmount); // prevent zero/negative
     } else {
@@ -243,50 +263,21 @@ checkout.post('/verify-payment', async (c) => {
 });
 
 // POST /api/checkout/apply-coupon
+// FIX #7: Uses shared validateCoupon utility — no more duplicated logic
 checkout.post('/apply-coupon', async (c) => {
+  if (!c.env?.SUPABASE_URL) return c.json({ error: 'Coupon service unavailable' }, 503);
   const { code, subtotal, customerId } = await c.req.json();
+  if (!code || typeof subtotal !== 'number') return c.json({ error: 'code and subtotal are required' }, 400);
+
   const sb = getSupabase(c.env);
+  const result = await validateCoupon(sb, code, subtotal, customerId);
 
-  const { data: coupon } = await sb.from('coupons')
-    .select('*')
-    .eq('code', code.toUpperCase())
-    .eq('is_active', true)
-    .single();
+  if (!result.valid) return c.json({ error: result.error || 'Invalid coupon' }, 400);
 
-  if (!coupon) return c.json({ error: 'Invalid coupon code' }, 400);
-  if (coupon.expiry_date && new Date(coupon.expiry_date) < new Date()) {
-    return c.json({ error: 'Coupon expired' }, 400);
-  }
-  if (coupon.total_limit && coupon.usage_count >= coupon.total_limit) {
-    return c.json({ error: 'Coupon limit reached' }, 400);
-  }
-  if (subtotal < (coupon.min_subtotal || 0)) {
-    return c.json({ error: `Minimum order Rs.${coupon.min_subtotal}` }, 400);
-  }
-
-  // Check per-user limit
-  if (customerId && coupon.per_user_limit) {
-    const { count } = await sb.from('coupon_usage')
-      .select('*', { count: 'exact', head: true })
-      .eq('coupon_id', coupon.id)
-      .eq('customer_id', customerId);
-
-    if ((count || 0) >= coupon.per_user_limit) {
-      return c.json({ error: 'You have already used this coupon' }, 400);
-    }
-  }
-
-  let discount = 0;
-  if (coupon.type === 'percentage') {
-    discount = Math.floor(subtotal * coupon.value / 100);
-    if (coupon.max_discount) discount = Math.min(discount, coupon.max_discount);
-  } else {
-    discount = coupon.value;
-  }
-
+  const coupon = result.coupon;
   return c.json({
     valid: true,
-    discount,
+    discount: result.discount,
     code: coupon.code,
     type: coupon.type,
     value: coupon.value,

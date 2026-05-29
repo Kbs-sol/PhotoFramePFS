@@ -58,17 +58,23 @@ app.use('*', async (c, next) => {
   c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  // Content-Security-Policy — allows CDNs and Razorpay while blocking inline XSS
+  // Content-Security-Policy — SECURITY FIX #12a: Removed 'unsafe-inline' from script-src.
+  // The app.js is served as an external file from /static/app.js, so inline scripts are not needed.
+  // 'unsafe-inline' on script-src negates the entire XSS protection of CSP — removing it
+  // means any injected <script>...</script> tags are blocked by the browser.
+  // Note: 'unsafe-inline' remains on style-src because Tailwind CDN and inline style attributes
+  // are used extensively in the frontend — eliminating it would require a larger refactor.
   c.header('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.googletagmanager.com https://www.clarity.ms https://www.google-analytics.com https://cdn.shiprocket.com",
+    "script-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.clarity.ms https://www.google-analytics.com https://cdn.shiprocket.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
     "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net",
     "img-src 'self' data: blob: https: http:",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://api.cloudinary.com https://res.cloudinary.com https://www.google-analytics.com https://www.googletagmanager.com https://www.clarity.ms",
     "frame-src https://checkout.razorpay.com",
     "object-src 'none'",
-    "base-uri 'self'"
+    "base-uri 'self'",
+    "upgrade-insecure-requests"
   ].join('; '));
 });
 app.use('/api/*', cors({
@@ -372,7 +378,7 @@ app.get('/api/config/public', async (c) => {
         announcement_link: '/shop',
         announcement_bg: '#CC0000',
         cod_enabled: 'true', cod_min_value: '499', cod_max_value: '1995', cod_fee: '49',
-        free_shipping_threshold: '799', prepaid_discount: '50',
+        free_shipping_threshold: '899', prepaid_discount: '50',
         urgency_text: 'Limited Stock Available', urgency_subtext: 'Offer Ends Tonight',
         combos_enabled: 'true', exit_intent_enabled: 'true',
         seo_title: 'ChitraFrame | Premium Framed Art Prints — Divine, Automotive, Sports, Wildlife',
@@ -862,7 +868,7 @@ app.get('/api/ai/about', (c) => {
       { name: 'Wildlife', slug: 'wildlife', description: 'Majestic wildlife art — lion, tiger and other animal prints', url: 'https://chitraframe.in/category/wildlife' }
     ],
     shippingPolicy: {
-      freeShippingAbove: 799,
+      freeShippingAbove: 899,
       standardShipping: 99,
       deliveryDays: '2–5 business days',
       coverage: 'Pan-India'

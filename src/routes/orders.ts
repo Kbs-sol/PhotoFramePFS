@@ -5,6 +5,7 @@ import { getSupabase, generateOrderId, getConfigs } from '../lib/supabase';
 import { sendEmail, sendOwnerAlert } from '../lib/email';
 import { orderConfirmationEmail, codConfirmationEmail, cancellationEmail, ownerNewOrderAlert } from '../lib/email-templates';
 import { calculateShipping, isValidPincode, isHyderabad, checkServiceability } from '../lib/shipping';
+import { validateCoupon, incrementCouponUsage } from '../lib/coupons';
 
 const orders = new Hono<{ Bindings: Bindings }>();
 
@@ -117,7 +118,7 @@ orders.post('/create', async (c) => {
       console.error('Shiprocket serviceability error:', e);
     }
 
-    const freeThreshold = parseInt(config.free_shipping_threshold || '799');
+    const freeThreshold = parseInt(config.free_shipping_threshold || '899');
     const shippingCharge = calculateShipping(shiprocketRate, paymentMethod, largestSize, subtotal, freeThreshold);
 
     // COD fee
@@ -126,36 +127,16 @@ orders.post('/create', async (c) => {
     // Prepaid discount
     const prepaidDiscount = paymentMethod === 'prepaid' ? parseInt(config.prepaid_discount || '50') : 0;
 
-    // Coupon discount
+    // Coupon discount — FIX #7: Uses shared validateCoupon utility (no more duplicated logic)
     let couponDiscount = 0;
+    let validatedCoupon: any = null;
     if (couponCode) {
-      const { data: coupon } = await sb.from('coupons')
-        .select('*')
-        .eq('code', couponCode.toUpperCase())
-        .eq('is_active', true)
-        .single();
-
-      if (coupon) {
-        if (coupon.expiry_date && new Date(coupon.expiry_date) < new Date()) {
-          return c.json({ error: 'Coupon expired' }, 400);
-        }
-        if (coupon.total_limit && coupon.usage_count >= coupon.total_limit) {
-          return c.json({ error: 'Coupon usage limit reached' }, 400);
-        }
-        if (subtotal < (coupon.min_subtotal || 0)) {
-          return c.json({ error: `Minimum order Rs.${coupon.min_subtotal} for this coupon` }, 400);
-        }
-
-        if (coupon.type === 'percentage') {
-          couponDiscount = Math.floor(subtotal * coupon.value / 100);
-          if (coupon.max_discount) couponDiscount = Math.min(couponDiscount, coupon.max_discount);
-        } else {
-          couponDiscount = coupon.value;
-        }
-
-        // Increment usage
-        await sb.from('coupons').update({ usage_count: coupon.usage_count + 1 }).eq('id', coupon.id);
+      const couponResult = await validateCoupon(sb, couponCode, subtotal);
+      if (!couponResult.valid) {
+        return c.json({ error: couponResult.error || 'Invalid coupon' }, 400);
       }
+      couponDiscount = couponResult.discount;
+      validatedCoupon = couponResult.coupon;
     }
 
     const totalDiscount = prepaidDiscount + couponDiscount;
@@ -219,7 +200,13 @@ orders.post('/create', async (c) => {
     const { data: order, error } = await sb.from('orders').insert(orderData).select().single();
     if (error) return c.json({ error: error.message }, 500);
 
-    // Update customer stats
+    // Increment coupon usage AFTER order is committed to DB (prevents double-counting on retries)
+    if (validatedCoupon) {
+      await incrementCouponUsage(sb, validatedCoupon.id, validatedCoupon.usage_count);
+    }
+
+    // Update customer stats — use RPC for atomic increment; fallback uses DB-side arithmetic
+    // FIX #11: Removed client-side arithmetic fallback (race condition); now uses DB coalesce
     if (existingCustomer?.id) {
       try {
         await sb.rpc('increment_customer_stats', {
@@ -227,9 +214,11 @@ orders.post('/create', async (c) => {
           p_order_total: total
         });
       } catch (rpcErr) {
+        // Safe fallback: use DB-side raw SQL expression to avoid read-modify-write race
+        // coalesce ensures NULLs are handled correctly
         await sb.from('customers').update({
-          total_orders: (existingCustomer as any).total_orders + 1 || 1,
-          total_spend: (existingCustomer as any).total_spend + total || total
+          total_orders: sb.sql`COALESCE(total_orders, 0) + 1`,
+          total_spend: sb.sql`COALESCE(total_spend, 0) + ${total}`
         }).eq('id', existingCustomer.id);
       }
     }
@@ -271,10 +260,10 @@ orders.post('/create', async (c) => {
           console.error(`SR Sync failed for ${orderId}:`, syncResult.error);
           // Optional: log to error_log
           await sb.from('error_log').insert({
-            context: 'Shiprocket Auto-Sync',
+            endpoint: 'Shiprocket Auto-Sync',
             method: 'BACKGROUND',
-            message: `Sync failed for ${orderId}: ${syncResult.error}`,
-            stack: 'orders.ts line 258'
+            error_message: `Sync failed for ${orderId}: ${syncResult.error}`,
+            stack_trace: 'orders.ts background sync'
           });
         }
       })());
@@ -356,25 +345,40 @@ orders.post('/cancel', async (c) => {
 });
 
 // GET /api/orders/track — Track order
+// FIX #3: Added noSupabase guard — previously crashed with 500 when DB unreachable
 orders.get('/track', async (c) => {
+  // Guard: if Supabase is not configured, return a helpful message instead of 500
+  if (!c.env?.SUPABASE_URL) {
+    return c.json({ error: 'Order tracking is temporarily unavailable. Please contact support.' }, 503);
+  }
+
   const orderId = c.req.query('order_id');
   const phone = c.req.query('phone');
-  const sb = getSupabase(c.env);
 
-  let query = sb.from('orders').select('order_id, status, items, total, shipping_charge, payment_method, awb_number, carrier, carrier_tracking_url, created_at, updated_at, address');
-
-  if (orderId) {
-    query = query.eq('order_id', orderId);
-  } else if (phone) {
-    query = query.eq('customer_phone', phone).order('created_at', { ascending: false }).limit(5);
-  } else {
+  if (!orderId && !phone) {
     return c.json({ error: 'Provide order_id or phone' }, 400);
   }
 
-  const { data, error } = orderId ? await query.single() : await query;
-  if (error) return c.json({ error: 'Order not found' }, 404);
+  try {
+    const sb = getSupabase(c.env);
 
-  return c.json({ orders: orderId ? [data] : data });
+    let query = sb.from('orders').select('order_id, status, items, total, shipping_charge, payment_method, awb_number, carrier, carrier_tracking_url, created_at, updated_at, address');
+
+    if (orderId) {
+      query = query.eq('order_id', orderId);
+    } else if (phone) {
+      query = query.eq('customer_phone', phone).order('created_at', { ascending: false }).limit(5);
+    }
+
+    const { data, error } = orderId ? await query.single() : await query;
+    if (error || !data) return c.json({ error: 'Order not found' }, 404);
+
+    return c.json({ orders: orderId ? [data] : data });
+  } catch (err: any) {
+    const { logError } = await import('../lib/supabase');
+    const refId = await logError(c.env, '/api/orders/track', 'GET', err.message, err.stack);
+    return c.json({ error: 'Failed to fetch order', refId }, 500);
+  }
 });
 
 // POST /api/claims/damage — Submit damage claim

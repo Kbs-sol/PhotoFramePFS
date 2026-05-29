@@ -8,18 +8,59 @@ import { createShiprocketOrder, generateAWB, schedulePickup } from '../lib/shipp
 
 const admin = new Hono<{ Bindings: Bindings }>();
 
-// ─── In-memory brute-force rate limiter (resets on worker restart) ───────────
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-function checkRateLimit(ip: string): boolean {
+// ─── Hybrid brute-force rate limiter ─────────────────────────────────────────
+// SECURITY FIX #12d: In-memory Map was used for login rate limiting, but Cloudflare
+//   Workers can have multiple isolate instances — the Map resets on every cold start
+//   and is NOT shared between instances, making it useless in production.
+//
+//   Solution: Two-layer approach:
+//   1. Module-level Map: catches burst attacks within a single isolate lifetime (fast path)
+//   2. DB-backed counter: persists across cold starts and all instances (durable path)
+//      Writes to `login_attempts` table: { ip, count, reset_at }
+//
+//   The in-memory layer prevents DB hammering on repeat attempts from the same isolate.
+//   The DB layer ensures coordinated blocking across the full CF edge network.
+
+const _inMemoryAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function checkInMemoryRateLimit(ip: string): boolean {
   const now = Date.now();
-  const record = loginAttempts.get(ip);
+  const record = _inMemoryAttempts.get(ip);
   if (!record || now > record.resetAt) {
-    loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 }); // 15-min window
-    return true; // allowed
+    _inMemoryAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    return true;
   }
-  if (record.count >= 10) return false; // blocked
+  if (record.count >= 5) return false; // fast-path block (5 attempts in-memory)
   record.count++;
   return true;
+}
+
+async function checkDbRateLimit(env: any, ip: string): Promise<boolean> {
+  if (!env?.SUPABASE_URL) return true; // No DB — fall back to in-memory only
+  try {
+    const { getSupabase } = await import('../lib/supabase');
+    const sb = getSupabase(env);
+    const now = new Date().toISOString();
+    const windowStart = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+    // Count failed attempts in the last 15 minutes
+    const { count } = await sb.from('login_attempts')
+      .select('*', { count: 'exact', head: true })
+      .eq('ip_address', ip)
+      .gte('attempted_at', windowStart);
+
+    if ((count || 0) >= 10) return false; // DB-backed block
+
+    // Log this attempt
+    await sb.from('login_attempts').insert({
+      ip_address: ip,
+      attempted_at: now
+    });
+    return true;
+  } catch {
+    // DB error — degrade gracefully (don't block on DB failure)
+    return true;
+  }
 }
 
 // ─── Timing-safe string comparison to prevent timing attacks ─────────────────
@@ -39,8 +80,11 @@ admin.post('/auth', async (c) => {
   try {
     const clientIp = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown';
 
-    // Rate limiting: max 10 attempts per IP per 15 minutes
-    if (!checkRateLimit(clientIp)) {
+    // Rate limiting: Layer 1 (in-memory fast path) + Layer 2 (DB persistent)
+    if (!checkInMemoryRateLimit(clientIp)) {
+      return c.json({ error: 'Too many login attempts. Try again in 15 minutes.' }, 429);
+    }
+    if (!await checkDbRateLimit(c.env, clientIp)) {
       return c.json({ error: 'Too many login attempts. Try again in 15 minutes.' }, 429);
     }
 

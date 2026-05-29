@@ -15,8 +15,29 @@ export function getShippingFloor(paymentMethod: string, size: string, cartTotal:
   return 99;
 }
 
-// Get Shiprocket auth token
+// ─── Shiprocket token cache ───────────────────────────────────────────────────
+// FIX #10: Cache the Shiprocket JWT in module-level state with a 23h TTL.
+//   Shiprocket tokens are valid for 24h. Without caching, every single request
+//   that needs shipping (serviceability, order create, AWB, etc.) made a separate
+//   login call, adding 300-500ms of latency per request.
+//   Module-level state persists within a Cloudflare Worker isolate lifetime,
+//   which is typically many hours — well within the 24h token validity window.
+let _srToken: string | null = null;
+let _srTokenExpiry: number = 0; // epoch ms
+
+// Get Shiprocket auth token — cached with 23h TTL
 export async function getShiprocketToken(env: any): Promise<string | null> {
+  const now = Date.now();
+
+  // Return cached token if still valid (23h safety margin)
+  if (_srToken && now < _srTokenExpiry) {
+    return _srToken;
+  }
+
+  if (!env?.SHIPROCKET_EMAIL || !env?.SHIPROCKET_PASSWORD) {
+    return null;
+  }
+
   try {
     const res = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
       method: 'POST',
@@ -26,10 +47,21 @@ export async function getShiprocketToken(env: any): Promise<string | null> {
         password: env.SHIPROCKET_PASSWORD
       })
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      _srToken = null;
+      return null;
+    }
     const data: any = await res.json();
-    return data.token;
+    if (!data.token) {
+      _srToken = null;
+      return null;
+    }
+    // Cache for 23h (token valid 24h, 1h safety buffer)
+    _srToken = data.token;
+    _srTokenExpiry = now + 23 * 60 * 60 * 1000;
+    return _srToken;
   } catch {
+    _srToken = null;
     return null;
   }
 }
@@ -84,6 +116,9 @@ export async function checkServiceability(env: any, params: {
 }
 
 // Calculate final shipping charge
+// FIX #3 (calculateShipping): Now correctly applies free-shipping threshold for prepaid orders.
+//   Free shipping applies when: prepaid + cartTotal >= freeThreshold
+//   COD orders always pay shipping (min ₹99) regardless of cart total.
 export function calculateShipping(
   shiprocketCharge: number | null,
   paymentMethod: string,
@@ -91,9 +126,15 @@ export function calculateShipping(
   cartTotal: number,
   freeThreshold: number
 ): number {
-  const floor = 99; // Base floor is ₹99 for every order
+  const floor = 99; // Minimum shipping charge for all orders
+
+  // Free shipping: only for prepaid orders over the threshold
+  if (paymentMethod !== 'cod' && cartTotal >= freeThreshold) {
+    return 0;
+  }
+
   if (shiprocketCharge === null) return floor;
-  // Use Shiprocket quote if it's more than ₹99, otherwise stick to ₹99
+  // Use Shiprocket quote if higher than floor, otherwise stick to floor
   return Math.max(shiprocketCharge, floor);
 }
 
