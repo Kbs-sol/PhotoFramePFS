@@ -100,7 +100,12 @@ app.use('/api/*', cors({
 }));
 
 app.notFound((c) => {
-  return c.html(`<!DOCTYPE html><html><head><title>404 - Not Found</title><link href="/static/styles.css" rel="stylesheet"></head><body style="background:#050505;color:#E5E5E5;text-align:center;padding-top:100px;font-family:Inter,sans-serif"><h1>404</h1><p>Page Not Found</p><a href="/" style="color:#C5A059;text-decoration:none">Return Home</a></body></html>`, 404);
+  // Favicon: return a minimal SVG favicon inline
+  if (c.req.path === '/favicon.ico' || c.req.path === '/favicon.svg') {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#0F0E0C"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-family="serif" font-size="18" fill="#C9973A">CF</text></svg>`;
+    return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' } });
+  }
+  return c.html(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>404 — Page Not Found | ChitraFrame</title><link href="/static/styles.css" rel="stylesheet"></head><body style="background:var(--off-white,#FAF9F7);color:var(--ink-800,#1C1A17);text-align:center;padding:100px 24px;font-family:'DM Sans',system-ui,sans-serif"><h1 style="font-family:'DM Serif Display',serif;font-size:clamp(60px,10vw,96px);color:var(--ink-900,#0F0E0C);line-height:1;margin-bottom:16px">404</h1><p style="font-size:18px;color:var(--ink-500,#6B6458);margin-bottom:32px">Page not found</p><a href="/" style="display:inline-block;padding:12px 28px;background:var(--ink-900,#0F0E0C);color:#fff;border-radius:6px;font-weight:600;text-decoration:none">Return Home</a></body></html>`, 404);
 });
 
 app.onError(async (err, c) => {
@@ -611,8 +616,10 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
 
 // All customer-facing routes serve the SPA shell
 const customerRoutes = ['/', '/shop', '/product/:slug', '/category/:slug', '/cart', '/checkout', '/customize',
-  '/track', '/returns', '/policy', '/policy/:section', '/about', '/contact', '/blog',
-  '/blog/:slug', '/review', '/suggest', '/wishlist', '/account', '/account/:section', '/login', '/auth/callback'];
+  '/track', '/track-order', '/returns', '/policy', '/policy/:section', '/about', '/contact', '/blog',
+  '/blog/:slug', '/review', '/suggest', '/wishlist', '/account', '/account/:section', '/login', '/auth/callback',
+  '/faq', '/privacy-policy', '/terms-and-conditions', '/shipping-policy', '/refund-policy',
+  '/custom-frame', '/gift-cards', '/size-guide', '/care-guide', '/bulk-orders'];
 
 for (const route of customerRoutes) {
   app.get(route, async (c) => {
@@ -1069,10 +1076,32 @@ app.get('/admin/:section', async (c) => {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,300&display=swap" rel="stylesheet">
+  <!-- Tailwind CDN: admin.js uses ~190 tailwind utility classes inline throughout HTML strings -->
+  <!-- preflight:false prevents Tailwind from resetting body/html backgrounds & breaking admin.css -->
+  <script>
+    // Must set tailwind.config BEFORE loading tailwind.js
+    window.tailwind = window.tailwind || {};
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      corePlugins: { preflight: false },
+      theme: {
+        extend: {
+          colors: {
+            'brand-gold':    '#C9973A',
+            'brand-green':   '#1A7A4A',
+            'brand-saffron': '#D97706',
+          }
+        }
+      }
+    }
+  </script>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- admin.css loaded AFTER tailwind so our design system overrides win -->
   <link href="/static/admin.css" rel="stylesheet">
 </head>
-<body>
+<body style="background:#F7F4F0;min-height:100vh;">
   <div id="admin-app"></div>
   <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>

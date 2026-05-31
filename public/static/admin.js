@@ -2068,17 +2068,17 @@
     async saveCombo() {
       const fd = new FormData($('#combo-form'));
       const id = fd.get('id');
-      const payload: any = {
+      const payload = {
         name: fd.get('name'),
         slug: fd.get('slug') || fd.get('name')?.toString().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
         description: fd.get('description') || null,
         image_url: fd.get('image_url') || null,
-        original_price: parseInt(fd.get('original_price') as string) || 0,
-        combo_price: parseInt(fd.get('combo_price') as string) || 0,
+        original_price: parseInt(fd.get('original_price') || '0') || 0,
+        combo_price: parseInt(fd.get('combo_price') || '0') || 0,
         is_active: fd.has('is_active'),
       };
       try {
-        payload.items = JSON.parse(fd.get('items') as string || '[]');
+        payload.items = JSON.parse(fd.get('items') || '[]');
       } catch(e) { toast('Items JSON is invalid — check your JSON format', 'error'); return; }
       try {
         if (id) await api('PUT', `/combos/${id}`, payload);
