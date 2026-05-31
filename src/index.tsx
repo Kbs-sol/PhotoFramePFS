@@ -58,15 +58,16 @@ app.use('*', async (c, next) => {
   c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  // Content-Security-Policy — SECURITY FIX #12a: Removed 'unsafe-inline' from script-src.
-  // The app.js is served as an external file from /static/app.js, so inline scripts are not needed.
-  // 'unsafe-inline' on script-src negates the entire XSS protection of CSP — removing it
-  // means any injected <script>...</script> tags are blocked by the browser.
-  // Note: 'unsafe-inline' remains on style-src because Tailwind CDN and inline style attributes
-  // are used extensively in the frontend — eliminating it would require a larger refactor.
+  // Content-Security-Policy
+  // 'unsafe-inline' is required on script-src because the entire SPA (app.js / admin.js) renders
+  // HTML strings containing inline onclick="window.cf.nav(...)" handlers. Removing it silently
+  // blocks every click on every product card, nav link, and button — making the site non-interactive.
+  // The correct long-term fix is to migrate all onclick attrs to addEventListener in app.js,
+  // but that requires a full SPA refactor. For now, 'unsafe-inline' stays.
+  // Note: 'unsafe-inline' also remains on style-src (Tailwind CDN + inline style attributes).
   c.header('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.clarity.ms https://www.google-analytics.com https://cdn.shiprocket.com",
+    "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.clarity.ms https://www.google-analytics.com https://cdn.shiprocket.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
     "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net",
     "img-src 'self' data: blob: https: http:",
