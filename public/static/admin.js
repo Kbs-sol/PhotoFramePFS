@@ -47,33 +47,28 @@
     <div class="login-wrapper">
       <div class="login-card">
         <div class="login-logo">
-          <span class="icon">🖼️</span>
+          <div class="login-logo-mark">CF</div>
           <h1>ChitraFrame</h1>
           <p>Admin Panel</p>
         </div>
         <div id="login-error" class="login-error" ${errorMsg ? 'style="display:block"' : ''}>${errorMsg || ''}</div>
         <form id="login-form">
           <div class="login-input-group">
-            <input type="email" id="login-email" class="login-input" placeholder="Admin Email" autocomplete="email" autofocus required>
+            <input type="email" id="login-email" class="login-input" placeholder="Admin email" autocomplete="email" autofocus required>
             <i class="fas fa-envelope"></i>
           </div>
-          <div class="login-input-group mt-4">
+          <div class="login-input-group">
             <input type="password" id="login-password" class="login-input" placeholder="Password" autocomplete="current-password" required>
             <i class="fas fa-lock"></i>
           </div>
-          <button type="submit" id="login-submit" class="login-btn mt-6"><i class="fas fa-sign-in-alt" style="margin-right:8px"></i>Sign In</button>
+          <button type="submit" id="login-submit" class="login-btn">
+            <i class="fas fa-sign-in-alt"></i>Sign In
+          </button>
         </form>
-        <div style="margin-top:20px;padding:14px;background:rgba(197,160,89,0.08);border:1px solid rgba(197,160,89,0.2);border-radius:8px;font-size:12px;color:#8A7A5A;line-height:1.6">
-          <strong style="color:#C5A059;display:block;margin-bottom:4px">⚙️ Demo / No-Supabase Mode</strong>
-          Configure env vars <code style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px">OWNER_EMAIL</code>, 
-          <code style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px">ADMIN_PASSWORD</code>, 
-          <code style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px">ADMIN_TOKEN</code> to enable login.<br>
-          <span style="color:#6A6A6A;font-size:11px;margin-top:4px;display:block">
-            Placeholder: <strong style="color:#A09070">admin@chitraframe.in</strong> / <strong style="color:#A09070">ChitraFrame@2024</strong><br>
-            (Set these as actual env vars in Cloudflare Dashboard → Workers → Variables)
-          </span>
+        <div class="login-demo-box">
+          <strong>⚙️ Setup Required</strong>
+          Set <code>OWNER_EMAIL</code>, <code>ADMIN_PASSWORD</code>, <code>ADMIN_TOKEN</code> in Cloudflare Dashboard → Workers → Variables to enable login.
         </div>
-        <p style="text-align:center;margin-top:12px;font-size:11px;color:#444">Secure access · ChitraFrame Admin</p>
       </div>
     </div>`;
     $('#login-form').addEventListener('submit', async (e) => {
@@ -124,30 +119,71 @@
     { id: 'settings', icon: 'fa-cog', label: 'Settings' }
   ];
 
+  function toggleMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (!sidebar) return;
+    const isOpen = sidebar.classList.contains('open');
+    if (isOpen) {
+      sidebar.classList.remove('open');
+      if (overlay) overlay.classList.remove('show');
+      document.body.style.overflow = '';
+    } else {
+      sidebar.classList.add('open');
+      if (overlay) overlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  function closeMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
   function render() {
     if (!adminToken) { showLogin(); return; }
     const app = $('#admin-app');
+    const user = (() => { try { return JSON.parse(localStorage.getItem('pfi_admin_user') || '{}'); } catch(e) { return {}; } })();
     app.innerHTML = `
-    <div class="admin-sidebar" id="sidebar">
-      <div class="sidebar-header" id="sidebar-logo-area" onclick="admin.go('settings')" style="cursor:pointer" title="Click to edit logo in Settings">
-        <h1 id="sidebar-logo-display">🖼️ PhotoFrameIn</h1>
-        <p>Admin Panel <span style="font-size:9px;opacity:0.4;margin-left:4px">(click to edit logo)</span></p>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
+    <aside class="admin-sidebar" id="sidebar" aria-label="Admin navigation">
+      <div class="sidebar-header" id="sidebar-logo-area" onclick="admin.go('settings')" title="Settings">
+        <div class="sidebar-logo-mark">CF</div>
+        <div class="sidebar-logo-text">
+          <span id="sidebar-logo-display">ChitraFrame</span>
+          <span class="sidebar-logo-sub">Admin Panel</span>
+        </div>
       </div>
-      <nav class="sidebar-nav">
-        ${sections.map(s => `<div class="nav-item ${s.id === currentSection ? 'active' : ''}" onclick="admin.go('${s.id}')"><i class="fas ${s.icon}" style="width:18px;text-align:center"></i><span>${s.label}</span></div>`).join('')}
+      <nav class="sidebar-nav" role="navigation">
+        ${sections.map(s => `<button class="nav-item ${s.id === currentSection ? 'active' : ''}" onclick="admin.go('${s.id}')" aria-label="${s.label}"><i class="fas ${s.icon}"></i><span>${s.label}</span></button>`).join('')}
       </nav>
       <div class="sidebar-footer">
-        <a href="/"><i class="fas fa-store"></i> Back to Store</a>
-        <button onclick="admin.logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        <a href="/" class="sidebar-footer-link"><i class="fas fa-store"></i><span>View Store</span></a>
+        <button class="sidebar-footer-link" onclick="admin.logout()"><i class="fas fa-sign-out-alt"></i><span>Logout</span></button>
       </div>
-    </div>
+    </aside>
     <div class="admin-main" id="main-content">
-      <div class="admin-topbar">
-        <button onclick="document.getElementById('sidebar').classList.toggle('open')" style="background:none;border:none;color:#8B8B8B;cursor:pointer"><i class="fas fa-bars text-xl"></i></button>
-        <h2 style="font-weight:700;color:var(--admin-gold,#F2CA50)">Admin</h2>
-        <button onclick="admin.logout()" style="background:none;border:none;color:#8B8B8B;cursor:pointer;font-size:12px"><i class="fas fa-sign-out-alt"></i></button>
-      </div>
-      <div id="section-content"></div>
+      <header class="admin-topbar">
+        <button class="topbar-menu-btn" onclick="toggleMobileSidebar()" aria-label="Toggle menu">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="topbar-brand">
+          <span class="topbar-logo-mark">CF</span>
+          <span class="topbar-title">ChitraFrame Admin</span>
+        </div>
+        <div class="topbar-actions">
+          <a href="/" class="topbar-action-btn" title="View store" aria-label="View store">
+            <i class="fas fa-store"></i>
+          </a>
+          <button class="topbar-action-btn" onclick="admin.logout()" title="Logout" aria-label="Logout">
+            <i class="fas fa-sign-out-alt"></i>
+          </button>
+        </div>
+      </header>
+      <main id="section-content" class="section-content-wrapper"></main>
     </div>`;
     loadSection(currentSection);
     // Load sidebar logo from settings
@@ -156,16 +192,20 @@
       const logoEl = document.getElementById('sidebar-logo-display');
       if (!logoEl) return;
       if (cfg.site_logo_url) {
-        logoEl.innerHTML = `<img src="${cfg.site_logo_url}" style="height:28px;max-width:180px;object-fit:contain;" alt="Logo" onerror="this.parentElement.textContent='${cfg.site_logo_emoji||'🖼️'} ${cfg.site_logo_text||'PhotoFrameIn'}'">`;
+        logoEl.innerHTML = `<img src="${cfg.site_logo_url}" style="height:22px;max-width:140px;object-fit:contain;" alt="Logo" onerror="this.parentElement.textContent='${cfg.site_logo_text||'ChitraFrame'}'">`;
       } else {
-        logoEl.textContent = `${cfg.site_logo_emoji||'🖼️'} ${cfg.site_logo_text||'PhotoFrameIn'}`;
+        logoEl.textContent = cfg.site_logo_text || cfg.brand_name || 'ChitraFrame';
       }
     }).catch(() => {});
   }
 
   async function loadSection(id) {
     currentSection = id;
-    $$('.nav-item').forEach(el => el.classList.toggle('active', el.textContent.trim() === sections.find(s => s.id === id)?.label));
+    closeMobileSidebar();
+    $$('.nav-item').forEach(el => {
+      const label = sections.find(s => s.id === id)?.label;
+      el.classList.toggle('active', el.querySelector('span')?.textContent.trim() === label);
+    });
     const content = $('#section-content');
     content.innerHTML = `
       <div class="space-y-6">
@@ -1086,9 +1126,13 @@
     });
   }
 
+  // Expose mobile helpers globally (called from inline onclick in render())
+  window.toggleMobileSidebar = toggleMobileSidebar;
+  window.closeMobileSidebar = closeMobileSidebar;
+
   // ========== ADMIN ACTIONS ==========
   window.admin = {
-    go(id) { currentSection = id; loadSection(id); document.getElementById('sidebar')?.classList.remove('open'); },
+    go(id) { currentSection = id; loadSection(id); },
 
     // ---- Pricing ----
     async savePricing() {
