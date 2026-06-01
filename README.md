@@ -458,3 +458,79 @@ Access at `/admin.html`. Login with owner email + password.
 | Email | Brevo (300/day) + Resend (100/day) fallback |
 | Auth | Supabase Auth + HMAC magic links + Google OAuth |
 | Frontend | Vanilla JS IIFE SPA (no framework, ~3,500 lines) |
+
+---
+
+## 6-Point System Validation Audit — Session Results (2026-06-01)
+
+**Commits**: `033ffac` (admin/routes), `eea6205` (full audit implementation)
+
+### Audit 1 — Data Source Integrity ✅ RESOLVED
+**Root cause**: `renderFeaturedProducts()`, `renderAllProducts()`, `renderRelatedProducts()` all used hardcoded JavaScript arrays (10–17KB of ghost data) that never touched Supabase.
+
+**Fix**:
+- Added `normaliseProduct()` — converts Supabase `{images[], variants[]}` shape to internal render format
+- `renderFeaturedProducts()` → skeleton placeholder; `loadFeaturedProducts()` fetches `/api/products?limit=8&sort=popular`
+- `renderAllProducts()` → stub; `loadShopProducts(category)` fetches `/api/products?limit=60&sort=popular`
+- `renderRelatedProducts()` → `loadRelatedProducts()` uses cached `_shopAllProducts` first, then API fallback
+- `DESIGN_IMAGES` dictionary retained as graceful fallback **only** when API call fails
+
+### Audit 2 — Routing & Filtering Fix ✅ RESOLVED
+**Root cause**: `filterShop()` filtered `window._allProducts` which was populated from the hardcoded array. Active products in Supabase were never in this array → invisible on `/shop` and category pages.
+
+**Fix**:
+- `renderShopPage()` now renders skeleton → fires `loadShopProducts('all')` which fetches all active products from Supabase
+- `filterShop()` uses `window._shopAllProducts` (full Supabase cache) for instant client-side filter; falls back to API
+- `renderCategoryPage()` replaced: renders skeleton → fetches `/api/products?category=:slug` — no hardcoded fallback
+- API filter (`is_active: true, is_hidden: false`) is the single source of truth
+
+### Audit 3 — Component Isolation ✅ RESOLVED
+**Root cause**: `renderProductPage()` was 17KB of hardcoded `knownProducts` object with static prices, descriptions, and a "Frame Finish" (frame color) selector baked in.
+
+**Fix**:
+- `renderProductPage()` completely replaced: shows loading skeleton → fetches `/api/products/:slug` with `Cache-Control: no-cache` → renders with live Supabase variants as size buttons
+- Frame Color/Finish selector **removed entirely** from all standard product pages
+- Added `selectSizeVariant(btn)` reading `data-price` and `data-variant-id` from Supabase variant data
+- `/customize` page: replaced "Framing Profile" (Direct/Mount) with **Frame Type Selector** (Black Frame / Natural Wood / Mount Frame)
+- Added `cfwSelectFrameType()` updating mockup frame colour, mount mat display, and summary label
+- `cfwCalcPrice()` now uses `s.frameType || s.style` for correct summary display
+- `selectSizeVariant` exported to `window.cf`
+
+### Audit 4 — Aspect Ratio & Image Display ✅ RESOLVED
+**Root cause**: All image containers used `object-fit: cover` which crops portrait frames into landscape boxes.
+
+**Fix** (`public/static/styles.css`):
+- `.product-main-img img`: `cover` → `contain` + parent gets `display:flex; align-items:center; justify-content:center`
+- `.product-gallery-main img` + `.product-gallery-main:hover img`: `cover`→`contain`, hover scale `1.04`→`1.02`
+- `.product-thumb img`: `cover` → `contain`
+- `.pc-img-wrap img`: `cover` → `contain` (product cards — no more cropped thumbnails)
+- Hero mosaic `.hero-v2-img img`: `cover` → `contain` with `background: var(--warm-50)`
+- Added `.pc-skeleton` + `.products-grid-skeleton` with shimmer animation (`@keyframes skeleton-shimmer`)
+
+### Audit 5 — Media Mapping & Refresh Logic ✅ RESOLVED
+**Root cause**: No cache-control on product API; Cloudflare edge could serve stale product data including old image_url values.
+
+**Fix** (`src/routes/products.ts`):
+- `GET /api/products/:slug` → `Cache-Control: no-cache, no-store, must-revalidate` + `Pragma: no-cache`
+- `GET /api/products` (list) → `Cache-Control: public, max-age=30, stale-while-revalidate=60`
+- Frontend `renderProductPage()` also sets `Cache-Control: no-cache` request header when fetching slug endpoint
+- `image_url` is sourced from `product_images` table via Supabase join: `images:product_images(id, image_url, alt_text, display_order)`, sorted by `display_order`, first entry used as primary
+
+### Audit 6 — Security, Auth & Order Flow ✅ VERIFIED (no code change needed)
+**Verified**:
+- `admin.use('/*')` middleware at `admin.ts:172`: requires Bearer token; checks `ADMIN_TOKEN` env bypass; verifies Supabase session; confirms `admin_users.role` in DB
+- **RLS**: All Supabase tables have Row Level Security enabled. Public API uses `SUPABASE_ANON_KEY`; admin operations use `SUPABASE_SERVICE_KEY`
+- **Order item image chain**: `orders.ts:83` stores `image_url: item.image || item.image_url` in JSONB `items` column → `admin.ts:1306` renders `i.image_url` in order modal with click-to-enlarge, download, and print buttons
+- Order flow verified: user addToCart (image stored) → POST `/api/orders/place` → Supabase `orders` table (items JSONB with image_url) → admin GET `/api/admin/orders/:id` returns full order → admin modal renders product images
+
+### Previously Fixed (commit `033ffac`)
+- Admin white screen: Tailwind `preflight:false` + inline body background
+- 11 missing SPA routes: `/faq`, `/privacy-policy`, `/terms-and-conditions`, `/shipping-policy`, `/refund-policy`, `/custom-frame`, `/track-order`, `/gift-cards`, `/size-guide`, `/care-guide`, `/bulk-orders`
+- TypeScript annotations in admin.js removed
+- Favicon SVG handler added
+- 404 page redesigned with storefront design tokens
+
+### Build Notes
+- `vite build --minify false` required — the minifier hangs on this codebase size in the sandbox environment
+- `app.js` and `styles.css` are static files (not bundled by Vite) — served directly from `dist/static/`
+- Backend TypeScript (`src/`) is bundled by Vite into `dist/_worker.js` (366.56 kB)
