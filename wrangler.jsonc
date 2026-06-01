@@ -1,34 +1,65 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "webapp",
-  "compatibility_date": "2026-04-13",
+  "name": "photoframein",
+  "compatibility_date": "2026-03-28",
   "pages_build_output_dir": "./dist",
   "compatibility_flags": [
     "nodejs_compat"
   ]
-  // "vars": {
-  //   "MY_VAR": "my-variable"
-  // },
-  // "kv_namespaces": [
-  //   {
-  //     "binding": "MY_KV_NAMESPACE",
-  //     "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-  //   }
-  // ],
-  // "r2_buckets": [
-  //   {
-  //     "binding": "MY_BUCKET",
-  //     "bucket_name": "my-bucket"
-  //   }
-  // ],
-  // "d1_databases": [
-  //   {
-  //     "binding": "MY_DB",
-  //     "database_name": "my-database",
-  //     "database_id": ""
-  //   }
-  // ],
-  // "ai": {
-  //   "binding": "AI"
-  // }
+  // ─────────────────────────────────────────────────────────────────
+  // CLOUDFLARE SECRETS — set via Dashboard or wrangler CLI:
+  // wrangler pages secret put <KEY> --project-name photoframein
+  //
+  // ── Core ──────────────────────────────────────────────────────────
+  // SUPABASE_URL              — https://xxxx.supabase.co
+  // SUPABASE_ANON_KEY         — public anon key
+  // SUPABASE_SERVICE_KEY      — service role key (admin operations)
+  //
+  // ── Payments ──────────────────────────────────────────────────────
+  // RAZORPAY_KEY_ID           — rzp_live_xxxx
+  // RAZORPAY_KEY_SECRET       — Razorpay secret
+  //
+  // ── Shipping ──────────────────────────────────────────────────────
+  // SHIPROCKET_EMAIL          — Shiprocket account email
+  // SHIPROCKET_PASSWORD       — Shiprocket password
+  //
+  // ── Email ─────────────────────────────────────────────────────────
+  // BREVO_API_KEY             — primary transactional email (300/day free)
+  // RESEND_API_KEY            — fallback email service
+  //
+  // ── Admin & Auth ──────────────────────────────────────────────────
+  // ADMIN_TOKEN               — random 32-char token for admin session JWT
+  // ADMIN_PASSWORD            — plain-text admin login password
+  // GOOGLE_CLIENT_ID          — Google OAuth client ID (customer auth)
+  //
+  // ── Notifications ─────────────────────────────────────────────────
+  // OWNER_EMAIL               — owner/alert email for order notifications (keep here, NOT in Supabase)
+  // ALERT_EMAIL               — secondary alert email (ops/logistics team)
+  // WHATSAPP_NUMBER           — E.164 format e.g. 919876543210
+  //
+  // ── Analytics & Tracking ──────────────────────────────────────────
+  // GTM_CONTAINER_ID          — GTM-XXXXXXX
+  // GA4_MEASUREMENT_ID        — G-XXXXXXXXXX
+  // MICROSOFT_CLARITY_ID      — Clarity project ID
+  //
+  // ── Image Storage (Cloudinary) ────────────────────────────────────
+  // CLOUDINARY_CLOUD_NAME     — your cloud name (from cloudinary.com/console)
+  // CLOUDINARY_API_KEY        — API key
+  // CLOUDINARY_API_SECRET     — API secret  ← server-side only, never expose to frontend
+  //   — OR — set a single combined URL:
+  // CLOUDINARY_URL            — cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+  //   (Individual keys take precedence over CLOUDINARY_URL if both are set)
+  //
+  // ── R2 Object Storage (optional) ─────────────────────────────────
+  // R2_ACCOUNT_ID             — Cloudflare account ID
+  // R2_ACCESS_KEY             — R2 API token access key
+  // R2_SECRET_KEY             — R2 API token secret key
+  // R2_BUCKET_NAME            — bucket name
+  // R2_PUBLIC_URL             — public URL prefix for R2 files
+  // ─────────────────────────────────────────────────────────────────
+  // NOTE: contact_email, contact_phone, contact_address are stored in
+  // Supabase system_config table (admin-editable via Settings panel).
+  // Only OWNER_EMAIL and ALERT_EMAIL stay as Cloudflare secrets because
+  // they are needed server-side before any DB connection is established.
+  // ─────────────────────────────────────────────────────────────────
 }

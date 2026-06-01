@@ -1,15 +1,22 @@
 {
-  "name": "webapp",
+  "name": "photoframein",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "wrangler pages dev",
-    "deploy": "npm run build && wrangler pages deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
+    "dev:sandbox": "wrangler pages dev dist --ip 0.0.0.0 --port 3000",
+    "build": "vite build --minify false",
+    "preview": "wrangler pages dev dist",
+    "deploy": "npm run build && wrangler pages deploy dist",
+    "deploy:prod": "npm run build && wrangler pages deploy dist --project-name photoframein",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "clean-port": "fuser -k 3000/tcp 2>/dev/null || true"
   },
   "dependencies": {
-    "hono": "^4.12.12"
+    "@supabase/supabase-js": "^2.49.1",
+    "cloudinary": "^2.9.0",
+    "dotenv": "^17.4.1",
+    "hono": "^4.12.9",
+    "razorpay": "^2.9.6"
   },
   "devDependencies": {
     "@hono/vite-build": "^1.2.0",
