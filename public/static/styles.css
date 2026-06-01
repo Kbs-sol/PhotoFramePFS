@@ -7909,3 +7909,249 @@ input, select, textarea { font-family: inherit; }
 }
 
 /* ─── END v5.0 styles ─────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════════════
+   v5.1 STYLES — Size Guide, FAQ, Urgency, Sticky PDP Bar, Pincode, WhatsApp
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── FAQ Page ─────────────────────────────────────────────────────────── */
+.faq-list { display: flex; flex-direction: column; gap: 8px; }
+.faq-item {
+  border: 1px solid var(--warm-200);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--white);
+  transition: box-shadow 0.2s;
+}
+.faq-item[open] { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+.faq-question {
+  padding: 18px 20px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink-900);
+}
+.faq-question::-webkit-details-marker { display: none; }
+.faq-question::after {
+  content: '+';
+  font-size: 20px;
+  font-weight: 300;
+  color: var(--ink-400);
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.faq-item[open] .faq-question::after { transform: rotate(45deg); }
+.faq-answer {
+  padding: 0 20px 18px;
+  color: var(--ink-600);
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+
+/* ─── PDP Scarcity Badge ────────────────────────────────────────────────── */
+.pdp-scarcity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-700);
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 8px;
+  padding: 9px 14px;
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+.pdp-scarcity-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  flex-shrink: 0;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.8); }
+}
+
+/* ─── PDP Pincode Checker ───────────────────────────────────────────────── */
+.pdp-pin-check {
+  background: var(--warm-50);
+  border: 1px solid var(--warm-200);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 16px;
+}
+.pdp-pin-label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--ink-700);
+}
+.pdp-pin-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pdp-pin-row input {
+  border: 1px solid var(--warm-300);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.pdp-pin-row input:focus { border-color: var(--gold); }
+
+/* ─── Sticky PDP Bar ────────────────────────────────────────────────────── */
+.pdp-sticky-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--white);
+  border-top: 2px solid var(--gold);
+  padding: 10px 16px max(10px, env(safe-area-inset-bottom));
+  z-index: 200;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
+}
+.pdp-sticky-bar.visible { transform: translateY(0); }
+.pdp-sticky-bar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ─── Checkout Urgency Banner ───────────────────────────────────────────── */
+.checkout-urgency {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.checkout-urgency .urgency-timer {
+  background: var(--gold);
+  color: var(--ink-900);
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+  min-width: 42px;
+  text-align: center;
+}
+
+/* ─── UPI Nudge on Checkout ─────────────────────────────────────────────── */
+.upi-nudge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-500);
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--warm-50);
+  border-radius: 8px;
+}
+.upi-logos {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.upi-logo {
+  height: 18px;
+  background: var(--warm-200);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  color: var(--ink-700);
+}
+
+/* ─── WhatsApp Floating Button ──────────────────────────────────────────── */
+.whatsapp-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  z-index: 999;
+  width: 54px; height: 54px;
+  background: #25D366;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.45);
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-decoration: none;
+}
+.whatsapp-widget:hover {
+  transform: scale(1.08);
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.55);
+}
+.whatsapp-widget svg { width: 28px; height: 28px; fill: #fff; }
+/* Push above sticky bar when visible */
+.pdp-sticky-bar.visible ~ .whatsapp-widget,
+body.pdp-bar-open .whatsapp-widget { bottom: 80px; }
+
+/* ─── Size Guide Link ────────────────────────────────────────────────────── */
+.size-guide-link {
+  font-size: 12px;
+  color: var(--gold);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.size-guide-link:hover { color: var(--ink-900); }
+
+/* ─── Checkout: Free Shipping Progress Bar ──────────────────────────────── */
+.shipping-progress {
+  background: var(--warm-50);
+  border: 1px solid var(--warm-200);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.shipping-progress-bar-track {
+  height: 6px;
+  background: var(--warm-200);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 8px 0 6px;
+}
+.shipping-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), #f0c040);
+  border-radius: 3px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.shipping-progress-label {
+  font-size: 12.5px;
+  color: var(--ink-600);
+}
+.shipping-progress-label strong { color: var(--green); }
+
+/* ─── Review Stars Input ─────────────────────────────────────────────────── */
+.star-rating-input { display: flex; gap: 4px; }
+.star-rating-input .star {
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--warm-200);
+  transition: color 0.1s;
+  user-select: none;
+}
+.star-rating-input .star.active,
+.star-rating-input .star:hover { color: var(--gold); }
+
+/* ─── END v5.1 styles ─────────────────────────────────────────────────── */

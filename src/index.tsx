@@ -49,6 +49,15 @@ export type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('/static/*', serveStatic());
+// Cache-Control for immutable static assets (CSS/JS have content hashes or are versioned)
+app.use('/static/*.js', async (c, next) => {
+  await next();
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+});
+app.use('/static/*.css', async (c, next) => {
+  await next();
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+});
 app.use('*', logger());
 app.use('*', async (c, next) => {
   await next();
