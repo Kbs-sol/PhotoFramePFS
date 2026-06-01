@@ -985,6 +985,7 @@
     loadConfig();
     // Hero canvas disabled — using editorial v2 hero
     // setTimeout(initHeroCanvas, 50);
+    setTimeout(loadFeaturedProducts, 50);
   }
 
   function renderCategoryCards() {
@@ -1015,19 +1016,41 @@
       </a>`).join('');
   }
 
-  function renderFeaturedProducts() {
-    const featured = [
-      { slug: 'radha-krishna-emerald-dance', name: 'Radha Krishna — Emerald Dance', category: 'Spiritual', price: 699, image: DESIGN_IMAGES['radha-krishna-emerald-dance'] },
-      { slug: 'bmw-m4-carbon-dark', name: 'BMW M4 Carbon — Dark Legend', category: 'Automotive', price: 799, image: DESIGN_IMAGES['bmw-m4-carbon-dark'] },
-      { slug: 'cricket-glory-moment', name: 'Cricket — Glory Moment', category: 'Sports', price: 599, image: DESIGN_IMAGES['cricket-glory-moment'] },
-      { slug: 'lion-geometric-gold', name: 'Lion — Geometric Gold', category: 'Wildlife', price: 649, image: DESIGN_IMAGES['lion-geometric-gold'] },
-      { slug: 'f1-redbull-racing', name: 'F1 RedBull — Championship', category: 'Automotive', price: 749, image: DESIGN_IMAGES['f1-redbull-racing'] },
-      { slug: 'mahadev-cosmic-trance', name: 'Mahadev — Cosmic Trance', category: 'Spiritual', price: 649, image: DESIGN_IMAGES['mahadev-cosmic-trance'] },
-      { slug: 'lamborghini-aventador-neon', name: 'Lamborghini SVJ — Neon Night', category: 'Automotive', price: 849, image: DESIGN_IMAGES['lamborghini-aventador-neon'] },
-      { slug: 'radha-krishna-watercolor', name: 'Radha Krishna — Watercolor Bliss', category: 'Spiritual', price: 599, image: DESIGN_IMAGES['radha-krishna-watercolor'] },
-    ];
+  // ── NORMALISE ─────────────────────────────────────────────────────────────
+  // Converts raw Supabase product shape → internal render format
+  function normaliseProduct(p) {
+    const images = p.images || [];
+    const sorted = [...images].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    const imageUrl = sorted[0]?.image_url || p.og_image_url || p.image_url || DESIGN_IMAGES[p.slug] || cldUrl(p.slug, 600);
+    const variants = (p.variants || []).filter(v => v.is_active !== false);
+    const price = variants.length > 0 ? Math.min(...variants.map(v => Number(v.price) || 9999)) : (p.base_price || 599);
+    const catName = (typeof p.category === 'object' && p.category?.name) ? p.category.name : (p.category || '');
+    const catSlug = (typeof p.category === 'object' && p.category?.slug) ? p.category.slug : catName.toLowerCase();
+    return { slug: p.slug, name: p.name, category: catName, categorySlug: catSlug, price, image: imageUrl, badge: p.badge || (p.is_featured ? 'Featured' : ''), _raw: p };
+  }
 
-    return featured.map((p, i) => renderProductCard(p, i)).join('');
+  // Skeleton placeholder — renders instantly while API loads
+  function renderFeaturedProducts() {
+    return `<div class="products-grid-skeleton">
+      ${[0,1,2,3,4,5,6,7].map(() => `<div class="pc pc-skeleton"></div>`).join('')}
+    </div>`;
+  }
+
+  // Async loader — replaces skeleton with real Supabase data
+  async function loadFeaturedProducts() {
+    const grid = document.getElementById('featured-products');
+    if (!grid) return;
+    try {
+      const res = await fetch(`${API}/products?limit=8&sort=popular`, { headers: { 'Cache-Control': 'no-cache' } });
+      if (!res.ok) throw new Error('api error');
+      const data = await res.json();
+      const products = (data.products || []).map(normaliseProduct);
+      if (products.length > 0) {
+        grid.innerHTML = products.map((p, i) => renderProductCard(p, i)).join('');
+        window._allProducts = products;
+        setTimeout(initReveal, 80);
+      }
+    } catch (e) { /* keep skeleton visible on failure */ }
   }
 
   function renderProductCard(p, idx = 0) {
@@ -1129,7 +1152,7 @@
         <div class="container">
           <p class="section-eyebrow">All Products</p>
           <h1>The Full Collection</h1>
-          <p class="page-hero-sub">51 unique designs · 4 sizes · 2 frame finishes</p>
+          <p class="page-hero-sub">Unique designs · 4 sizes · Premium frames</p>
         </div>
       </div>
       <section class="section">
@@ -1145,8 +1168,10 @@
               <button class="filter-btn" onclick="window.cf.filterShop(this,'motivational')">Motivational</button>
             </div>
           </div>
-          <div class="products-grid" id="shop-products-grid">
-            ${renderAllProducts()}
+          <div id="shop-products-grid">
+            <div class="products-grid-skeleton">
+              ${[0,1,2,3,4,5,6,7,8,9,10,11].map(() => `<div class="pc pc-skeleton"></div>`).join('')}
+            </div>
           </div>
         </div>
       </section>
@@ -1156,41 +1181,57 @@
     initMobileMenu();
     initStickyHeader();
     setTimeout(initReveal, 100);
+    setTimeout(() => loadShopProducts('all'), 50);
   }
 
-  function renderAllProducts() {
-    const allProducts = [
-      // Spiritual
-      { slug: 'radha-krishna-emerald-dance', name: 'Radha Krishna — Emerald Dance', category: 'spiritual', price: 699, image: DESIGN_IMAGES['radha-krishna-emerald-dance'] },
-      { slug: 'mahadev-cosmic-trance', name: 'Mahadev — Cosmic Trance', category: 'spiritual', price: 649, image: DESIGN_IMAGES['mahadev-cosmic-trance'] },
-      { slug: 'radha-krishna-watercolor', name: 'Radha Krishna — Watercolor Bliss', category: 'spiritual', price: 599, image: DESIGN_IMAGES['radha-krishna-watercolor'] },
-      // Automotive
-      { slug: 'bmw-m4-carbon-dark', name: 'BMW M4 Carbon — Dark Legend', category: 'automotive', price: 799, image: DESIGN_IMAGES['bmw-m4-carbon-dark'] },
-      { slug: 'porsche-911-pacific-coast', name: 'Porsche 911 — Pacific Coast', category: 'automotive', price: 749, image: DESIGN_IMAGES['porsche-911-pacific-coast'] },
-
-      { slug: 'lamborghini-aventador-neon', name: 'Lamborghini Aventador SVJ — Neon', category: 'automotive', price: 849, image: DESIGN_IMAGES['lamborghini-aventador-neon'] },
-      { slug: 'nissan-gtr-r34-osaka-rain', name: 'Nissan GTR R34 — Osaka Rain', category: 'automotive', price: 799, image: DESIGN_IMAGES['nissan-gtr-r34-osaka-rain'] },
-      { slug: 'f1-redbull-racing', name: 'F1 RedBull — Championship', category: 'automotive', price: 749, image: DESIGN_IMAGES['f1-redbull-racing'] },
-      // Sports
-      { slug: 'cricket-glory-moment', name: 'Cricket — Glory Moment', category: 'sports', price: 599, image: DESIGN_IMAGES['cricket-glory-moment'] },
-
-      // Wildlife
-      { slug: 'lion-geometric-gold', name: 'Lion — Geometric Gold', category: 'wildlife', price: 649, image: DESIGN_IMAGES['lion-geometric-gold'] },
-      // Anime
-
-    ];
-    window._allProducts = allProducts;
-    return allProducts.map((p, i) => renderProductCard(p, i)).join('');
+  async function loadShopProducts(category) {
+    const grid = document.getElementById('shop-products-grid');
+    if (!grid) return;
+    try {
+      const url = category && category !== 'all'
+        ? `${API}/products?limit=60&sort=popular&category=${encodeURIComponent(category)}`
+        : `${API}/products?limit=60&sort=popular`;
+      const res = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
+      if (!res.ok) throw new Error('api error');
+      const data = await res.json();
+      const products = (data.products || []).map(normaliseProduct);
+      window._shopAllProducts = products;
+      if (category === 'all') window._allProducts = products;
+      const toShow = category && category !== 'all'
+        ? products  // already filtered by API
+        : products;
+      if (toShow.length > 0) {
+        grid.innerHTML = `<div class="products-grid">${toShow.map((p, i) => renderProductCard(p, i)).join('')}</div>`;
+      } else {
+        grid.innerHTML = `<div class="empty-state"><p>No products found. <a href="/shop" onclick="window.cf.nav('/shop');return false;">View all →</a></p></div>`;
+      }
+      setTimeout(initReveal, 80);
+    } catch (e) {
+      grid.innerHTML = `<div class="empty-state"><p>Could not load products. <button onclick="loadShopProducts('${escapeHTML(category)}')">Retry</button></p></div>`;
+    }
   }
 
   function filterShop(btn, category) {
     $$('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    const grid = $('#shop-products-grid');
-    if (!grid || !window._allProducts) return;
-    const filtered = category === 'all' ? window._allProducts : window._allProducts.filter(p => p.category === category);
-    grid.innerHTML = filtered.map((p, i) => renderProductCard(p, i)).join('');
-    setTimeout(initReveal, 50);
+    const grid = document.getElementById('shop-products-grid');
+    if (!grid) return;
+    // If we have cached products, filter client-side instantly
+    if (window._shopAllProducts && window._shopAllProducts.length > 0) {
+      const filtered = category === 'all'
+        ? window._shopAllProducts
+        : window._shopAllProducts.filter(p => (p.categorySlug || p.category || '').toLowerCase() === category.toLowerCase());
+      grid.innerHTML = `<div class="products-grid">${filtered.map((p, i) => renderProductCard(p, i)).join('')}</div>`;
+      setTimeout(initReveal, 50);
+    } else {
+      loadShopProducts(category);
+    }
+  }
+
+  // Legacy stub — kept so any remaining call-sites don't crash
+  function renderAllProducts() {
+    window._allProducts = window._allProducts || [];
+    return '';
   }
 
   function quickAdd(variantId, name, price, image, slug) {
@@ -1198,220 +1239,125 @@
   }
 
   // ── PRODUCT DETAIL PAGE ───────────────────────────────────────────────────
+  // ── PRODUCT DETAIL PAGE (Audit 1+2+3) — fully Supabase-driven ───────────
   async function renderProductPage(app, slug) {
     slug = slug ? slug.replace(/[^a-z0-9\-]/g, '') : '';
+    if (!slug) { window.cf.nav('/shop'); return; }
 
-    // Find product from known list
-    const knownProducts = {
-      'mahadev-cosmic-trance': { name: 'Mahadev — Cosmic Trance', category: 'Spiritual', basePrice: 649,
-        desc: 'Lord Shiva immersed in cosmic trance — a luminous silhouette surrounded by swirling nebulae and divine energy. Deep blues, purples and gold radiate peace, power and transcendence. The perfect centrepiece for any puja room or spiritual space.',
-        seoTitle: 'Mahadev Cosmic Trance Framed Art Print | ChitraFrame India',
-        seoDesc: 'Buy Mahadev Cosmic Trance premium framed art print online. Museum-quality Lord Shiva wall art in Black or Natural Wood frame. Ships across India. Starting ₹649.',
-        keywords: 'mahadev wall art, lord shiva framed print, shiva cosmic art, divine wall art india',
-        image: DESIGN_IMAGES['mahadev-cosmic-trance'] },
-      'radha-krishna-watercolor': { name: 'Radha Krishna — Watercolor Bliss', category: 'Spiritual', basePrice: 599,
-        desc: 'Soft, ethereal watercolours depict the eternal union of Radha and Krishna beneath a flowering tree. Delicate pastels and botanical detail make this a timeless choice for a serene, auspicious home.',
-        seoTitle: 'Radha Krishna Watercolor Framed Art Print | ChitraFrame India',
-        seoDesc: 'Buy Radha Krishna Watercolor premium framed wall art. Beautiful devotional print in Black or Natural Wood frame. Ships across India. Starting ₹599.',
-        keywords: 'radha krishna wall art, krishna framed print, devotional wall art india',
-        image: DESIGN_IMAGES['radha-krishna-watercolor'] },
-      'radha-krishna-emerald-dance': { name: 'Radha Krishna — Emerald Dance', category: 'Spiritual', basePrice: 699,
-        desc: 'A breathtaking watercolor-style rendition of the divine love of Radha and Krishna. Teal, gold and black create a mesmerising dance of colour and devotion. Perfect for puja rooms, living rooms, or as a gifting centrepiece.',
-        seoTitle: 'Radha Krishna Emerald Dance Framed Print | ChitraFrame India',
-        seoDesc: 'Buy Radha Krishna Emerald Dance premium framed art print. Teal and gold devotional wall art. Ships across India in Black or Natural Wood frame. From ₹699.',
-        keywords: 'radha krishna emerald dance, krishna art print, divine couple wall art',
-        image: DESIGN_IMAGES['radha-krishna-emerald-dance'] },
-      'bmw-m4-carbon-dark': { name: 'BMW M4 Carbon — Dark Legend', category: 'Automotive', basePrice: 799,
-        desc: 'A dramatic digital illustration of the BMW M4 Competition — matte carbon black with red accent details. Rendered in moody studio lighting against a gunmetal gradient. For the driver who appreciates precision and power.',
-        seoTitle: 'BMW M4 Carbon Dark Framed Art Print | ChitraFrame India',
-        seoDesc: 'Buy BMW M4 Carbon Dark premium automotive wall art. Museum-quality car poster in Black or Natural Wood frame. Perfect gift for car lovers. Ships across India.',
-        keywords: 'bmw m4 wall art, bmw car poster india, automotive art print, car framed poster',
-        image: DESIGN_IMAGES['bmw-m4-carbon-dark'] },
-      'porsche-911-pacific-coast': { name: 'Porsche 911 — Pacific Coast', category: 'Automotive', basePrice: 749,
-        desc: 'Retro poster art of the classic Porsche 911 Turbo cruising the Pacific Coast Highway. Warm sunset palette, palm trees and ocean cliffs — pure driving romance. A must-have for any enthusiast\'s wall.',
-        seoTitle: 'Porsche 911 Pacific Coast Framed Art Print | ChitraFrame India',
-        seoDesc: 'Buy Porsche 911 Pacific Coast retro automotive wall art. Classic car poster framed print. Perfect for car enthusiasts. Ships across India from ₹749.',
-        keywords: 'porsche 911 wall art, porsche poster india, classic car framed print',
-        image: DESIGN_IMAGES['porsche-911-pacific-coast'] },
-      'lamborghini-aventador-neon': { name: 'Lamborghini Aventador SVJ — Midnight Neon', category: 'Automotive', basePrice: 849,
-        desc: 'The Aventador SVJ in neon-soaked Tokyo streets. Cyberpunk aesthetic meets supercar fantasy — deep purple body, cyan light trails, and Japanese typography. Bold, cinematic wall art.',
-        seoTitle: 'Lamborghini Aventador Neon Framed Art Print | ChitraFrame India',
-        seoDesc: 'Buy Lamborghini Aventador Midnight Neon premium wall art. Cyberpunk supercar framed poster. Ships across India in Black or Natural Wood frame. From ₹849.',
-        keywords: 'lamborghini wall art, aventador poster india, supercar neon art, cyberpunk car print',
-        image: DESIGN_IMAGES['lamborghini-aventador-neon'] },
-      'nissan-gtr-r34-osaka-rain': { name: 'Nissan GTR R34 — Osaka Rain', category: 'Automotive', basePrice: 799,
-        desc: 'The legendary R34 GTR in rain-slicked Osaka alleyways. Neon reflections on wet asphalt, Japanese signage and moody atmosphere. A love letter to JDM culture rendered in cinematic realism.',
-        seoTitle: 'Nissan GTR R34 Osaka Rain Framed Art Print | ChitraFrame India',
-        seoDesc: 'Buy Nissan GTR R34 Osaka Rain JDM wall art. Legendary Skyline GTR framed poster. Ships across India. Perfect for JDM and car culture fans. From ₹799.',
-        keywords: 'nissan gtr r34 wall art, skyline gtr poster india, jdm art print, r34 framed poster',
-        image: DESIGN_IMAGES['nissan-gtr-r34-osaka-rain'] },
-      'f1-redbull-racing': { name: 'F1 Red Bull — Championship Art', category: 'Automotive', basePrice: 749,
-        desc: 'The Oracle Red Bull RB19 at full speed — dramatic painterly style with sparks, smoke and motion blur. Expressive brushstrokes capture the raw energy of Formula 1 at its peak.',
-        seoTitle: 'F1 Red Bull Racing Framed Art Print | ChitraFrame India',
-        seoDesc: 'Buy F1 Red Bull Racing Championship premium framed art. Formula 1 wall art in Black or Natural Wood frame. Ships across India. From ₹749.',
-        keywords: 'f1 wall art india, red bull racing poster, formula 1 framed print, f1 art',
-        image: DESIGN_IMAGES['f1-redbull-racing'] },
-      'cricket-glory-moment': { name: 'Cricket — Glory Moment', category: 'Sports', basePrice: 599,
-        desc: 'An electric celebration — a cricketer in Indian blue raises bat and helmet as confetti rains and the crowd erupts. Visceral, high-energy illustration that captures the euphoria of victory.',
-        seoTitle: 'Cricket Glory Moment Framed Art Print | ChitraFrame India',
-        seoDesc: 'Buy Cricket Glory Moment premium framed wall art. Indian cricket victory art in Black or Natural Wood frame. Ships across India. Perfect gift for cricket fans. From ₹599.',
-        keywords: 'cricket wall art india, cricket poster framed, indian cricket art print, sports wall art',
-        image: DESIGN_IMAGES['cricket-glory-moment'] },
-      'lion-geometric-gold': { name: 'Lion — Geometric Gold', category: 'Wildlife', basePrice: 649,
-        desc: 'A majestic lion rendered in golden low-poly geometric style on deep navy. Commanding, modern, and bold. Perfect for offices, gyms, or any space that calls for strength and authority.',
-        seoTitle: 'Lion Geometric Gold Framed Art Print | ChitraFrame India',
-        seoDesc: 'Buy Lion Geometric Gold premium framed wall art. Majestic low-poly lion print in Black or Natural Wood frame. Ships across India. Perfect for offices and gyms. From ₹649.',
-        keywords: 'lion wall art india, geometric lion poster, wildlife framed print, lion art gold',
-        image: DESIGN_IMAGES['lion-geometric-gold'] },
-    };
+    // Show loading skeleton immediately
+    app.innerHTML = renderHeader() + `
+    <main id="main-content">
+      <div class="product-detail">
+        <div class="container">
+          <div class="product-layout">
+            <div class="product-gallery">
+              <div class="product-main-img" style="background:var(--warm-100);display:flex;align-items:center;justify-content:center;">
+                <div style="width:48px;height:48px;border:3px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+              </div>
+            </div>
+            <div class="product-info" style="padding-top:60px">
+              <div class="pc-skeleton" style="height:24px;width:60%;margin-bottom:16px;"></div>
+              <div class="pc-skeleton" style="height:40px;width:90%;margin-bottom:12px;"></div>
+              <div class="pc-skeleton" style="height:32px;width:40%;margin-bottom:32px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    ${renderFooter()}`;
+    initMobileMenu(); initStickyHeader();
 
-    const product = knownProducts[slug] || {
-      name: slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-      category: 'Art Print', basePrice: 599,
-      desc: 'Museum-quality art print, framed and delivered across India.',
-      image: cldUrl(slug, 800)
-    };
+    // Fetch from Supabase
+    let product, galleryImages = [], variants = [];
+    try {
+      const res = await fetch(`${API}/products/${encodeURIComponent(slug)}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (!res.ok) throw new Error('not found');
+      const data = await res.json();
+      const p = data.product || data;
+      if (!p || !p.slug) throw new Error('empty');
+      galleryImages = [...(p.images || [])].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+      const primaryImg = galleryImages[0]?.image_url || p.og_image_url || DESIGN_IMAGES[p.slug] || cldUrl(p.slug, 800);
+      variants = (p.variants || []).filter(v => v.is_active !== false).sort((a, b) => Number(a.price) - Number(b.price));
+      const basePrice = variants.length > 0 ? Number(variants[0].price) : (p.base_price || 599);
+      const catName = (typeof p.category === 'object' && p.category?.name) ? p.category.name : (p.category || 'Art Print');
+      product = {
+        slug: p.slug, name: p.name, category: catName,
+        basePrice, desc: p.description || 'Museum-quality art print, framed and delivered across India.',
+        seoTitle: p.seo_title || `${p.name} | ChitraFrame India`,
+        seoDesc: p.seo_description || `Buy ${p.name} premium framed art print. Ships across India from \u20b9${basePrice}.`,
+        image: primaryImg, _raw: p
+      };
+    } catch (e) {
+      // Graceful fallback using DESIGN_IMAGES
+      const fallbackImg = DESIGN_IMAGES[slug] || cldUrl(slug, 800);
+      product = { slug, name: slug.replace(/-/g, ' ').replace(/\b./g, c => c.toUpperCase()), category: 'Art Print',
+        basePrice: 599, desc: 'Museum-quality framed art print.', image: fallbackImg,
+        seoTitle: `${slug} | ChitraFrame India`, seoDesc: 'Buy premium framed art print.' };
+      galleryImages = [{ image_url: fallbackImg, display_order: 0 }];
+    }
 
-    const sizes = [
-      { key: 'small', label: 'Small', dim: '8×10"', extra: 0 },
-      { key: 'medium', label: 'Medium', dim: '12×18"', extra: 100 },
-      { key: 'large', label: 'Large', dim: '18×24"', extra: 250 },
-      { key: 'xl', label: 'XL', dim: '24×36"', extra: 450 },
-    ];
+    document.title = product.seoTitle;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', product.seoDesc);
+
+    const firstVariantId = variants[0]?.id || `${slug}-medium-black`;
+    const firstPrice = variants[0] ? Number(variants[0].price) : product.basePrice;
+    const primaryImg = galleryImages[0]?.image_url || product.image;
 
     app.innerHTML = renderHeader() + `
     <main id="main-content">
-      <!-- JSON-LD Product Schema for SEO + AI crawlers -->
-      <script type="application/ld+json">
-      {
-        "@context": "https://schema.org/",
-        "@type": "Product",
-        "name": "${escapeHTML(product.name)}",
-        "description": "${escapeHTML(product.desc)}",
-        "image": "${escapeHTML(product.image)}",
-        "brand": { "@type": "Brand", "name": "ChitraFrame" },
-        "url": "https://chitraframe.in/product/${escapeHTML(slug)}",
-        "category": "${escapeHTML(product.category)}",
-        "offers": {
-          "@type": "AggregateOffer",
-          "priceCurrency": "INR",
-          "lowPrice": "${product.basePrice}",
-          "highPrice": "${product.basePrice + 450}",
-          "offerCount": "8",
-          "availability": "https://schema.org/InStock",
-          "seller": { "@type": "Organization", "name": "ChitraFrame" }
-        },
-        "aggregateRating": {
-          "@type": "AggregateRating",
-          "ratingValue": "4.9",
-          "reviewCount": "124"
-        }
-      }
-      <\/script>
-      <!-- Breadcrumb -->
-      <nav class="breadcrumb" aria-label="Breadcrumb">
-        <div class="container">
-          <ol class="breadcrumb-list">
-            <li><a href="/" onclick="window.cf.nav('/');return false;">Home</a></li>
-            <li><a href="/shop" onclick="window.cf.nav('/shop');return false;">Shop</a></li>
-            <li><a href="/category/${escapeHTML(product.category.toLowerCase())}" onclick="window.cf.nav('/category/${escapeHTML(product.category.toLowerCase())}');return false;">${escapeHTML(product.category)}</a></li>
-            <li aria-current="page">${escapeHTML(product.name)}</li>
-          </ol>
-        </div>
-      </nav>
-
       <div class="product-detail">
         <div class="container">
           <div class="product-layout">
             <!-- Gallery -->
-            <div class="product-gallery" data-reveal>
-              <div class="product-main-img">
-                <img src="${escapeHTML(product.image)}" alt="${escapeHTML(product.name)}" id="product-main-image" loading="eager">
+            <div class="product-gallery">
+              <div class="product-main-img" id="pdp-main-wrap">
+                <img id="product-main-image" src="${escapeHTML(primaryImg)}" alt="${escapeHTML(product.name)} framed art print" loading="eager" fetchpriority="high">
               </div>
-              <div class="product-thumbnails" id="product-thumbs">
-                <button class="thumb-btn thumb-active" onclick="window.cf.switchThumb(this,'${escapeHTML(product.image)}')">
-                  <img src="${escapeHTML(product.image)}" alt="${escapeHTML(product.name)}">
-                </button>
-              </div>
+              ${galleryImages.length > 1 ? `
+              <div class="product-thumbnails">
+                ${galleryImages.map((img, i) => `
+                  <button class="thumb-btn${i === 0 ? ' thumb-active' : ''}" onclick="window.cf.switchThumb(this,'${escapeHTML(img.image_url)}')" aria-label="View image ${i+1}">
+                    <img src="${escapeHTML(img.image_url)}" alt="${escapeHTML(product.name)} view ${i+1}" loading="lazy">
+                  </button>`).join('')}
+              </div>` : ''}
             </div>
 
             <!-- Info -->
-            <div class="product-info" data-reveal data-reveal-delay="1">
-              <div class="product-category-tag">${escapeHTML(product.category)}</div>
-              <h1 class="product-name">${escapeHTML(product.name)}</h1>
-
-              <div class="product-rating">
-                <div class="product-stars">★★★★★</div>
-                <span>4.9 · 124 reviews</span>
+            <div class="product-info">
+              <nav class="product-breadcrumb" aria-label="Breadcrumb">
+                <a href="/" onclick="window.cf.nav('/');return false;">Home</a>
+                <span>/</span>
+                <a href="/shop" onclick="window.cf.nav('/shop');return false;">Shop</a>
+                <span>/</span>
+                <a href="/category/${escapeHTML((product._raw?.category?.slug || product.category || '').toLowerCase())}" onclick="window.cf.nav('/category/${escapeHTML((product._raw?.category?.slug || product.category || '').toLowerCase())}');return false;">${escapeHTML(product.category)}</a>
+              </nav>
+              <h1 class="product-detail-title" itemprop="name">${escapeHTML(product.name)}</h1>
+              <div class="product-detail-price">
+                <span class="price-from">from</span>
+                <span id="product-current-price">${formatPrice(firstPrice)}</span>
               </div>
 
-              <div class="product-price-display" id="product-price-display">
-                <span class="product-price-label">from</span>
-                <span class="product-price-amount" id="product-current-price">${formatPrice(product.basePrice)}</span>
-              </div>
-
-              <!-- Size Selector -->
-              <div class="product-option-group">
-                <div class="product-option-label">
-                  <span>Size</span>
-                  <button class="size-guide-link" onclick="window.cf.showSizeGuide()">Size Guide</button>
+              ${variants.length > 0 ? `
+              <div class="size-section">
+                <div class="size-label-row">
+                  <span class="size-label">Size</span>
+                  <a href="/size-guide" onclick="window.cf.nav('/size-guide');return false;" class="size-guide-link">Size Guide</a>
                 </div>
-                <div class="size-grid" id="size-grid">
-                  ${sizes.map((s, i) => `
-                    <button class="size-btn${i === 1 ? ' size-active' : ''}" 
-                      data-size="${s.key}" 
-                      data-extra="${s.extra}"
-                      onclick="window.cf.selectSize(this, ${product.basePrice})"
-                      aria-pressed="${i === 1}"
-                      aria-label="${s.label} — ${s.dim}">
-                      <span class="size-btn-label">${s.label}</span>
-                      <span class="size-btn-dim">${s.dim}</span>
-                      <span class="size-btn-price">${formatPrice(product.basePrice + s.extra)}</span>
+                <div class="size-options" role="group" aria-label="Select size">
+                  ${variants.map((v, i) => `
+                    <button class="size-btn${i === 0 ? ' size-active' : ''}"
+                      data-size="${escapeHTML(v.size)}"
+                      data-price="${Number(v.price)}"
+                      data-variant-id="${escapeHTML(String(v.id))}"
+                      onclick="window.cf.selectSizeVariant(this)"
+                      aria-pressed="${i === 0 ? 'true' : 'false'}">
+                      ${escapeHTML(v.size)}
                     </button>`).join('')}
                 </div>
-              </div>
-
-              <!-- Frame Selector -->
-              <div class="product-option-group">
-                <div class="product-option-label"><span>Frame Finish</span></div>
-                <div class="frame-options" id="frame-options">
-                  <button class="frame-btn frame-active" data-frame="Black" onclick="window.cf.selectFrame(this)" aria-pressed="true">
-                    <span class="frame-swatch" style="background:#1a1a1a;border:2px solid #1a1a1a"></span>
-                    Black
-                  </button>
-                  <button class="frame-btn" data-frame="Wood" onclick="window.cf.selectFrame(this)" aria-pressed="false">
-                    <span class="frame-swatch" style="background:linear-gradient(135deg,#8B6914,#C4922E);border:2px solid #8B6914"></span>
-                    Natural Wood
-                  </button>
-                </div>
-              </div>
-
-              <!-- ATC Area -->
-              <div class="atc-area">
-                <div class="atc-qty">
-                  <button onclick="window.cf.pdpQty(-1)" aria-label="Decrease quantity">−</button>
-                  <span id="pdp-qty">1</span>
-                  <button onclick="window.cf.pdpQty(1)" aria-label="Increase quantity">+</button>
-                </div>
-                <button class="btn-primary atc-btn" id="atc-btn" onclick="window.cf.pdpAddToCart('${escapeHTML(slug)}','${escapeHTML(product.name)}',${product.basePrice},'${escapeHTML(product.image)}')">
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M1 1h2.5l2.4 9.6h8.1l2-7H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="15" r="1.2" fill="currentColor"/><circle cx="13" cy="15" r="1.2" fill="currentColor"/></svg>
-                  Add to Cart
-                </button>
-              </div>
-
-              <!-- A3 Poster Add-on -->
-              <label class="pdp-poster-addon" id="pdp-poster-addon">
-                <input type="checkbox" id="pdp-poster-check" onchange="window.cf.togglePdpPoster(this.checked)">
-                <div class="pdp-poster-addon-inner">
-                  <span class="pdp-poster-check-visual"></span>
-                  <span class="pdp-poster-icon">🗞️</span>
-                  <div class="pdp-poster-text">
-                    <strong>Add A3 Poster Print (Rolled)</strong>
-                    <span>Unframed, rolled print — ideal as a gift, spare, or bedroom art</span>
-                  </div>
-                  <span class="pdp-poster-price">+₹89</span>
-                </div>
-              </label>
+              </div>` : ''}
 
               <!-- Trust Pills -->
               <div class="product-trust">
@@ -1429,6 +1375,28 @@
                 </div>
               </div>
 
+              <!-- Add to Cart -->
+              <div class="pdp-cta-row">
+                <div class="pdp-qty-row">
+                  <button onclick="window.cf.pdpQty(-1)" class="qty-btn" aria-label="Decrease">−</button>
+                  <span id="pdp-qty">1</span>
+                  <button onclick="window.cf.pdpQty(1)" class="qty-btn" aria-label="Increase">+</button>
+                </div>
+                <button class="btn-primary pdp-atc-btn" onclick="window.cf.pdpAddToCart('${escapeHTML(slug)}','${escapeHTML(product.name)}',${firstPrice},'${escapeHTML(primaryImg)}')" aria-label="Add to cart">
+                  Add to Cart — <span id="pdp-btn-price">${formatPrice(firstPrice)}</span>
+                </button>
+              </div>
+
+              <!-- Poster Add-on -->
+              <label class="pdp-poster-addon">
+                <input type="checkbox" id="pdp-poster-check">
+                <div class="pdp-poster-content">
+                  <strong>Add A3 Poster Print (Rolled)</strong>
+                  <span>Unframed, rolled print — ideal as a gift or bedroom art</span>
+                </div>
+                <span class="pdp-poster-price">+₹89</span>
+              </label>
+
               <!-- Description -->
               <div class="product-desc">
                 <p>${escapeHTML(product.desc)}</p>
@@ -1438,26 +1406,73 @@
         </div>
       </div>
 
-      <!-- Related Products -->
+      <!-- Related Products placeholder -->
       <section class="section section-alt">
         <div class="container">
           <div class="section-header">
             <h2 class="section-title">You may also like</h2>
           </div>
-          <div class="products-grid">
-            ${renderRelatedProducts(product.category, slug)}
+          <div class="products-grid" id="related-products-grid">
+            ${[0,1,2,3].map(() => `<div class="pc pc-skeleton"></div>`).join('')}
           </div>
         </div>
       </section>
     </main>
     ${renderFooter()}`;
 
-    // State for PDP
-    window._pdpState = { size: 'medium', frame: 'Black', qty: 1, basePrice: product.basePrice };
+    window._pdpState = {
+      size: variants[0]?.size || 'Medium',
+      frame: variants[0]?.frame_type || 'Black',
+      qty: 1,
+      basePrice: firstPrice,
+      variantId: String(firstVariantId)
+    };
 
     initMobileMenu();
     initStickyHeader();
     setTimeout(initReveal, 100);
+    setTimeout(() => loadRelatedProducts(product.category, slug), 80);
+  }
+
+  function selectSizeVariant(btn) {
+    $$('.size-btn').forEach(b => { b.classList.remove('size-active'); b.setAttribute('aria-pressed','false'); });
+    btn.classList.add('size-active');
+    btn.setAttribute('aria-pressed','true');
+    const price = parseInt(btn.dataset.price || '0');
+    const variantId = btn.dataset.variantId || '';
+    if (window._pdpState) {
+      window._pdpState.size = btn.dataset.size;
+      window._pdpState.basePrice = price;
+      window._pdpState.variantId = variantId;
+    }
+    const priceEl = document.getElementById('product-current-price');
+    if (priceEl) priceEl.textContent = formatPrice(price);
+    const btnPrice = document.getElementById('pdp-btn-price');
+    if (btnPrice) btnPrice.textContent = formatPrice(price);
+  }
+
+  async function loadRelatedProducts(category, currentSlug) {
+    const grid = document.getElementById('related-products-grid');
+    if (!grid) return;
+    try {
+      // Try cached products first
+      const cached = (window._allProducts || window._shopAllProducts || [])
+        .filter(p => p.slug !== currentSlug && (p.categorySlug || p.category || '').toLowerCase() === (category || '').toLowerCase())
+        .slice(0, 4);
+      if (cached.length >= 2) {
+        grid.innerHTML = cached.map((p, i) => renderProductCard(p, i)).join('');
+        setTimeout(initReveal, 50);
+        return;
+      }
+      // Fallback to API
+      const catSlug = (category || '').toLowerCase().replace(/\s+/g, '-');
+      const res = await fetch(`${API}/products?limit=8&sort=popular${catSlug ? '&category=' + encodeURIComponent(catSlug) : ''}`, { headers: { 'Cache-Control': 'no-cache' } });
+      if (!res.ok) throw new Error('api');
+      const data = await res.json();
+      const products = (data.products || []).map(normaliseProduct).filter(p => p.slug !== currentSlug).slice(0, 4);
+      grid.innerHTML = products.length > 0 ? products.map((p, i) => renderProductCard(p, i)).join('') : '';
+      setTimeout(initReveal, 50);
+    } catch (e) { grid.innerHTML = ''; }
   }
 
   function renderRelatedProducts(category, currentSlug) {
@@ -1569,6 +1584,7 @@
   }
 
   // ── CATEGORY PAGE ─────────────────────────────────────────────────────────
+  // ── CATEGORY PAGE (Audit 1+2) — fully API-driven ──────────────────────────
   async function renderCategoryPage(app, slug) {
     slug = slug ? slug.replace(/[^a-z0-9\-]/g, '') : '';
     const categoryNames = {
@@ -1578,18 +1594,7 @@
     };
     const name = categoryNames[slug] || slug.charAt(0).toUpperCase() + slug.slice(1);
 
-    const allProducts = window._allProducts || (function() {
-      const temp = document.createElement('div');
-      temp.innerHTML = renderAllProducts();
-      return window._allProducts || [];
-    })();
-
-    const products = (window._allProducts || []).filter(p => p.category === slug);
-    const fallback = [
-      { slug: 'radha-krishna-emerald-dance', name: 'Radha Krishna — Emerald Dance', category: 'spiritual', price: 699, image: DESIGN_IMAGES['radha-krishna-emerald-dance'] },
-      { slug: 'mahadev-cosmic-trance', name: 'Mahadev — Cosmic Trance', category: 'spiritual', price: 649, image: DESIGN_IMAGES['mahadev-cosmic-trance'] },
-    ];
-
+    // Render shell with skeleton immediately
     app.innerHTML = renderHeader() + `
     <main id="main-content">
       <div class="page-hero-simple">
@@ -1605,10 +1610,11 @@
       </div>
       <section class="section">
         <div class="container">
-          <div class="products-grid">
-            ${products.length > 0 ? products.map((p, i) => renderProductCard(p, i)).join('') : fallback.map((p, i) => renderProductCard(p, i)).join('')}
+          <div id="category-products-grid">
+            <div class="products-grid-skeleton">
+              ${[0,1,2,3,4,5,6,7].map(() => `<div class="pc pc-skeleton"></div>`).join('')}
+            </div>
           </div>
-          ${products.length === 0 ? `<div class="empty-state"><p>More designs coming soon. <a href="/shop" onclick="window.cf.nav('/shop');return false;">Explore all prints →</a></p></div>` : ''}
         </div>
       </section>
     </main>
@@ -1618,8 +1624,24 @@
     initStickyHeader();
     setTimeout(initReveal, 100);
 
-    // Ensure _allProducts is initialised for future calls
-    if (!window._allProducts) renderAllProducts();
+    // Fetch from API
+    const grid = document.getElementById('category-products-grid');
+    try {
+      const res = await fetch(`${API}/products?limit=60&sort=popular&category=${encodeURIComponent(slug)}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (!res.ok) throw new Error('api');
+      const data = await res.json();
+      const products = (data.products || []).map(normaliseProduct);
+      if (products.length > 0) {
+        grid.innerHTML = `<div class="products-grid">${products.map((p, i) => renderProductCard(p, i)).join('')}</div>`;
+        setTimeout(initReveal, 80);
+      } else {
+        grid.innerHTML = `<div class="empty-state"><p>More ${escapeHTML(name)} designs coming soon. <a href="/shop" onclick="window.cf.nav('/shop');return false;">Explore all prints →</a></p></div>`;
+      }
+    } catch (e) {
+      if (grid) grid.innerHTML = `<div class="empty-state"><p>Could not load products. <a href="/shop" onclick="window.cf.nav('/shop');return false;">View all →</a></p></div>`;
+    }
   }
 
   // ── CART PAGE ─────────────────────────────────────────────────────────────
@@ -3094,25 +3116,31 @@
                   </label>
                 </div>
 
-                <!-- Framing Style Toggle -->
+                <!-- Frame Type Selector (Audit 3) — Black / Natural Wood / Mount -->
                 <div class="cfw-style-toggle-wrap">
-                  <p class="cfw-style-label">Framing Profile</p>
-                  <div class="cfw-style-toggle" role="group" aria-label="Framing style">
-                    <button class="cfw-style-btn cfw-style-active" id="cfw-style-direct" type="button"
-                      onclick="window.cf.cfwSelectStyle('Direct',0,'cfw-style-direct','cfw-style-mount')">
-                      <strong>Direct Frame</strong>
-                      <span>Artwork edge-to-edge</span>
+                  <p class="cfw-style-label">Frame Type</p>
+                  <div class="cfw-style-toggle" role="group" aria-label="Frame type">
+                    <button class="cfw-style-btn cfw-style-active" id="cfw-ft-black" type="button"
+                      onclick="window.cf.cfwSelectFrameType('Black Frame',0,'cfw-ft-black','cfw-ft-wood','cfw-ft-mount')">
+                      <strong>Black Frame</strong>
+                      <span>Classic matte black</span>
                       <span class="cfw-style-price-tag">Base price</span>
                     </button>
-                    <button class="cfw-style-btn" id="cfw-style-mount" type="button"
-                      onclick="window.cf.cfwSelectStyle('Mount',250,'cfw-style-mount','cfw-style-direct')">
+                    <button class="cfw-style-btn" id="cfw-ft-wood" type="button"
+                      onclick="window.cf.cfwSelectFrameType('Natural Wood',0,'cfw-ft-wood','cfw-ft-black','cfw-ft-mount')">
+                      <strong>Natural Wood</strong>
+                      <span>Warm oak finish</span>
+                      <span class="cfw-style-price-tag">Base price</span>
+                    </button>
+                    <button class="cfw-style-btn" id="cfw-ft-mount" type="button"
+                      onclick="window.cf.cfwSelectFrameType('Mount Frame',250,'cfw-ft-mount','cfw-ft-black','cfw-ft-wood')">
                       <strong>Mount Frame</strong>
-                      <span>Premium white border</span>
+                      <span>White mat border</span>
                       <span class="cfw-style-price-tag cfw-style-markup">+₹250</span>
                     </button>
                   </div>
                   <p class="cfw-style-hint">
-                    <strong>Direct</strong> — image fills the full frame. <strong>Mount</strong> — adds a clean white mat border around your photo for a gallery aesthetic.
+                    <strong>Black</strong> — classic matte finish. <strong>Natural Wood</strong> — warm oak tone. <strong>Mount</strong> — black frame with gallery-style white mat border.
                   </p>
                 </div>
 
@@ -3290,6 +3318,42 @@
       window.cf.cfwCalcPrice();
     };
 
+    // Audit 3: Frame Type Selector (Black / Natural Wood / Mount)
+    window.cf.cfwSelectFrameType = function(frameType, mountAddon, activeId, ...inactiveIds) {
+      window._cfwState.frameType = frameType;
+      window._cfwState.style = frameType; // used by cfwCalcPrice summary
+      window._cfwState.mountAddon = mountAddon;
+      document.querySelectorAll('.cfw-style-btn').forEach(b => b.classList.remove('cfw-style-active'));
+      const aBtn = document.getElementById(activeId);
+      if (aBtn) aBtn.classList.add('cfw-style-active');
+      inactiveIds.forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.classList.remove('cfw-style-active');
+      });
+      // Update mockup frame colour
+      const frameOuter = document.getElementById('cfw-frame-outer');
+      if (frameOuter) {
+        if (frameType === 'Natural Wood') {
+          frameOuter.style.background = 'linear-gradient(135deg,#8B6914 0%,#C4922E 50%,#8B6914 100%)';
+          frameOuter.style.border = '14px solid transparent';
+        } else {
+          frameOuter.style.background = '#1a1a1a';
+          frameOuter.style.border = '14px solid #1a1a1a';
+        }
+      }
+      const mat = document.getElementById('cfw-mat-border');
+      if (mat) {
+        if (frameType === 'Mount Frame') {
+          mat.style.padding = '16px'; mat.style.background = '#fff';
+        } else {
+          mat.style.padding = '0'; mat.style.background = 'transparent';
+        }
+      }
+      const mountRow = document.getElementById('cfw-sum-mount-row');
+      if (mountRow) mountRow.style.display = mountAddon > 0 ? 'flex' : 'none';
+      window.cf.cfwCalcPrice();
+    };
+
     window.cf.cfwCalcPrice = function() {
       const s = window._cfwState;
       s.posterAddon = document.getElementById('cfw-poster-check')?.checked || false;
@@ -3300,7 +3364,10 @@
       // Update summary
       const el = (id) => document.getElementById(id);
       if (el('cfw-sum-size')) el('cfw-sum-size').textContent = s.sizeLabel;
-      if (el('cfw-sum-style')) el('cfw-sum-style').textContent = s.style + ' Frame';
+      if (el('cfw-sum-style')) {
+        const styleLabel = s.frameType || s.style || 'Black Frame';
+        el('cfw-sum-style').textContent = styleLabel.endsWith('Frame') ? styleLabel : styleLabel + ' Frame';
+      }
       if (el('cfw-sum-mount-row')) el('cfw-sum-mount-row').style.display = s.mountAddon > 0 ? 'flex' : 'none';
       if (el('cfw-sum-poster-row')) el('cfw-sum-poster-row').style.display = s.posterAddon ? 'flex' : 'none';
       if (el('cfw-sum-subtotal')) el('cfw-sum-subtotal').textContent = '₹' + subtotal;
@@ -3528,6 +3595,7 @@
     pdpAddToCart,
     pdpQty,
     selectSize,
+    selectSizeVariant,
     selectFrame,
     switchThumb,
     showSizeGuide,

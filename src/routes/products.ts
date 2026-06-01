@@ -45,6 +45,8 @@ products.get('/', async (c) => {
   const { data, error, count } = await query.range(offset, offset + limit - 1);
 
   if (error) return c.json({ error: error.message }, 500);
+  // Audit 5: short-lived cache for list pages — fresh enough for shop/category grids
+  c.header('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
   return c.json({ products: data || [], total: count || data?.length || 0 });
   } catch (e: any) { return c.json({ products: [], total: 0 }); }
 });
@@ -202,6 +204,9 @@ products.get('/:slug', async (c) => {
     }
   }
 
+  // Audit 5: force no-cache so updated Supabase images always reach the browser
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  c.header('Pragma', 'no-cache');
   return c.json({ product, reviews: reviews || [], frequentlyBoughtTogether: fbt, youMayAlsoLike: ymal });
   } catch (e: any) { return c.json({ error: 'Product not found' }, 404); }
 });
