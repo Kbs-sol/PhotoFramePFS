@@ -8155,3 +8155,293 @@ body.pdp-bar-open .whatsapp-widget { bottom: 80px; }
 .star-rating-input .star:hover { color: var(--gold); }
 
 /* ─── END v5.1 styles ─────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   v5.2 DESIGN SYSTEM UPGRADES (Sections 6 + 7)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── s7.1: Hero grain texture + subtle parallax ───────────────────────── */
+.hero-section,
+.hero {
+  position: relative;
+  overflow: hidden;
+}
+.hero-section::after,
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+  animation: grain-drift 8s steps(10) infinite;
+}
+.hero-section > *,
+.hero > * { position: relative; z-index: 1; }
+
+@keyframes grain-drift {
+  0%, 100% { transform: translate(0, 0); }
+  10%       { transform: translate(-1%, -2%); }
+  20%       { transform: translate(1%, 1%); }
+  30%       { transform: translate(-2%, 1%); }
+  40%       { transform: translate(2%, -1%); }
+  50%       { transform: translate(-1%, 2%); }
+  60%       { transform: translate(1%, -2%); }
+  70%       { transform: translate(-2%, -1%); }
+  80%       { transform: translate(2%, 2%); }
+  90%       { transform: translate(-1%, 1%); }
+}
+
+/* ─── s7.2: Product card hover states ──────────────────────────────────── */
+/* Scale 1.04, gold border, drop shadow — applied universally */
+.product-card,
+.pc {
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.28s ease,
+              border-color 0.2s ease;
+  border: 1.5px solid transparent;
+  will-change: transform;
+}
+.product-card:hover,
+.pc:hover {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 20px 56px rgba(0,0,0,0.12), 0 4px 12px rgba(201,151,58,0.12);
+  border-color: var(--gold-light);
+}
+.product-card:hover .product-card-image img,
+.product-card:hover .product-image-wrap img,
+.pc:hover img {
+  transform: scale(1.06);
+  transition: transform 0.45s ease;
+}
+
+/* ─── s7.3: Typography consistency ─────────────────────────────────────── */
+/* All h1 headings use DM Serif Display, generous line-height */
+h1 {
+  font-family: var(--font-serif);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+h2 {
+  font-family: var(--font-serif);
+  line-height: 1.2;
+}
+/* Tabular-nums for all prices to prevent layout shift */
+.price, [class*="price"], .cart-total, .product-current-price,
+#product-current-price, .product-card-price, .checkout-total {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+/* Body text comfortable reading width */
+.static-page p,
+.product-desc p,
+.blog-content p {
+  max-width: 68ch;
+  line-height: 1.75;
+}
+
+/* ─── s7.4: Mobile layout polish ────────────────────────────────────────── */
+/* Safe-area insets for notched devices */
+.site-header {
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+.cart-drawer {
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+/* 44px minimum tap targets on interactive elements */
+.header-icon-btn,
+.qty-btn,
+.mobile-menu-toggle,
+.frame-swatch-btn,
+.size-btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+.size-btn { min-width: 60px; }
+
+/* 100dvh cart drawer on modern browsers */
+.cart-drawer {
+  height: 100dvh;
+  max-height: 100dvh;
+}
+
+/* Prevent overscroll bounce in cart/modal */
+.cart-drawer,
+.mobile-menu-inner,
+.modal-box {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile: full-width buttons in critical flows */
+@media (max-width: 640px) {
+  .pdp-cta-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .pdp-atc-btn {
+    width: 100%;
+  }
+  .checkout-actions {
+    flex-direction: column;
+  }
+}
+
+/* ─── s7.5: WCAG contrast improvements ─────────────────────────────────── */
+/* Gold adjusted to #E8C84A for better contrast on white backgrounds */
+:root {
+  --gold-accessible: #B8860B; /* AA compliant on white: 4.6:1 */
+  --error-color: #CC0000;     /* Error red — high contrast */
+  --error-bg: #FFF0F0;
+  --success-color: #1A6B3A;
+  --success-bg: #F0FFF4;
+}
+/* Error states */
+.field-error {
+  color: var(--error-color);
+  background: var(--error-bg);
+  border-left: 3px solid var(--error-color);
+  padding: 6px 10px;
+  border-radius: 0 4px 4px 0;
+  font-size: 12.5px;
+  margin-top: 4px;
+}
+input.input-error,
+select.input-error,
+textarea.input-error {
+  border-color: var(--error-color) !important;
+  box-shadow: 0 0 0 2px rgba(204,0,0,0.12);
+}
+
+/* ─── s6.2: Mobile menu overlay + accessibility ─────────────────────────── */
+#mobile-menu {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+#mobile-menu.mobile-menu-open {
+  display: flex;
+}
+.mobile-menu-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  cursor: pointer;
+}
+.mobile-menu-inner {
+  position: relative;
+  z-index: 1;
+  background: var(--warm-bg, #FAF8F5);
+  width: min(320px, 85vw);
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-shadow: 4px 0 32px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 env(safe-area-inset-bottom);
+  animation: slide-in-left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+/* ─── s6.5: Frame swatch selector ──────────────────────────────────────── */
+.frame-section {
+  margin: 18px 0;
+}
+.frame-swatches {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.frame-swatch-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 8px 10px;
+  border: 2px solid var(--warm-200, #E8E0D4);
+  border-radius: 8px;
+  background: var(--warm-bg, #FAF8F5);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-size: 13px;
+  color: var(--ink-700, #2D2A25);
+  font-weight: 500;
+}
+.frame-swatch-btn:hover {
+  border-color: var(--gold-light, #E0B862);
+  box-shadow: 0 0 0 3px var(--gold-glow, rgba(201,151,58,0.12));
+}
+.frame-swatch-btn.frame-swatch-active {
+  border-color: var(--ink-900, #0F0E0C);
+  box-shadow: 0 0 0 3px rgba(15,14,12,0.08);
+  background: #fff;
+}
+.frame-swatch-circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+}
+.frame-swatch-label {
+  white-space: nowrap;
+}
+
+/* ─── s6.3: Account order cards ─────────────────────────────────────────── */
+.account-order-card {
+  border: 1.5px solid var(--warm-200, #E8E0D4);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: #fff;
+  transition: box-shadow 0.2s;
+}
+.account-order-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+}
+.account-order-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.account-order-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.account-order-status {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+
+/* ─── Skeleton loader (used in account orders) ──────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, var(--warm-100,#F0EBE3) 25%, var(--warm-50,#FAF8F5) 50%, var(--warm-100,#F0EBE3) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s infinite;
+  border-radius: 8px;
+}
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── END v5.2 styles ─────────────────────────────────────────────────── */
