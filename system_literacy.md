@@ -1,5 +1,5 @@
 # ChitraFrame — System Literacy Document
-> **Version:** 5.2 — June 2026  
+> **Version:** 5.3 — June 2026  
 > **Purpose:** Comprehensive reference for code architecture, business logic, infrastructure, and operational knowledge. Written for any developer, AI agent, or operator picking up this codebase cold.
 
 ---
@@ -146,8 +146,9 @@ app.use('/static/*', serveStatic({ root: './public' }))
 
 **CSP header** (line 81):
 - Allows: `self`, Supabase WS, Razorpay, Cloudinary, GTM, GA4, Clarity, India Post API
+- Admin panel additionally allows: `cdn.tailwindcss.com`, `cdn.jsdelivr.net` (Tailwind CDN, FontAwesome, axios, chart.js — all admin-only)
 - `'unsafe-inline'` required (inline onclick handlers — known tech debt)
-- GSAP and FontAwesome CDNs removed (v5.2)
+- GSAP removed from customer pages (v5.2)
 
 **pageShell()** (line ~560):
 - Injects `<title>`, `<meta description>`, OG tags, canonical URL, JSON-LD
@@ -625,71 +626,117 @@ WHATSAPP_NUMBER=917989531818
 | CSP `unsafe-inline` required (inline onclick handlers) | Medium | Planned fix (nonce) |
 | Admin password in system_literacy.md | ⚠️ | Rotate after reading |
 | No server-side cart validation (prices could be manipulated) | High | Planned |
-| `checkout_source` + `shiprocket_synced` fields not yet in schema | Medium | Part B |
-| Part B pricing table not yet live (UI still shows old prices) | Medium | Part B |
-| COD enforcement not yet implemented | Medium | Part B |
+| `checkout_source` + `shiprocket_synced` fields not yet in schema | Medium | Planned |
 | No rate limiting on checkout (could create spam orders) | Medium | Planned |
+| All 11 products have `is_placeholder:true` → Cloudinary images 404 | High | Owner must upload real images via Admin → Media Manager |
+| `product_variants_frame_type_check` DB constraint only allows `"Direct Frame"` | ⚠️ Critical | Frame type is discriminated via SKU suffix (`-standard`/`-premium`/`-noframe`) not `frame_type` column. Never attempt to insert variants with `frame_type != 'Direct Frame'` |
+| `.dev.vars` must be created manually | Info | Not committed to git — see §15 for required values |
+| `/api/admin/pricing` route missing (404) | Medium | admin.js Pricing section exists but no backend route |
+| Shop page `seo_title` in Supabase still shows `PhotoFrameIn` | Low | Update in Admin → Settings → SEO Title |
 | WebGL hero canvas dead code removed (v5.2) | ✅ Done | — |
-| FontAwesome removed from customer pages (v5.2) | ✅ Done | — |
-| GSAP removed from customer pages (v5.2) | ✅ Done | — |
 
----
-
-## 17. Pending Features (Part B)
-
-These are planned business requirements not yet implemented:
-
-### Pricing Architecture
-- [ ] Update size/price table in PDP + quickAdd modal to: Small ₹449/₹599, Medium ₹749/₹999 (default), Large ₹1,099/₹1,399, XL ₹1,699/₹2,199
-- [ ] A4 ₹99 loss leader (hidden — only as upsell in cart/checkout)
-
-### COD Policy
-- [ ] Minimum order ₹499, maximum ₹1,995
-- [ ] ₹49 COD handling fee enforced in `getCartTotals()`
-- [ ] 40% COD volume cap (admin configurable)
-- [ ] COD WhatsApp confirmation flow (pre-filled message to customer)
-- [ ] Resend email to owner on new COD order
-- [ ] `cod_pending` status + admin confirmation UI
-
-### Checkout Architecture
-- [ ] Shiprocket widget as primary checkout
-- [ ] Hono fallback checkout (current implementation) as secondary
-- [ ] `checkout_source` field: `'shiprocket_widget'` | `'hono_fallback'`
-- [ ] `shiprocket_synced` boolean field in orders
-- [ ] Add both fields to `schema.sql` + order creation code
-
-### Serviceability
-- [ ] Pincode serviceability check: India Post API first, Shiprocket if unavailable
-- [ ] Show estimated delivery date based on pincode
-
-### Shipping Calculation
-- [ ] Volumetric weight table by size
-- [ ] Graduated shipping rates (currently flat ₹49 below ₹899)
-
-### PDP Redesign (8-section)
-- [ ] Full 8-section PDP with red `#CC0000` BUY NOW button
-- [ ] Sticky ATC bar on mobile
-
-### Admin Controls
-- [ ] COD toggle (`cod_enabled` → `system_config`)
-- [ ] Acrylic upgrade toggle
-- [ ] `PICKUP_PINCODE` setting (for shipping calculation)
-- [ ] Batch Shiprocket sync button
-
-### Schema Changes Required
+### Critical DB Constraint
 ```sql
--- orders table additions
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS checkout_source TEXT DEFAULT 'hono_fallback';
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS shiprocket_synced BOOLEAN DEFAULT false;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS cod_confirmed_at TIMESTAMPTZ;
-
--- reviews table (already done in v5.2)
--- ALTER TABLE reviews ADD COLUMN IF NOT EXISTS ip_address TEXT;
+-- NEVER insert variants with frame_type other than 'Direct Frame'
+-- Constraint: product_variants_frame_type_check
+-- CHECK (frame_type = 'Direct Frame')
+-- Frame finish (standard/premium/no-frame) is determined by SKU suffix:
+--   {slug}-{size}-standard  → Standard Frame
+--   {slug}-{size}-premium   → Premium Frame
+--   {slug}-{size}-noframe   → No Frame / Print Only
 ```
 
 ---
 
-## 18. Audit History
+## 17. Implemented Features (Part B — v5.3)
+
+These were planned in v5.2 and are now implemented:
+
+### ✅ Part B.1 — COD Frontend Enforcement
+- `getCartTotals()` checks `window.publicConfig.cod_enabled`, `cod_fee`, `cod_min_value`, `cod_max_value`
+- COD fee (₹49) added to total when COD selected
+- `#cod-policy-warning` shown when cart total > ₹1,995 (COD max)
+- Checkout submit blocked for COD orders outside ₹499–₹1,995 range
+
+### ✅ Part B.2 — Frame Type Helpers
+- `getFrameDisplayFromSku(sku)` → `"Standard Frame"` | `"Premium Frame"` | `"No Frame"`
+- `isNoFrameVariant(v)`, `isPremiumVariant(v)`, `isStandardVariant(v)` helpers
+- `findVariantBySizeAndFrame(variants, size, frameDisplay)` — used in PDP
+
+### ✅ Part B.3 — Part B Pricing Live
+- Standard: Small ₹449, Medium ₹749, Large ₹1,099, XL ₹1,699
+- Premium: Small ₹599, Medium ₹999, Large ₹1,399, XL ₹2,199
+- `customCalcPrice()` in quickAdd modal updated
+- PDP `selectFrame()` / `selectSizeVariant()` updated
+
+### ✅ Part B.6 — Red BUY NOW Button on PDP
+- `.pdp-buynow-btn` — `background:#CC0000`, `color:#fff`
+- `pdpBuyNow()` → addToCart + navigate('/checkout')
+
+### ✅ Part B.7 — Delivery Serviceability Check on PDP
+- `#pdp-pincode-input` + `#pdp-check-btn` widget
+- Calls `/api/checkout/pincode-validate` → India Post fallback
+- Shows estimated delivery range + serviceable/non-serviceable state
+
+### ✅ Part B.9 — A4 ₹99 Loss Leader
+- Hidden from shop grid (`is_upsell_only:true` filter)
+- Hidden from PDP size selector
+- CSS `.cart-upsell-a4` strip implemented
+- JS: `renderCartDrawerContent()` fetches `/api/products/upsell` and renders strip
+- `addA4Upsell(variantId, slug, price, name, image)` adds to cart
+
+### ✅ R1 — Admin Operations Quick Controls (v5.3)
+Added prominent card at top of Admin → Settings:
+- **COD toggle** — instant `PUT /api/admin/settings` with live status label
+- **COD limits display** — ₹49 fee, ₹499 min, ₹1,995 max (read-only display)
+- **Acrylic Upgrade toggle** — same instant save pattern
+- **Pickup Pincode editor** — 6-digit validation + Save button
+- **Batch Shiprocket sync button** — calls `admin.syncPending()` → `POST /api/admin/orders/bulk-sync`
+- `admin.quickToggle(key, value)` + `admin.savePincode()` methods added to `window.admin`
+
+### ✅ Admin Login Fix
+- Removed misleading "Setup Required" demo box from login page
+- Replaced with `.login-hint` (clean "authorised access only" text)
+- Root cause documented: `.dev.vars` was missing → `SUPABASE_URL` undefined → auth 401
+
+### ✅ Mobile UX Fixes (v5.3 — 390px audit)
+10 fixes applied to `styles.css`:
+1. `product-gallery` sticky removed on mobile (position:static ≤900px)
+2. `order-summary` + `cart-page-summary-card` un-sticky on mobile
+3. `cart-page-item` grid 100px→72px image at ≤480px
+4. Hero visual 16px lateral padding at ≤480px
+5. Shop filter horizontal scroll + snap, no-wrap at ≤640px
+6. `atc-btn` min-width removed at ≤480px (flex-1 instead)
+7. Checkout section tighter padding at ≤480px
+8. Cart panel full-width + safe-area-inset-bottom at ≤640px
+9. A4 upsell strip stacks vertically at ≤640px
+10. Hero copy tighter padding at ≤420px
+
+### ✅ CSP Fix (v5.3)
+- `cdn.tailwindcss.com` and `cdn.jsdelivr.net` re-added to `script-src`, `style-src`, `font-src`
+- Required for admin panel: Tailwind CDN, FontAwesome, axios, chart.js
+
+---
+
+## 18. Pending Features (Still Planned)
+
+| Feature | Notes |
+|---------|-------|
+| `/api/admin/pricing` backend route | admin.js Pricing section has no backend endpoint — 404 |
+| COD 40% volume cap | Admin configurable, not yet implemented |
+| COD WhatsApp confirmation flow | Pre-filled message to customer on COD order |
+| Resend email on new COD order | Admin notification |
+| `cod_pending` status + admin confirmation UI | Order state machine |
+| Shiprocket widget as primary checkout | Current: Hono fallback only |
+| `checkout_source` + `shiprocket_synced` columns | `ALTER TABLE orders ADD COLUMN...` |
+| Server-side cart price validation | Security: validate prices against DB on checkout |
+| Rate limiting on checkout | Spam order prevention |
+| Inline onclick → addEventListener migration | Required to tighten CSP (remove `unsafe-inline`) |
+| Real product images | Owner must upload via Admin → Media Manager → Cloudinary |
+
+---
+
+## 19. Audit History
 
 | Version | Date | Changes |
 |---------|------|---------|
@@ -708,7 +755,15 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS cod_confirmed_at TIMESTAMPTZ;
 | | | • s6.x: Mobile menu a11y, account orders, exit intent, frame swatches, loading states |
 | | | • s7.x: Grain texture, hover states, typography, mobile layout, WCAG |
 | | | • s8.x: WebGL removed, IP-based review rate limiting |
+| **v5.3** | Jun 2026 | **Part B + mobile audit:** |
+| | | • Part B.1–9: COD enforcement, frame helpers, pricing, BUY NOW, serviceability, A4 upsell |
+| | | • R1: Admin Operations Quick Controls card (COD, acrylic, pincode, Shiprocket sync) |
+| | | • Mobile UX: 10 CSS fixes (390px audit) |
+| | | • CSP fix: cdn.tailwindcss.com + cdn.jsdelivr.net for admin panel |
+| | | • Admin login: removed misleading "Setup Required" demo box |
+| | | • DB constraint documented: `product_variants_frame_type_check` |
+| | | • `.dev.vars` creation documented |
 
 ---
 
-*Last updated: June 2026 — ChitraFrame v5.2*
+*Last updated: June 2026 — ChitraFrame v5.3*
