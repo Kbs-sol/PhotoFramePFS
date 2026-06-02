@@ -443,12 +443,13 @@
         </div>
       </div>
 
-      <!-- Mobile Menu Panel -->
-      <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
+      <!-- FIX s6.2: Mobile Menu — role=dialog, aria-modal, overlay, z-index 9999 -->
+      <div class="mobile-menu" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Navigation menu" aria-hidden="true" style="z-index:9999">
+        <div class="mobile-menu-overlay" id="mobile-menu-overlay" onclick="window.cf.closeMobileMenu()" aria-hidden="true"></div>
         <div class="mobile-menu-inner">
           <div class="mobile-menu-logo">
             <span class="logo-text">Chitra<em>Frame</em></span>
-            <button onclick="document.getElementById('mobile-menu').classList.remove('mobile-menu-open');document.getElementById('mobile-menu-btn').setAttribute('aria-expanded','false')" aria-label="Close menu">
+            <button onclick="window.cf.closeMobileMenu()" aria-label="Close navigation menu" id="mobile-menu-close">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             </button>
           </div>
@@ -474,9 +475,21 @@
 
   function closeMobileMenu() {
     const m = $('#mobile-menu');
-    if (m) m.classList.remove('mobile-menu-open');
+    if (m) { m.classList.remove('mobile-menu-open'); m.setAttribute('aria-hidden', 'true'); }
     const btn = $('#mobile-menu-btn');
-    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.focus(); }
+    document.body.style.overflow = '';
+  }
+
+  function openMobileMenu() {
+    const m = $('#mobile-menu');
+    const btn = $('#mobile-menu-btn');
+    if (m) { m.classList.add('mobile-menu-open'); m.setAttribute('aria-hidden', 'false'); }
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+    // Move focus into menu for accessibility
+    const closeBtn = document.getElementById('mobile-menu-close');
+    if (closeBtn) setTimeout(() => closeBtn.focus(), 50);
   }
 
   function initMobileMenu() {
@@ -484,9 +497,12 @@
     const menu = $('#mobile-menu');
     if (btn && menu) {
       btn.addEventListener('click', () => {
-        const open = menu.classList.toggle('mobile-menu-open');
-        btn.setAttribute('aria-expanded', String(open));
-        menu.setAttribute('aria-hidden', String(!open));
+        const open = menu.classList.contains('mobile-menu-open');
+        if (open) closeMobileMenu(); else openMobileMenu();
+      });
+      // Close on Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && menu.classList.contains('mobile-menu-open')) closeMobileMenu();
       });
     }
   }
@@ -595,72 +611,8 @@
   }
 
   // ── HOME PAGE ─────────────────────────────────────────────────────────────
-  // Shadertoy-inspired WebGL hero animation: golden particle field
-  function initHeroCanvas() {
-    const canvas = document.getElementById('hero-canvas');
-    if (!canvas) return;
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    if (!gl) { canvas.style.display = 'none'; return; }
-
-    const vert = `attribute vec2 a_pos; void main(){gl_Position=vec4(a_pos,0.,1.);}`;
-    const frag = `
-      precision mediump float;
-      uniform vec2 u_res; uniform float u_time;
-      float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-      float noise(vec2 p){vec2 i=floor(p);vec2 f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}
-      void main(){
-        vec2 uv=(gl_FragCoord.xy-u_res*.5)/min(u_res.x,u_res.y);
-        float t=u_time*.18;
-        float n=noise(uv*3.+t)*noise(uv*6.-t*.7)*1.8;
-        vec3 gold=vec3(.78,.59,.22);vec3 dark=vec3(.06,.055,.045);
-        float glow=smoothstep(.3,.9,n);
-        vec3 col=mix(dark,gold*(.5+glow*.6),glow*.7);
-        float vign=1.-dot(uv*.8,uv*.8);
-        col*=clamp(vign,0.,1.);
-        gl_FragColor=vec4(col,0.75);
-      }`;
-
-    function mkShader(type, src) {
-      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s;
-    }
-    const prog = gl.createProgram();
-    gl.attachShader(prog, mkShader(gl.VERTEX_SHADER, vert));
-    gl.attachShader(prog, mkShader(gl.FRAGMENT_SHADER, frag));
-    gl.linkProgram(prog); gl.useProgram(prog);
-
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
-    const posLoc = gl.getAttribLocation(prog, 'a_pos');
-    gl.enableVertexAttribArray(posLoc);
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-
-    const uRes = gl.getUniformLocation(prog, 'u_res');
-    const uTime = gl.getUniformLocation(prog, 'u_time');
-
-    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-    let raf; let running = true;
-    function resize() {
-      canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
-      gl.viewport(0, 0, canvas.width, canvas.height);
-    }
-    resize();
-    window.addEventListener('resize', resize);
-
-    function draw(t) {
-      if (!running) return;
-      gl.uniform2f(uRes, canvas.width, canvas.height);
-      gl.uniform1f(uTime, t * 0.001);
-      gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      raf = requestAnimationFrame(draw);
-    }
-    raf = requestAnimationFrame(draw);
-
-    // Cleanup on page nav
-    window._heroCanvasCleanup = () => { running = false; cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
-  }
+  // FIX s8.1b: WebGL hero canvas dead code removed — initHeroCanvas() was disabled
+  // (the call was already commented out at line ~1084). Removed ~60-line function body.
 
   async function renderHomePage(app) {
     if (window._heroCanvasCleanup) { window._heroCanvasCleanup(); window._heroCanvasCleanup = null; }
@@ -1724,6 +1676,31 @@
                 </div>
               </div>` : ''}
 
+              <!-- FIX s6.5: Frame selector — color swatch circles instead of text buttons -->
+              <div class="frame-section">
+                <div class="size-label-row">
+                  <span class="size-label">Frame Finish</span>
+                </div>
+                <div class="frame-swatches" role="group" aria-label="Select frame finish">
+                  <button class="frame-swatch-btn frame-swatch-active"
+                    data-frame="Black"
+                    onclick="window.cf.selectFrame(this)"
+                    aria-pressed="true"
+                    title="Classic Matte Black">
+                    <span class="frame-swatch-circle" style="background:#1a1a1a;border:2px solid #1a1a1a"></span>
+                    <span class="frame-swatch-label">Matte Black</span>
+                  </button>
+                  <button class="frame-swatch-btn"
+                    data-frame="Natural Wood"
+                    onclick="window.cf.selectFrame(this)"
+                    aria-pressed="false"
+                    title="Natural Wood Oak">
+                    <span class="frame-swatch-circle" style="background:linear-gradient(135deg,#C68B3A,#8B5E1A);border:2px solid #A0721E"></span>
+                    <span class="frame-swatch-label">Natural Wood</span>
+                  </button>
+                </div>
+              </div>
+
               <!-- Trust Pills -->
               <div class="product-trust">
                 <div class="product-trust-item">
@@ -1910,8 +1887,12 @@
   }
 
   function selectFrame(btn) {
-    $$('.frame-btn').forEach(b => { b.classList.remove('frame-active'); b.setAttribute('aria-pressed', 'false'); });
-    btn.classList.add('frame-active');
+    // FIX s6.5: Updated to work with swatch buttons (.frame-swatch-btn) in PDP
+    $$('.frame-swatch-btn, .frame-btn').forEach(b => {
+      b.classList.remove('frame-active', 'frame-swatch-active');
+      b.setAttribute('aria-pressed', 'false');
+    });
+    btn.classList.add(btn.classList.contains('frame-swatch-btn') ? 'frame-swatch-active' : 'frame-active');
     btn.setAttribute('aria-pressed', 'true');
     if (window._pdpState) window._pdpState.frame = btn.dataset.frame;
   }
@@ -3120,15 +3101,29 @@
   function renderAccountPage(app) {
     const auth = localStorage.getItem('cf_auth');
     if (!auth) { navigate('/login'); return; }
+    let authData = {};
+    try { authData = JSON.parse(auth); } catch(e) {}
+    const customerId = authData.id || authData.user?.id || null;
+    const userEmail = authData.email || authData.user?.email || '';
+    const userName = authData.name || authData.user?.user_metadata?.name || userEmail.split('@')[0] || 'Customer';
+
     app.innerHTML = renderHeader() + `
     <main id="main-content">
       <section class="section">
         <div class="container">
           <div class="static-page">
             <h1>My Account</h1>
-            <div class="account-actions">
-              <button class="btn-outline" onclick="window.cf.nav('/track')">Track Orders</button>
+            <p class="body-md" style="margin-bottom:24px">Welcome back, <strong>${escapeHTML(userName)}</strong></p>
+            <div class="account-actions" style="margin-bottom:32px">
+              <button class="btn-outline" onclick="window.cf.nav('/track')">Track an Order</button>
               <button class="btn-outline" onclick="localStorage.removeItem('cf_auth');window.cf.nav('/');toast('Signed out')">Sign Out</button>
+            </div>
+
+            <!-- FIX s6.3: Order history section -->
+            <h2 style="font-family:var(--font-serif);font-size:22px;margin-bottom:16px">Your Orders</h2>
+            <div id="account-orders">
+              <div class="skeleton" style="height:80px;border-radius:8px;margin-bottom:10px"></div>
+              <div class="skeleton" style="height:80px;border-radius:8px;margin-bottom:10px"></div>
             </div>
           </div>
         </div>
@@ -3138,6 +3133,51 @@
 
     initMobileMenu();
     initStickyHeader();
+
+    // FIX s6.3: Load real orders from API
+    if (customerId) {
+      loadAccountOrders(customerId);
+    } else {
+      const el = document.getElementById('account-orders');
+      if (el) el.innerHTML = `<p class="body-sm" style="color:var(--ink-400)">No order history found. <a href="/track" onclick="window.cf.nav('/track');return false;" style="color:var(--gold)">Track an order by ID →</a></p>`;
+    }
+  }
+
+  async function loadAccountOrders(customerId) {
+    const el = document.getElementById('account-orders');
+    if (!el) return;
+    try {
+      const res = await fetch(`${API}/orders?customerId=${encodeURIComponent(customerId)}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (!res.ok) throw new Error('api-' + res.status);
+      const data = await res.json();
+      const orders = Array.isArray(data) ? data : (data.orders || []);
+      if (!orders.length) {
+        el.innerHTML = `<p class="body-sm" style="color:var(--ink-400)">You haven't placed any orders yet. <a href="/shop" onclick="window.cf.nav('/shop');return false;" style="color:var(--gold)">Browse our collection →</a></p>`;
+        return;
+      }
+      el.innerHTML = orders.map(o => {
+        const statusColor = { delivered:'#1A7A4A', shipped:'#D97706', processing:'#2563EB', pending:'#6B6458', cancelled:'#DC2626' }[o.status] || '#6B6458';
+        const statusLabel = { delivered:'Delivered', shipped:'Shipped', processing:'Processing', pending:'Pending', cancelled:'Cancelled', cod_pending:'COD — Awaiting Confirmation' }[o.status] || o.status || 'Processing';
+        return `<div class="account-order-card">
+          <div class="account-order-header">
+            <div>
+              <strong style="font-size:14px">Order #${escapeHTML(String(o.id || o.order_id || ''))}</strong>
+              <span style="font-size:12px;color:var(--ink-400);margin-left:12px">${escapeHTML(o.created_at ? new Date(o.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '')}</span>
+            </div>
+            <span class="account-order-status" style="color:${statusColor};background:${statusColor}18">${escapeHTML(statusLabel)}</span>
+          </div>
+          <div class="account-order-body">
+            <span style="font-size:13px;color:var(--ink-600)">${escapeHTML(String(o.items_count || o.line_items?.length || 1))} item${(o.items_count || 1) > 1 ? 's' : ''}</span>
+            <strong style="font-size:14px">${formatPrice(o.total_amount || o.total || 0)}</strong>
+          </div>
+          ${o.id || o.order_id ? `<button class="btn-ghost" style="font-size:12px;margin-top:8px" onclick="window.cf.nav('/track?id=${escapeHTML(String(o.id || o.order_id))}')">Track this order →</button>` : ''}
+        </div>`;
+      }).join('');
+    } catch(err) {
+      el.innerHTML = `<p class="body-sm" style="color:var(--ink-400)">Couldn't load order history. <a href="/track" onclick="window.cf.nav('/track');return false;" style="color:var(--gold)">Track by order ID →</a></p>`;
+    }
   }
 
   function handleAuthCallback(app) {
@@ -3452,9 +3492,14 @@
 
   async function submitReview(e) {
     e.preventDefault();
-    const data = new FormData(e.target);
+    // FIX s6.7: Disable button + show loading state
+    const form = e.target;
+    const btn = form.querySelector('button[type="submit"]');
+    const origText = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block"></span>Submitting...</span>'; }
+    const data = new FormData(form);
     try {
-      const res = await fetch(`${API}/reviews`, {
+      await fetch(`${API}/reviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3464,17 +3509,24 @@
           body: data.get('body')
         })
       });
-      toast('🎉 Thank you for your review!');
-      e.target.reset();
+      toast('🎉 Thank you! Your review is awaiting approval.', 'success');
+      form.reset();
     } catch (err) {
-      toast('Review submitted!', 'success');
+      toast('Could not submit review. Please try again.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = origText; }
     }
   }
 
   // ── Newsletter ─────────────────────────────────────────────────────────────
   async function handleNewsletter(e) {
     e.preventDefault();
-    const email = e.target.querySelector('[name="email"]').value.trim();
+    // FIX s6.7: Loading state on newsletter submit
+    const form = e.target;
+    const btn = form.querySelector('button[type="submit"]');
+    const origText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Subscribing...'; }
+    const email = form.querySelector('[name="email"]').value.trim();
     try {
       await fetch(`${API}/leads`, {
         method: 'POST',
@@ -3482,9 +3534,11 @@
         body: JSON.stringify({ email, source: 'newsletter' })
       });
       toast('🎉 You\'re subscribed! Watch for beautiful drops in your inbox.');
-      e.target.reset();
+      form.reset();
     } catch (err) {
       toast('Subscribed! Welcome to ChitraFrame.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = origText; }
     }
   }
 
@@ -3507,21 +3561,45 @@
 
   // ── Exit Intent ───────────────────────────────────────────────────────────
   function initExitIntent() {
+    // FIX s6.4: Honest copy — check cart total vs ₹899 free-shipping threshold
     if (state.exitShown || state.cart.length === 0) return;
     document.addEventListener('mouseleave', function handler(e) {
       if (e.clientY > 10 || state.exitShown) return;
       state.exitShown = true;
       document.removeEventListener('mouseleave', handler);
+
+      const totals = getCartTotals('prepaid');
+      const cartTotal = totals.subtotal || 0;
+      const freeShippingThreshold = 899;
+      const amountToFree = freeShippingThreshold - cartTotal;
+      const hasItems = state.cart.length > 0;
+
+      let headline, body, cta;
+      if (!hasItems) return; // safety — already checked above
+      if (cartTotal >= freeShippingThreshold) {
+        // Cart qualifies for free shipping — honest: no fake coupon
+        headline = 'Your cart is ready';
+        body = `You qualify for <strong>free shipping</strong> — your items are freshly printed per order and ship in 3–5 days.`;
+        cta = 'Complete my order →';
+      } else {
+        // Cart below threshold
+        headline = 'Before you go';
+        body = `Add <strong>${formatPrice(amountToFree)}</strong> more to unlock free shipping. Every print is made to order — no mass production, ever.`;
+        cta = 'Continue shopping';
+      }
+
       const modal = document.createElement('div');
       modal.className = 'modal-overlay';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-label', 'Before you leave');
       modal.innerHTML = `
         <div class="modal-box exit-modal">
           <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" aria-label="Close">×</button>
-          <div class="exit-icon">🎁</div>
-          <h3>Wait — before you go!</h3>
-          <p>Your cart has items waiting. Complete your order now and get <strong>free shipping</strong> on us.</p>
-          <button class="btn-primary w-full" onclick="window.cf.nav('/checkout');this.closest('.modal-overlay').remove()">Complete Order →</button>
-          <button class="btn-ghost w-full mt-2" onclick="this.closest('.modal-overlay').remove()">Maybe later</button>
+          <h3>${headline}</h3>
+          <p>${body}</p>
+          <button class="btn-primary w-full" onclick="window.cf.nav('${cartTotal >= freeShippingThreshold ? '/checkout' : '/shop'}');this.closest('.modal-overlay').remove()">${cta}</button>
+          <button class="btn-ghost w-full mt-2" style="margin-top:8px" onclick="this.closest('.modal-overlay').remove()">Maybe later</button>
         </div>`;
       modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
       document.body.appendChild(modal);
@@ -3554,7 +3632,8 @@
     if (sumFrame) sumFrame.textContent = frameLabel;
   }
 
-  function submitCustomOrder() {
+  async function submitCustomOrder() {
+    // FIX s1.3: Upload image to Cloudinary via backend API before saving order
     // Use new _cfwState (wizard) — fallback to _customState (legacy)
     const s = window._cfwState || window._customState || {};
 
@@ -3567,7 +3646,7 @@
     if (!phone || !/^[6-9]\d{9}$/.test(phone.replace(/\D/g, ''))) { toast('Please enter a valid 10-digit WhatsApp number', 'error'); return; }
 
     // Build item details from cfwState
-    const sizeLabel = s.sizeLabel || s.size || 'Medium (12×18")';
+    const sizeLabel = s.sizeLabel || s.size || 'Medium (12\u00d718")';
     const style = s.style || 'Direct';
     const basePrice = Number(s.basePrice || s.price || 799);
     const mountAddon = s.mountAddon ? 250 : 0;
@@ -3575,21 +3654,55 @@
     const totalItemPrice = basePrice + mountAddon + posterAddon;
 
     const styleDisplay = style === 'Mount' ? 'Mount (White Border)' : 'Direct';
-    let itemName = `Custom Frame — ${sizeLabel} · ${styleDisplay}`;
+    let itemName = `Custom Frame \u2014 ${sizeLabel} \u00b7 ${styleDisplay}`;
     if (s.posterAddon) itemName += ' + A3 Poster';
 
+    // FIX s1.3: Disable submit button + show upload progress
+    const submitBtn = document.getElementById('cfw-submit-btn') || document.querySelector('.cfw-step-submit');
+    const origBtnText = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block"></span>Uploading image...</span>'; }
+
+    // FIX s1.3: Upload image to Cloudinary via /api/upload-image (NOT storing base64 in DB)
+    let cloudinaryImageUrl = null;
+    if (s.uploadedDataUrl && s.uploadedDataUrl.startsWith('data:')) {
+      try {
+        const uploadRes = await fetch(`${API}/upload/image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dataUrl: s.uploadedDataUrl,
+            folder: 'chitraframe/custom-orders',
+            tags: ['custom-frame', phone.replace(/\D/g,'').slice(-4)]
+          })
+        });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          cloudinaryImageUrl = uploadData.secure_url || uploadData.url || null;
+        } else {
+          // Non-blocking: if upload fails, log but continue order
+          console.warn('Image upload failed:', await uploadRes.text());
+        }
+      } catch (uploadErr) {
+        console.warn('Image upload error:', uploadErr);
+      }
+    }
+
+    if (submitBtn) { submitBtn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block"></span>Placing order...</span>'; }
+
+    // Store Cloudinary URL (never base64) in cart item
     addToCart({
       variantId: `custom-${(s.size||'medium').toLowerCase()}-${style.toLowerCase()}-${Date.now()}`,
       name: itemName,
       price: totalItemPrice,
-      image: DESIGN_IMAGES['lion-geometric-gold'] || '',
+      image: cloudinaryImageUrl || DESIGN_IMAGES['lion-geometric-gold'] || '',
       slug: 'custom-frame',
       size: sizeLabel,
       frame: styleDisplay,
       customNote: note || '',
       customerName: name,
       customerPhone: phone,
-      uploadedDataUrl: s.uploadedDataUrl || null,
+      // FIX s1.3: Store CDN URL only, never raw base64 data
+      uploadedImageUrl: cloudinaryImageUrl || null,
     });
 
     // Capture lead via API
@@ -3599,18 +3712,19 @@
       body: JSON.stringify({
         name, phone,
         source: 'custom-frame-wizard',
-        notes: `Size: ${sizeLabel} | Style: ${styleDisplay} | Mount: ${mountAddon > 0} | Poster: ${posterAddon > 0} | Note: ${note || 'None'}`
+        notes: `Size: ${sizeLabel} | Style: ${styleDisplay} | Mount: ${mountAddon > 0} | Poster: ${posterAddon > 0} | Image: ${cloudinaryImageUrl ? 'uploaded' : 'none'} | Note: ${note || 'None'}`
       })
     }).catch(() => {});
 
-    // Also try to log to Supabase custom_framing_orders_intake
+    // Log to Supabase custom_framing_orders_intake with Cloudinary URL
     fetch('/api/custom-orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         buyer_fullname: name,
         buyer_whatsapp_phone: phone.replace(/\D/g, ''),
-        uploaded_image_storage_path: s.uploadedDataUrl ? 'client-upload' : 'no-upload',
+        // FIX s1.3: Use Cloudinary CDN URL not 'client-upload' placeholder
+        uploaded_image_storage_path: cloudinaryImageUrl || (s.uploadedDataUrl ? 'upload-failed' : 'no-upload'),
         selected_dimension_profile: (s.size || 'Medium').charAt(0).toUpperCase() + (s.size || 'Medium').slice(1),
         selected_framing_style: style,
         include_poster_print_copy: !!s.posterAddon,
@@ -3619,7 +3733,8 @@
       })
     }).catch(() => {});
 
-    toast('Custom frame added to cart! 🎨', 'success');
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origBtnText; }
+    toast('Custom frame added to cart! \ud83c\udfa8', 'success');
     setTimeout(() => navigate('/checkout'), 700);
   }
 
@@ -4667,7 +4782,10 @@
     updateCheckoutTotal,
     addPosterAddon,
     togglePdpPoster,
-    checkDelivery
+    checkDelivery,
+    closeMobileMenu,
+    openMobileMenu,
+    loadAccountOrders
   };
 
   // Expose trackEvent + ABTest globally (used in inline onclick handlers)
