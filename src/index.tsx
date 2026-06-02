@@ -78,10 +78,11 @@ app.use('*', async (c, next) => {
   // Note: 'unsafe-inline' also remains on style-src (Tailwind CDN + inline style attributes).
   c.header('Content-Security-Policy', [
     "default-src 'self'",
-    // FIX 4.1/4.2: Removed cdnjs (GSAP) and cdn.jsdelivr (FontAwesome) from script-src
-    "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://www.googletagmanager.com https://www.clarity.ms https://www.google-analytics.com https://cdn.shiprocket.com https://api.postalpincode.in",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    // cdn.tailwindcss.com + cdn.jsdelivr.net required for /admin panel (Tailwind CDN, FontAwesome, axios, chart.js)
+    // These are admin-only resources; storefront does not load them.
+    "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://www.googletagmanager.com https://www.clarity.ms https://www.google-analytics.com https://cdn.shiprocket.com https://api.postalpincode.in https://cdn.tailwindcss.com https://cdn.jsdelivr.net",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+    "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net",
     "img-src 'self' data: blob: https: http:",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://api.cloudinary.com https://res.cloudinary.com https://www.google-analytics.com https://www.googletagmanager.com https://www.clarity.ms https://api.postalpincode.in",
     "frame-src https://checkout.razorpay.com",
