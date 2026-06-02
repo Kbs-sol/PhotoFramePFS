@@ -96,4 +96,69 @@ upload.get('/config', async (c) => {
   return c.json({ configured: true, cloudName: creds.cloudName, apiKey: creds.apiKey });
 });
 
+// ─── POST /api/upload/image ───────────────────────────────────────────────────
+// FIX s1.3: Server-side base64 → Cloudinary upload for custom frame orders.
+// Body: { dataUrl: "data:image/jpeg;base64,...", folder?: string, tags?: string[] }
+// Returns: { secure_url, public_id, url }
+upload.post('/image', async (c) => {
+  const creds = getCloudinaryCredentials(c.env);
+  if (!creds) {
+    return c.json({ error: 'Cloudinary not configured on server.' }, 500);
+  }
+
+  let body: { dataUrl?: string; folder?: string; tags?: string[] };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
+
+  const { dataUrl, folder = 'chitraframe/custom-orders', tags = [] } = body;
+  if (!dataUrl || !dataUrl.startsWith('data:')) {
+    return c.json({ error: 'dataUrl must be a valid base64 data URL' }, 400);
+  }
+
+  // Enforce max size: ~5MB base64 (~3.75MB decoded)
+  if (dataUrl.length > 7 * 1024 * 1024) {
+    return c.json({ error: 'Image too large. Maximum 5MB.' }, 413);
+  }
+
+  const timestamp = Math.round(Date.now() / 1000);
+  const params: Record<string, string | number> = { folder, timestamp };
+  if (tags.length) params.tags = tags.join(',');
+
+  const signature = await buildCloudinarySignature(params, creds.apiSecret);
+
+  // Build multipart form for Cloudinary Upload API
+  const formData = new FormData();
+  formData.append('file', dataUrl);
+  formData.append('folder', folder);
+  formData.append('timestamp', String(timestamp));
+  formData.append('api_key', creds.apiKey);
+  formData.append('signature', signature);
+  if (tags.length) formData.append('tags', tags.join(','));
+
+  const uploadRes = await fetch(
+    `https://api.cloudinary.com/v1_1/${creds.cloudName}/image/upload`,
+    { method: 'POST', body: formData }
+  );
+
+  if (!uploadRes.ok) {
+    const errText = await uploadRes.text();
+    console.error('[upload/image] Cloudinary error:', errText);
+    return c.json({ error: 'Cloudinary upload failed', detail: errText }, 502);
+  }
+
+  const result = await uploadRes.json() as {
+    secure_url: string; public_id: string; url: string;
+    [key: string]: unknown;
+  };
+
+  return c.json({
+    secure_url: result.secure_url,
+    public_id: result.public_id,
+    url: result.url,
+  });
+});
+
 export default upload;
