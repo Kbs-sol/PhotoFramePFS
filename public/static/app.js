@@ -346,6 +346,27 @@
     const hasPoster = state.cart.some(i => i.variantId === 'addon-poster-a3');
     const hasFrameItem = state.cart.some(i => i.slug && i.slug !== 'addon-poster-a3');
 
+    // R3: A4 ₹99 upsell — fetch and render strip if not already in cart
+    const hasA4 = state.cart.some(i => i.sku && i.sku.includes('-a4-'));
+    if (hasFrameItem && !hasA4) {
+      fetch('/api/products/upsell').then(r => r.ok ? r.json() : null).then(data => {
+        const product = data && (data.product || (Array.isArray(data.products) && data.products[0]));
+        if (!product) return;
+        const upsellEl = document.getElementById('cart-a4-upsell');
+        if (!upsellEl) return;
+        const img = product.image_url || cldUrl(product.slug || 'a4-print', 80);
+        upsellEl.innerHTML = `
+          <img src="${escapeHTML(img)}" alt="A4 Print" onerror="this.style.display='none'">
+          <div class="cart-upsell-a4-info">
+            <div class="cart-upsell-a4-name">A4 Photo Print</div>
+            <div class="cart-upsell-a4-desc">Glossy · Unframed · Ships with your order</div>
+          </div>
+          <div class="cart-upsell-a4-price">₹99</div>
+          <button class="cart-upsell-a4-btn" onclick="window.cf.addA4Upsell(${product.id || 'null'},'${escapeHTML(product.slug || '')}')">+ Add</button>`;
+        upsellEl.style.display = 'flex';
+      }).catch(() => {});
+    }
+
     footer.innerHTML = `
       ${hasFrameItem && !hasPoster ? `
       <div class="cart-poster-upsell">
@@ -370,7 +391,8 @@
         Checkout · ${formatPrice(total)}
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
-      <button class="btn-outline w-full mt-2" onclick="window.cf.nav('/shop');window.cf.closeCart()">Continue Shopping</button>`;
+      <button class="btn-outline w-full mt-2" onclick="window.cf.nav('/shop');window.cf.closeCart()">Continue Shopping</button>
+      <div id="cart-a4-upsell" class="cart-upsell-a4" style="display:none;margin-top:10px;"></div>`;
   }
 
   function addToCart(item) {
@@ -420,6 +442,26 @@
     saveCart();
     renderCartDrawerContent();
     toast('A3 Poster add-on added! 🗞️');
+  }
+
+  function addA4Upsell(productId, slug) {
+    const already = state.cart.find(i => i.sku && i.sku.includes('-a4-'));
+    if (already) { toast('A4 print already in cart'); return; }
+    state.cart.push({
+      variantId: 'upsell-a4-noframe',
+      sku: slug + '-a4-noframe',
+      name: 'A4 Photo Print (Glossy)',
+      price: 99,
+      image: '',
+      slug: slug || 'a4-print',
+      size: 'A4 (8.3×11.7")',
+      frame: 'No Frame',
+      quantity: 1,
+      isAddon: true,
+    });
+    saveCart();
+    renderCartDrawerContent();
+    toast('A4 Print added for ₹99! 🖼️');
   }
 
   // ── HEADER ────────────────────────────────────────────────────────────────
@@ -4946,6 +4988,7 @@
     customCalcPrice,
     updateCheckoutTotal,
     addPosterAddon,
+    addA4Upsell,
     togglePdpPoster,
     checkDelivery,
     closeMobileMenu,

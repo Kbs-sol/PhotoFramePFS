@@ -8516,3 +8516,177 @@ textarea.input-error {
 .cart-upsell-a4-btn:hover { background: var(--gold-dark, #B8860B); }
 
 /* ─── END Part B styles ──────────────────────────────────────────────── */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE-FIRST UX FIXES — 390px audit pass
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Fix 1: PDP gallery sticky breaks inside overflow containers on mobile
+   — remove sticky, let it flow naturally */
+@media (max-width: 900px) {
+  .product-gallery {
+    position: static !important;
+  }
+  /* Also un-stick order summary in cart/checkout on mobile */
+  .order-summary,
+  .cart-page-summary-card {
+    position: static !important;
+  }
+}
+
+/* Fix 2: Cart page item — 100px image too wide at 390px viewport
+   Grid collapses badly; shrink to 72px + tighten gap */
+@media (max-width: 480px) {
+  .cart-page-item {
+    grid-template-columns: 72px 1fr auto;
+    gap: 12px;
+    padding: 14px 0;
+  }
+  .cart-page-item-img {
+    width: 72px;
+    height: 90px;
+  }
+  /* Cart page flex variant (older markup) */
+  .cart-page-items .cart-page-item {
+    padding: 14px 16px;
+  }
+  .cart-page-item-info h3 {
+    font-size: 14px;
+  }
+}
+
+/* Fix 3: Hero visual — cards need 16px lateral padding on 390px so
+   they don't bleed to screen edge */
+@media (max-width: 480px) {
+  .hero-v2-visual {
+    padding: 0 16px 0;
+  }
+  .hero-cards-wrap {
+    padding: 0;
+    gap: 8px;
+  }
+}
+
+/* Fix 4: Shop filter bar — enable horizontal scroll on mobile so
+   all filter pills are reachable; prevent wrap causing 2-row mess */
+@media (max-width: 640px) {
+  .shop-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    /* scroll-snap for satisfying snap-to-pill feel */
+    scroll-snap-type: x mandatory;
+    /* hide scrollbar on all browsers */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .shop-filters::-webkit-scrollbar { display: none; }
+  .filter-btn {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+    /* slightly smaller tap-target padding on mobile */
+    padding: 7px 14px;
+    font-size: 12.5px;
+  }
+  .shop-controls {
+    /* Overflow must be visible on the container for scroll to work */
+    overflow: visible;
+  }
+}
+
+/* Fix 5: ATC area (PDP) — min-width:200px on .atc-btn forces BUY NOW + ATC
+   to stack messily at 390px. Remove min-width, let flex decide. */
+@media (max-width: 480px) {
+  .atc-area {
+    gap: 8px;
+  }
+  .atc-btn {
+    min-width: 0;
+    flex: 1 1 0;
+    padding: 14px 14px;
+    font-size: 14px;
+  }
+  .atc-qty button {
+    width: 36px;
+    height: 44px;
+  }
+}
+
+/* Fix 6: Checkout layout — padding tightening at 390px */
+@media (max-width: 480px) {
+  .checkout-layout {
+    padding: 20px 0;
+    gap: 20px;
+  }
+  .checkout-section {
+    padding: 20px 16px;
+  }
+  .checkout-section-title {
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+}
+
+/* Fix 7: PDP product detail section — reduce side padding so content
+   doesn't feel cramped at 390px */
+@media (max-width: 480px) {
+  .product-detail {
+    padding: 28px 0 60px;
+  }
+  .product-name {
+    font-size: clamp(22px, 6vw, 30px);
+  }
+  .product-price-amount {
+    font-size: 26px;
+  }
+}
+
+/* Fix 8: Cart drawer — ensure full-height on mobile and safe-area inset */
+@media (max-width: 640px) {
+  .cart-panel {
+    width: 100vw;
+    max-width: 100vw;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  /* A4 upsell strip — stack vertically on narrow screens */
+  .cart-upsell-a4 {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .cart-upsell-a4 img {
+    width: 40px;
+    height: 40px;
+  }
+  .cart-upsell-a4-btn {
+    width: 100%;
+    text-align: center;
+    padding: 8px 12px;
+  }
+}
+
+/* Fix 9: Hero copy section — tighter padding at 390px */
+@media (max-width: 420px) {
+  .hero-v2-copy {
+    padding: 40px 16px 32px;
+  }
+  .hero-v2-actions {
+    gap: 8px;
+  }
+  .hero-v2-cta {
+    font-size: 13px;
+    padding: 12px 16px;
+  }
+}
+
+/* Fix 10: Product grid card — text overflow guard on 390px */
+@media (max-width: 480px) {
+  .product-card-name {
+    font-size: clamp(13px, 3.5vw, 15px);
+  }
+  .product-card-price {
+    font-size: 14px;
+  }
+}
+/* ─── END Mobile-First UX Fixes ─────────────────────────────────────── */

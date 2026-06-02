@@ -65,10 +65,7 @@
             <i class="fas fa-sign-in-alt"></i>Sign In
           </button>
         </form>
-        <div class="login-demo-box">
-          <strong>⚙️ Setup Required</strong>
-          Set <code>OWNER_EMAIL</code>, <code>ADMIN_PASSWORD</code>, <code>ADMIN_TOKEN</code> in Cloudflare Dashboard → Workers → Variables to enable login.
-        </div>
+        <p class="login-hint">ChitraFrame Admin · Authorised access only</p>
       </div>
     </div>`;
     $('#login-form').addEventListener('submit', async (e) => {
@@ -1017,6 +1014,70 @@
     el.innerHTML = `
     <h2 class="text-2xl font-bold mb-6">Settings</h2>
 
+    <!-- ── Operations Quick Controls ───────────────────────────────────── -->
+    <div class="stat-card mb-6" style="border:2px solid rgba(184,134,11,0.45);background:rgba(184,134,11,0.04);" id="ops-quick-card">
+      <h3 class="font-bold text-base mb-1 text-brand-gold"><i class="fas fa-bolt mr-2"></i>Operations Quick Controls</h3>
+      <p class="text-xs text-gray-400 mb-4">One-tap controls for live business toggles — changes save instantly without reloading the full settings form.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <!-- COD Toggle -->
+        <div class="bg-gray-900 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <p class="text-sm font-semibold text-white">Cash on Delivery</p>
+              <p class="text-xs text-gray-400 mt-0.5">COD fee: <strong class="text-white">₹${escapeHTML(s['cod_fee'] || '49')}</strong> &nbsp;·&nbsp; Min order: <strong class="text-white">₹${escapeHTML(s['cod_min_value'] || '499')}</strong> &nbsp;·&nbsp; Max: <strong class="text-white">₹${escapeHTML(s['cod_max_value'] || '1995')}</strong></p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer ml-3">
+              <input type="checkbox" id="ops-cod-toggle" ${s['cod_enabled'] === 'true' ? 'checked' : ''} class="sr-only peer" onchange="admin.quickToggle('cod_enabled',this.checked)">
+              <div class="w-12 h-6 bg-gray-700 rounded-full peer peer-checked:bg-yellow-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+            </label>
+          </div>
+          <p id="ops-cod-status" class="text-xs font-semibold ${s['cod_enabled'] === 'true' ? 'text-green-400' : 'text-red-400'}">${s['cod_enabled'] === 'true' ? '✓ COD is ON — customers can pay on delivery' : '✗ COD is OFF — prepaid only'}</p>
+        </div>
+
+        <!-- Acrylic Upgrade Toggle -->
+        <div class="bg-gray-900 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <p class="text-sm font-semibold text-white">Acrylic Upgrade Add-on</p>
+              <p class="text-xs text-gray-400 mt-0.5">Shows acrylic upgrade option on PDP and checkout.</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer ml-3">
+              <input type="checkbox" id="ops-acrylic-toggle" ${s['acrylic_enabled'] === 'true' ? 'checked' : ''} class="sr-only peer" onchange="admin.quickToggle('acrylic_enabled',this.checked)">
+              <div class="w-12 h-6 bg-gray-700 rounded-full peer peer-checked:bg-yellow-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+            </label>
+          </div>
+          <p id="ops-acrylic-status" class="text-xs font-semibold ${s['acrylic_enabled'] === 'true' ? 'text-green-400' : 'text-gray-500'}">${s['acrylic_enabled'] === 'true' ? '✓ Acrylic upgrade is visible to customers' : '— Acrylic upgrade is hidden'}</p>
+        </div>
+
+        <!-- Pickup Pincode Editor -->
+        <div class="bg-gray-900 rounded-xl p-4">
+          <p class="text-sm font-semibold text-white mb-1">Pickup / Warehouse Pincode</p>
+          <p class="text-xs text-gray-400 mb-3">Used for Shiprocket pickup requests and ETA calculations.</p>
+          <div class="flex gap-2">
+            <input type="text" id="ops-pincode-input" value="${escapeHTML(s['pickup_pincode'] || '')}" maxlength="6" pattern="[0-9]{6}"
+              class="admin-input flex-1" placeholder="6-digit pincode" style="font-size:15px;font-weight:700;letter-spacing:0.08em;">
+            <button type="button" onclick="admin.savePincode()" class="admin-btn admin-btn-primary" style="white-space:nowrap;">
+              <i class="fas fa-save mr-1"></i>Save
+            </button>
+          </div>
+          <p id="ops-pincode-status" class="text-xs text-gray-500 mt-2">Current: <strong class="text-brand-gold">${escapeHTML(s['pickup_pincode'] || 'Not set')}</strong></p>
+        </div>
+
+        <!-- Batch Shiprocket Sync -->
+        <div class="bg-gray-900 rounded-xl p-4">
+          <p class="text-sm font-semibold text-white mb-1">Batch Shiprocket Sync</p>
+          <p class="text-xs text-gray-400 mb-3">Push all pending/paid orders that haven't been synced to Shiprocket yet. Safe to run multiple times.</p>
+          <button type="button" class="admin-btn admin-btn-primary w-full" onclick="admin.syncPending()">
+            <i class="fas fa-sync-alt mr-2"></i>Sync Pending Orders → Shiprocket
+          </button>
+          <p class="text-xs text-gray-500 mt-2">Also available in the <button type="button" onclick="admin.go('logistics')" class="text-brand-gold underline bg-transparent border-0 cursor-pointer text-xs p-0">Logistics</button> section.</p>
+        </div>
+
+      </div>
+    </div>
+    <!-- ── END Operations Quick Controls ──────────────────────────────── -->
+
     <!-- Brand Name Card — top of page, prominent -->
     <div class="stat-card mb-6" style="background:rgba(184,134,11,0.06);border:1px solid rgba(184,134,11,0.28);" id="brand-name-card">
       <h3 class="font-bold text-base mb-3 text-brand-gold"><i class="fas fa-tag mr-2"></i>Brand Name</h3>
@@ -1526,6 +1587,33 @@
         toast('Error: ' + (e.message || 'Unknown error'), 'error');
         btn.disabled = false; btn.innerHTML = orig;
       }
+    },
+    async quickToggle(key, value) {
+      try {
+        await api('PUT', '/settings', { [key]: value ? 'true' : 'false' });
+        // Update status label
+        if (key === 'cod_enabled') {
+          const el = document.getElementById('ops-cod-status');
+          if (el) { el.textContent = value ? '✓ COD is ON — customers can pay on delivery' : '✗ COD is OFF — prepaid only'; el.className = 'text-xs font-semibold ' + (value ? 'text-green-400' : 'text-red-400'); }
+        }
+        if (key === 'acrylic_enabled') {
+          const el = document.getElementById('ops-acrylic-status');
+          if (el) { el.textContent = value ? '✓ Acrylic upgrade is visible to customers' : '— Acrylic upgrade is hidden'; el.className = 'text-xs font-semibold ' + (value ? 'text-green-400' : 'text-gray-500'); }
+        }
+        toast(key.replace(/_/g,' ') + ' updated!', 'success');
+      } catch(e) { toast('Failed to update: ' + (e.message || 'error'), 'error'); }
+    },
+    async savePincode() {
+      const input = document.getElementById('ops-pincode-input');
+      if (!input) return;
+      const pincode = input.value.trim();
+      if (!/^\d{6}$/.test(pincode)) { toast('Please enter a valid 6-digit pincode', 'error'); return; }
+      try {
+        await api('PUT', '/settings', { pickup_pincode: pincode });
+        const status = document.getElementById('ops-pincode-status');
+        if (status) status.innerHTML = 'Current: <strong class="text-brand-gold">' + pincode + '</strong>';
+        toast('Pickup pincode saved: ' + pincode, 'success');
+      } catch(e) { toast('Failed to save pincode: ' + (e.message || 'error'), 'error'); }
     },
     async syncPending() {
       const btn = event.target;
