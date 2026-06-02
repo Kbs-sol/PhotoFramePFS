@@ -71,11 +71,13 @@ products.get('/upsell', async (c) => {
   if (noSupabase(c)) return c.json({ upsell: null });
   try {
     const sb = getSupabase(c.env);
-    // Find a product that has an A4 No Frame variant Active
+    // Find a product that has an A4 No Frame (₹99) variant Active
+    // DB check constraint only allows "Direct Frame" for frame_type — discriminate by SKU suffix (-noframe)
     const { data: variants } = await sb.from('product_variants')
       .select('id, size, frame_type, price, compare_at_price, is_active, product:products(id, name, slug, images:product_images(image_url))')
       .eq('size', 'A4')
-      .eq('frame_type', 'No Frame')
+      .like('sku', '%-a4-noframe')
+      .eq('price', 99)
       .eq('is_active', true)
       .limit(1);
     

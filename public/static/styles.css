@@ -8445,3 +8445,74 @@ textarea.input-error {
 }
 
 /* ─── END v5.2 styles ─────────────────────────────────────────────────── */
+
+/* ─── Part B styles (v5.3) ──────────────────────────────────────────────── */
+
+/* Part B.6: BUY NOW button */
+.pdp-buynow-btn {
+  background: #CC0000 !important;
+  color: #fff !important;
+  border: none;
+  border-radius: 8px;
+  padding: 14px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  flex: 1;
+  min-height: 48px;
+  letter-spacing: 0.02em;
+  transition: background 0.15s, transform 0.1s;
+}
+.pdp-buynow-btn:hover { background: #AA0000 !important; transform: translateY(-1px); }
+.pdp-buynow-btn:active { transform: translateY(0); }
+.pdp-cta-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* Part B.7: Delivery check widget */
+.pdp-delivery-check { transition: border-color 0.2s; }
+.pdp-delivery-check:focus-within { border-color: var(--ink-400); }
+#pdp-pincode-input:focus { border-color: var(--ink-900) !important; box-shadow: 0 0 0 2px rgba(26,26,26,0.1); }
+
+/* Part B.1: COD policy warning */
+#cod-policy-warning {
+  background: #FFF0F0;
+  border-left: 3px solid #CC0000;
+  color: #CC0000;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 0 6px 6px 0;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+/* Part B.9: A4 upsell cart strip */
+.cart-upsell-a4 {
+  background: linear-gradient(135deg, #FFF8E7, #FFF3CC);
+  border: 1.5px dashed var(--gold);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cart-upsell-a4 img { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.cart-upsell-a4-info { flex: 1; min-width: 0; }
+.cart-upsell-a4-name { font-size: 12px; font-weight: 600; color: var(--ink-700); }
+.cart-upsell-a4-desc { font-size: 11px; color: var(--ink-500); margin-top: 2px; }
+.cart-upsell-a4-price { font-size: 14px; font-weight: 700; color: var(--ink-900); }
+.cart-upsell-a4-btn {
+  background: var(--gold);
+  color: var(--ink-900);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.cart-upsell-a4-btn:hover { background: var(--gold-dark, #B8860B); }
+
+/* ─── END Part B styles ──────────────────────────────────────────────── */

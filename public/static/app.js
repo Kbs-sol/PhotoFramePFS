@@ -129,6 +129,36 @@
     return '₹' + Math.round(n).toLocaleString('en-IN');
   }
 
+  // ── FRAME TYPE HELPERS ───────────────────────────────────────────────────
+  // DB check constraint only allows "Direct Frame" for frame_type.
+  // We discriminate Standard vs Premium via SKU suffix (-standard / -premium / -noframe).
+  // These helpers give us human-readable display names throughout the UI.
+  function getFrameDisplayFromSku(sku) {
+    if (!sku) return 'Standard';
+    const suffix = sku.split('-').pop() || '';
+    if (suffix === 'premium') return 'Premium';
+    if (suffix === 'noframe') return 'No Frame';
+    return 'Standard'; // default / 'standard' suffix
+  }
+  function isNoFrameVariant(v) {
+    return !!(v.sku && v.sku.endsWith('-noframe'));
+  }
+  function isPremiumVariant(v) {
+    return !!(v.sku && v.sku.endsWith('-premium'));
+  }
+  function isStandardVariant(v) {
+    return !!(v.sku && v.sku.endsWith('-standard'));
+  }
+  // Given a list of variants and a selected "frame display" (Standard|Premium|No Frame)
+  // return the variant that matches the current size + frame combo
+  function findVariantBySizeAndFrame(variants, size, frameDisplay) {
+    return variants.find(v => {
+      if (v.size !== size) return false;
+      const fd = getFrameDisplayFromSku(v.sku);
+      return fd === frameDisplay;
+    }) || null;
+  }
+
   function navigate(path) {
     if (typeof path !== 'string' || !path.startsWith('/') || path.includes('..')) return;
     history.pushState({}, '', path);
@@ -1103,7 +1133,9 @@
     const images = p.images || [];
     const sorted = [...images].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
     const imageUrl = sorted[0]?.image_url || p.og_image_url || p.image_url || DESIGN_IMAGES[p.slug] || cldUrl(p.slug, 600);
-    const variants = (p.variants || []).filter(v => v.is_active !== false);
+    // Part B.9: Exclude A4 ₹99 loss-leader variants from shop grid pricing
+    // They're hidden from main UI and only shown as cart upsells
+    const variants = (p.variants || []).filter(v => v.is_active !== false && !isNoFrameVariant(v));
     const price = variants.length > 0 ? Math.min(...variants.map(v => Number(v.price) || 9999)) : (p.base_price || 599);
     const catName = (typeof p.category === 'object' && p.category?.name) ? p.category.name : (p.category || '');
     const catSlug = (typeof p.category === 'object' && p.category?.slug) ? p.category.slug : catName.toLowerCase();
@@ -1444,8 +1476,8 @@
       { label: 'XL', size: 'xl', priceStd: 1699, pricePrm: 2199, dims: '20×30"' },
     ];
     const frames = [
-      { label: 'Standard (1")', frame: 'standard', color: '#1a1a1a', tooltip: 'Matte Black Aluminium' },
-      { label: 'Premium (1.5")', frame: 'premium', color: '#8B6914', tooltip: 'Gallery Finish Premium' },
+      { label: 'Standard (Matte Black, 1")', frame: 'standard', color: '#1a1a1a', tooltip: 'Classic Matte Black Aluminium — ₹449/749/1099/1699' },
+      { label: 'Premium (Natural Wood, 1.5")', frame: 'premium', color: '#8B6914', tooltip: 'Gallery Natural Oak Wood — ₹599/999/1399/2199' },
     ];
 
     const modal = document.createElement('div');
@@ -1545,11 +1577,12 @@
     window._qaConfirmAdd = function(slug, name, image) {
       const s = window._qaState;
       const price = s.frame === 'premium' ? s.pricePrm : s.priceStd;
-      // FIX: build correct variantId from selected size + frame
+      // FIX: variantId uses slug + size + frame suffix for server-side lookup
       const variantId = slug + '-' + s.size + '-' + s.frame;
       const sizeLabel = sizes.find(sz => sz.size === s.size)?.label || 'Medium';
-      const frameLabel = frames.find(fr => fr.frame === s.frame)?.label || 'Standard';
-      addToCart({ variantId, name, price, image, slug, size: sizeLabel, frame: frameLabel });
+      // FIX frame_type: use Standard/Premium display names (matches getFrameDisplayFromSku)
+      const frameDisplay = s.frame === 'premium' ? 'Premium' : 'Standard';
+      addToCart({ variantId, name, price, image, slug, size: sizeLabel, frame: frameDisplay });
       document.getElementById('quick-add-modal')?.remove();
       trackEvent('add_to_cart', { currency: 'INR', value: price, items: [{ item_id: slug, item_name: name, price, quantity: 1 }] });
     };
@@ -1596,7 +1629,8 @@
       if (!p || !p.slug) throw new Error('empty');
       galleryImages = [...(p.images || [])].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
       const primaryImg = galleryImages[0]?.image_url || p.og_image_url || DESIGN_IMAGES[p.slug] || cldUrl(p.slug, 800);
-      variants = (p.variants || []).filter(v => v.is_active !== false).sort((a, b) => Number(a.price) - Number(b.price));
+      // Part B.9: Filter out A4 ₹99 loss-leader (noframe) variants from PDP size selector
+      variants = (p.variants || []).filter(v => v.is_active !== false && !isNoFrameVariant(v)).sort((a, b) => Number(a.price) - Number(b.price));
       const basePrice = variants.length > 0 ? Number(variants[0].price) : (p.base_price || 599);
       const catName = (typeof p.category === 'object' && p.category?.name) ? p.category.name : (p.category || 'Art Print');
       product = {
@@ -1683,20 +1717,20 @@
                 </div>
                 <div class="frame-swatches" role="group" aria-label="Select frame finish">
                   <button class="frame-swatch-btn frame-swatch-active"
-                    data-frame="Black"
+                    data-frame="Standard"
                     onclick="window.cf.selectFrame(this)"
                     aria-pressed="true"
-                    title="Classic Matte Black">
+                    title="Standard — Classic Matte Black Aluminium (1″)">
                     <span class="frame-swatch-circle" style="background:#1a1a1a;border:2px solid #1a1a1a"></span>
-                    <span class="frame-swatch-label">Matte Black</span>
+                    <span class="frame-swatch-label">Standard (Matte Black)</span>
                   </button>
                   <button class="frame-swatch-btn"
-                    data-frame="Natural Wood"
+                    data-frame="Premium"
                     onclick="window.cf.selectFrame(this)"
                     aria-pressed="false"
-                    title="Natural Wood Oak">
+                    title="Premium — Natural Oak Wood Gallery Frame (1.5″)">
                     <span class="frame-swatch-circle" style="background:linear-gradient(135deg,#C68B3A,#8B5E1A);border:2px solid #A0721E"></span>
-                    <span class="frame-swatch-label">Natural Wood</span>
+                    <span class="frame-swatch-label">Premium (Natural Wood)</span>
                   </button>
                 </div>
               </div>
@@ -1717,16 +1751,36 @@
                 </div>
               </div>
 
-              <!-- Add to Cart -->
+              <!-- Part B.6: 8-section PDP — BUY NOW (red) + Add to Cart row -->
               <div class="pdp-cta-row">
                 <div class="pdp-qty-row">
-                  <button onclick="window.cf.pdpQty(-1)" class="qty-btn" aria-label="Decrease">−</button>
+                  <button onclick="window.cf.pdpQty(-1)" class="qty-btn" aria-label="Decrease quantity">−</button>
                   <span id="pdp-qty">1</span>
-                  <button onclick="window.cf.pdpQty(1)" class="qty-btn" aria-label="Increase">+</button>
+                  <button onclick="window.cf.pdpQty(1)" class="qty-btn" aria-label="Increase quantity">+</button>
                 </div>
-                <button class="btn-primary pdp-atc-btn" onclick="window.cf.pdpAddToCart('${escapeHTML(slug)}','${escapeHTML(product.name)}',${firstPrice},'${escapeHTML(primaryImg)}')" aria-label="Add to cart">
-                  Add to Cart — <span id="pdp-btn-price">${formatPrice(firstPrice)}</span>
+                <button class="pdp-buynow-btn" onclick="window.cf.pdpBuyNow('${escapeHTML(slug)}','${escapeHTML(product.name)}',${firstPrice},'${escapeHTML(primaryImg)}')" aria-label="Buy now" style="background:#CC0000;color:#fff;border:none;border-radius:8px;padding:14px 24px;font-size:15px;font-weight:700;cursor:pointer;flex:1;min-height:48px;letter-spacing:0.02em">
+                  BUY NOW — <span id="pdp-buynow-price">${formatPrice(firstPrice)}</span>
                 </button>
+              </div>
+              <button class="btn-outline pdp-atc-btn" style="width:100%;margin-top:8px" onclick="window.cf.pdpAddToCart('${escapeHTML(slug)}','${escapeHTML(product.name)}',${firstPrice},'${escapeHTML(primaryImg)}')" aria-label="Add to cart">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 2h2l1.5 7h7.5l1-4H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="13" r="1" fill="currentColor"/><circle cx="12" cy="13" r="1" fill="currentColor"/></svg>
+                Add to Cart — <span id="pdp-btn-price">${formatPrice(firstPrice)}</span>
+              </button>
+
+              <!-- Part B.7: Serviceability check widget -->
+              <div class="pdp-delivery-check" id="pdp-delivery-section" style="margin-top:16px;padding:14px;border:1px solid var(--warm-200);border-radius:8px">
+                <div style="font-size:13px;font-weight:600;color:var(--ink-700);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5l2 6h8l2-6" stroke="var(--ink-500)" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 5V4a3 3 0 0 1 6 0v1" stroke="var(--ink-500)" stroke-width="1.2" stroke-linecap="round"/></svg>
+                  Check Delivery
+                </div>
+                <div style="display:flex;gap:8px">
+                  <input type="text" id="pdp-pincode-input" placeholder="Enter 6-digit pincode" maxlength="6" pattern="[1-9][0-9]{5}" inputmode="numeric"
+                    style="flex:1;padding:8px 12px;border:1.5px solid var(--warm-200);border-radius:6px;font-size:13px;outline:none"
+                    oninput="if(this.value.length===6) window.cf.checkPdpDelivery()"
+                    onkeypress="if(event.key==='Enter') window.cf.checkPdpDelivery()">
+                  <button onclick="window.cf.checkPdpDelivery()" style="padding:8px 16px;background:var(--ink-900);color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:600">Check</button>
+                </div>
+                <div id="pdp-delivery-result" style="margin-top:8px;font-size:12px;line-height:1.5"></div>
               </div>
 
               <!-- Poster Add-on -->
@@ -1762,12 +1816,18 @@
     </main>
     ${renderFooter()}`;
 
+    // FIX frame_type: DB uses "Direct Frame" for all; use SKU suffix for display
+    // Default to first Standard variant if available, otherwise first variant
+    const firstStdVariant = variants.find(v => isStandardVariant(v)) || variants[0];
+    const pdpInitFrame = firstStdVariant ? getFrameDisplayFromSku(firstStdVariant.sku) : 'Standard';
     window._pdpState = {
-      size: variants[0]?.size || 'Medium',
-      frame: variants[0]?.frame_type || 'Black',
+      size: firstStdVariant?.size || variants[0]?.size || 'Medium',
+      frame: pdpInitFrame,
       qty: 1,
-      basePrice: firstPrice,
-      variantId: String(firstVariantId)
+      basePrice: firstStdVariant ? Number(firstStdVariant.price) : firstPrice,
+      variantId: String(firstStdVariant?.id || firstVariantId),
+      // Keep full variants list for cross-frame lookups
+      _variants: variants
     };
 
     // Inject Product Schema for SEO
@@ -1819,17 +1879,29 @@
     $$('.size-btn').forEach(b => { b.classList.remove('size-active'); b.setAttribute('aria-pressed','false'); });
     btn.classList.add('size-active');
     btn.setAttribute('aria-pressed','true');
-    const price = parseInt(btn.dataset.price || '0');
-    const variantId = btn.dataset.variantId || '';
-    if (window._pdpState) {
-      window._pdpState.size = btn.dataset.size;
-      window._pdpState.basePrice = price;
-      window._pdpState.variantId = variantId;
+    const newSize = btn.dataset.size;
+    const s = window._pdpState;
+    // FIX frame_type: cross-reference current frame display to find correct variant
+    let price = parseInt(btn.dataset.price || '0');
+    let variantId = btn.dataset.variantId || '';
+    if (s && s._variants && s.frame) {
+      const matched = findVariantBySizeAndFrame(s._variants, newSize, s.frame);
+      if (matched) {
+        price = Number(matched.price);
+        variantId = String(matched.id);
+      }
+    }
+    if (s) {
+      s.size = newSize;
+      s.basePrice = price;
+      s.variantId = variantId;
     }
     const priceEl = document.getElementById('product-current-price');
     if (priceEl) priceEl.textContent = formatPrice(price);
     const btnPrice = document.getElementById('pdp-btn-price');
     if (btnPrice) btnPrice.textContent = formatPrice(price);
+    const buyNowPrice = document.getElementById('pdp-buynow-price');
+    if (buyNowPrice) buyNowPrice.textContent = formatPrice(price);
   }
 
   async function loadRelatedProducts(category, currentSlug) {
@@ -1887,14 +1959,32 @@
   }
 
   function selectFrame(btn) {
-    // FIX s6.5: Updated to work with swatch buttons (.frame-swatch-btn) in PDP
+    // FIX s6.5 + frame_type: Updated to work with swatch buttons; cross-reference variant price
     $$('.frame-swatch-btn, .frame-btn').forEach(b => {
       b.classList.remove('frame-active', 'frame-swatch-active');
       b.setAttribute('aria-pressed', 'false');
     });
     btn.classList.add(btn.classList.contains('frame-swatch-btn') ? 'frame-swatch-active' : 'frame-active');
     btn.setAttribute('aria-pressed', 'true');
-    if (window._pdpState) window._pdpState.frame = btn.dataset.frame;
+    const newFrame = btn.dataset.frame; // 'Standard' or 'Premium'
+    const s = window._pdpState;
+    if (s) {
+      s.frame = newFrame;
+      // FIX: Update price for the new frame + current size combo
+      if (s._variants && s.size) {
+        const matched = findVariantBySizeAndFrame(s._variants, s.size, newFrame);
+        if (matched) {
+          s.basePrice = Number(matched.price);
+          s.variantId = String(matched.id);
+          const priceEl = document.getElementById('product-current-price');
+          if (priceEl) priceEl.textContent = formatPrice(s.basePrice);
+          const btnPrice = document.getElementById('pdp-btn-price');
+          if (btnPrice) btnPrice.textContent = formatPrice(s.basePrice);
+          const buyNowPrice = document.getElementById('pdp-buynow-price');
+          if (buyNowPrice) buyNowPrice.textContent = formatPrice(s.basePrice);
+        }
+      }
+    }
   }
 
   function pdpQty(delta) {
@@ -1904,9 +1994,58 @@
     if (el) el.textContent = window._pdpState.qty;
   }
 
+  // Part B.6: BUY NOW — add to cart then immediately go to checkout
+  function pdpBuyNow(slug, name, basePrice, image) {
+    pdpAddToCart(slug, name, basePrice, image);
+    navigate('/checkout');
+  }
+
+  // Part B.7: Serviceability check — India Post API → fallback
+  async function checkPdpDelivery() {
+    const input = document.getElementById('pdp-pincode-input');
+    const resultEl = document.getElementById('pdp-delivery-result');
+    if (!input || !resultEl) return;
+    const pincode = input.value.replace(/\D/g, '');
+    if (pincode.length !== 6) {
+      resultEl.innerHTML = '<span style="color:#CC0000">Please enter a valid 6-digit pincode</span>';
+      return;
+    }
+    resultEl.innerHTML = '<span style="color:var(--ink-400)">Checking delivery…</span>';
+    try {
+      // Try server-side serviceability check first
+      const res = await fetch(`${API}/checkout/pincode-validate?pincode=${encodeURIComponent(pincode)}`, { headers: { 'Cache-Control': 'no-cache' } });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.valid) {
+          const days = data.etd || '3-5 days';
+          const codText = data.cod ? '· <span style="color:var(--green);font-weight:600">COD available</span>' : '· <span style="color:#CC0000">Prepaid only</span>';
+          const expressTag = data.is_hyderabad ? '<span style="background:#E8F5E9;color:#2E7D32;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:6px">EXPRESS</span>' : '';
+          resultEl.innerHTML = `<span style="color:var(--green);font-weight:600">✓ Delivery available</span>${expressTag}<br><span style="color:var(--ink-500)">Estimated delivery: <strong>${days}</strong> ${codText}</span>`;
+        } else {
+          resultEl.innerHTML = `<span style="color:#CC0000">✗ Currently unserviceable to this pincode. Try prepaid delivery or contact us.</span>`;
+        }
+        return;
+      }
+    } catch (e) { /* fallback to India Post below */ }
+    // Fallback: India Post API
+    try {
+      const ipRes = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+      const ipData = await ipRes.json();
+      if (ipData?.[0]?.Status === 'Success' && ipData[0].PostOffice?.length > 0) {
+        const po = ipData[0].PostOffice[0];
+        resultEl.innerHTML = `<span style="color:var(--green);font-weight:600">✓ Delivery available</span><br><span style="color:var(--ink-500)">${escapeHTML(po.Division)}, ${escapeHTML(po.State)} · Est. 5–7 business days</span>`;
+      } else {
+        resultEl.innerHTML = `<span style="color:#CC0000">✗ Pincode not found. Please check and try again.</span>`;
+      }
+    } catch (e) {
+      resultEl.innerHTML = `<span style="color:var(--ink-400)">Unable to check at the moment. Contact us for delivery info.</span>`;
+    }
+  }
+
   function pdpAddToCart(slug, name, basePrice, image) {
-    const s = window._pdpState || { size: 'Medium', frame: 'Black', qty: 1, basePrice: basePrice };
-    const variantId = `${slug}-${s.size}-${s.frame}`.toLowerCase().replace(/\s+/g, '-');
+    const s = window._pdpState || { size: 'Medium', frame: 'Standard', qty: 1, basePrice: basePrice };
+    // FIX: Use real DB variant ID from _pdpState when available (set by selectSizeVariant/selectFrame)
+    const variantId = s.variantId || `${slug}-${(s.size||'medium').toLowerCase()}-${(s.frame||'standard').toLowerCase()}`;
     const finalPrice = s.basePrice || basePrice;
     for (let i = 0; i < (s.qty || 1); i++) {
       addToCart({
@@ -2140,11 +2279,31 @@
     if (btnEl) btnEl.textContent = `Place Order · ${formatPrice(total)}`;
     if (adjEl) {
       if (paymentAdj !== 0) {
-        adjEl.innerHTML = `<span>${paymentAdjLabel}</span><span style="color:${paymentAdj > 0 ? '#f87171' : '#6fcf97'}">${paymentAdj > 0 ? '+' : ''}${formatPrice(paymentAdj)}</span>`;
+        adjEl.innerHTML = `<span>${escapeHTML(paymentAdjLabel)}</span><span style="color:${paymentAdj > 0 ? '#f87171' : '#6fcf97'}">${paymentAdj > 0 ? '+' : ''}${formatPrice(paymentAdj)}</span>`;
         adjEl.style.display = 'flex';
       } else {
         adjEl.style.display = 'none';
       }
+    }
+    // Part B.1: COD policy enforcement — show inline warning if limits exceeded
+    const codWarnEl = document.getElementById('cod-policy-warning');
+    const submitBtn = document.getElementById('checkout-submit-btn');
+    if (paymentMethod === 'cod') {
+      const COD_MIN = 499, COD_MAX = 1995;
+      let codMsg = '';
+      if (subtotal < COD_MIN) {
+        codMsg = `COD is available for orders above ₹${COD_MIN}. Your cart subtotal is ₹${subtotal}. Please add more items or pay online.`;
+      } else if (subtotal > COD_MAX) {
+        codMsg = `COD is available for orders up to ₹${COD_MAX}. Your cart subtotal is ₹${subtotal}. Please pay online for this order.`;
+      }
+      if (codWarnEl) {
+        codWarnEl.textContent = codMsg;
+        codWarnEl.style.display = codMsg ? 'block' : 'none';
+      }
+      if (submitBtn) submitBtn.disabled = !!codMsg;
+    } else {
+      if (codWarnEl) codWarnEl.style.display = 'none';
+      if (submitBtn) submitBtn.disabled = false;
     }
   }
 
@@ -2249,6 +2408,8 @@
                       </div>
                     </label>
                   </div>
+                  <!-- Part B.1: COD policy inline warning -->
+                  <div id="cod-policy-warning" style="display:none;background:#FFF0F0;border-left:3px solid #CC0000;color:#CC0000;padding:10px 14px;font-size:13px;font-weight:500;border-radius:0 6px 6px 0;margin-top:10px;line-height:1.5"></div>
                   <!-- UPI accepted logos nudge -->
                   <div class="upi-nudge">
                     <span>Online payment accepted:</span>
@@ -3609,21 +3770,23 @@
   // ── CUSTOM FRAME PAGE ────────────────────────────────────────────────────
   function customCalcPrice() {
     const sizeSelect = document.getElementById('custom-size');
-    const frameVal = window._customFrameVal || 'black';
-    const sizePrices = { small: 699, medium: 999, large: 1499, xl: 2199 };
-    const frameExtra = { black: 0, 'natural-wood': 100 };
+    const frameVal = window._customFrameVal || 'standard';
+    // FIX: Updated prices to match DB Part B pricing (standard/premium per size)
+    const sizePricesStd = { small: 449, medium: 749, large: 1099, xl: 1699 };
+    const sizePricesPrm = { small: 599, medium: 999, large: 1399, xl: 2199 };
     const size = sizeSelect?.value || 'medium';
-    const base = (sizePrices[size] || 999) + (frameExtra[frameVal] || 0);
+    const isPremium = frameVal === 'premium' || frameVal === 'natural-wood';
+    const base = isPremium ? (sizePricesPrm[size] || 999) : (sizePricesStd[size] || 749);
     const el = document.getElementById('custom-price-display');
     if (el) el.textContent = formatPrice(base);
     // Update preview label
-    const sizeLabelMap = { small: 'Small (8×10")', medium: 'Medium (12×18")', large: 'Large (18×24")', xl: 'XL (24×36")' };
-    const frameLabel = frameVal === 'natural-wood' ? 'Natural Wood' : 'Black';
+    const sizeLabelMap = { small: 'Small (8×12")', medium: 'Medium (12×18")', large: 'Large (18×24")', xl: 'XL (24×36")' };
+    const frameLabel = isPremium ? 'Premium (Natural Wood)' : 'Standard (Matte Black)';
     const lbl = document.getElementById('frame-preview-label');
-    if (lbl) lbl.textContent = `${frameLabel} Frame · ${sizeLabelMap[size] || 'Medium'}`;
+    if (lbl) lbl.textContent = `${frameLabel} · ${sizeLabelMap[size] || 'Medium'}`;
     // Update preview border
     const outer = document.getElementById('frame-preview-outer');
-    if (outer) outer.style.borderColor = frameVal === 'natural-wood' ? '#8B6914' : '#1a1a1a';
+    if (outer) outer.style.borderColor = isPremium ? '#8B6914' : '#1a1a1a';
     window._customState = { size, frame: frameVal, qty: 1, price: base };
     // Update summary
     const sumSize = document.getElementById('summary-size');
@@ -4763,7 +4926,9 @@
     filterShop,
     quickAdd,
     pdpAddToCart,
+    pdpBuyNow,
     pdpQty,
+    checkPdpDelivery,
     selectSize,
     selectSizeVariant,
     selectFrame,
