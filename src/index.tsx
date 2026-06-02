@@ -49,14 +49,16 @@ export type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('/static/*', serveStatic());
-// Cache-Control for immutable static assets (CSS/JS have content hashes or are versioned)
+// FIX 4.3: app.js must not be cached (SPA shell changes frequently)
+// CSS can be cached longer since it's more stable
 app.use('/static/*.js', async (c, next) => {
   await next();
-  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  c.header('Pragma', 'no-cache');
 });
 app.use('/static/*.css', async (c, next) => {
   await next();
-  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+  c.header('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
 });
 app.use('*', logger());
 app.use('*', async (c, next) => {
@@ -76,11 +78,12 @@ app.use('*', async (c, next) => {
   // Note: 'unsafe-inline' also remains on style-src (Tailwind CDN + inline style attributes).
   c.header('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.clarity.ms https://www.google-analytics.com https://cdn.shiprocket.com",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
-    "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net",
+    // FIX 4.1/4.2: Removed cdnjs (GSAP) and cdn.jsdelivr (FontAwesome) from script-src
+    "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://www.googletagmanager.com https://www.clarity.ms https://www.google-analytics.com https://cdn.shiprocket.com https://api.postalpincode.in",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https: http:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://api.cloudinary.com https://res.cloudinary.com https://www.google-analytics.com https://www.googletagmanager.com https://www.clarity.ms",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://api.cloudinary.com https://res.cloudinary.com https://www.google-analytics.com https://www.googletagmanager.com https://www.clarity.ms https://api.postalpincode.in",
     "frame-src https://checkout.razorpay.com",
     "object-src 'none'",
     "base-uri 'self'",
@@ -254,13 +257,14 @@ app.post('/api/reviews', async (c) => {
     if (!cleanName) return c.json({ error: 'Name required' }, 400);
 
     const sb = getSupabase(c.env);
-    // Rate limit: max 3 reviews per product per email per day
+    // FIX 8.3: Rate limit by CF-Connecting-IP (not by name which is user-controlled)
+    const clientIp = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';
     const { count } = await sb.from('reviews')
       .select('*', { count: 'exact', head: true })
       .eq('product_id', body.productId)
-      .eq('customer_name', cleanName)
+      .eq('ip_address', clientIp)
       .gte('created_at', new Date(Date.now() - 86400000).toISOString());
-    if ((count || 0) >= 3) return c.json({ error: 'Review limit reached' }, 429);
+    if ((count || 0) >= 3) return c.json({ error: 'Review limit reached for this IP today' }, 429);
 
     // Check review_photo_enabled config
     let reviewPhotoEnabled = true;
@@ -297,7 +301,8 @@ app.post('/api/reviews', async (c) => {
       order_id: orderId,
       verified_purchase: verifiedPurchase,
       image_urls: (Array.isArray(body.imageUrls) ? body.imageUrls.filter((u: any) => typeof u === 'string' && /^https?:\/\//.test(u)) : []).slice(0, 5),
-      is_approved: false // Reviews require admin approval before display
+      is_approved: false, // FIX 8.3: store IP for rate limiting
+      ip_address: clientIp
     }).select().single();
     if (error) return c.json({ error: error.message }, 400);
     return c.json({ success: true, review: data, message: 'Review submitted for approval' });
@@ -480,16 +485,26 @@ app.get('/sitemap.xml', async (c) => {
     xml += `  <url><loc>${baseUrl}${page}</loc><changefreq>weekly</changefreq><priority>${page === '' ? '1.0' : page === '/shop' || page === '/customize' ? '0.9' : '0.8'}</priority></url>\n`;
   }
 
-  // Hardcoded launch products (always present even without DB)
-  const launchSlugs = [
-    'mahadev-cosmic-trance','radha-krishna-watercolor','radha-krishna-emerald-dance',
-    'bmw-m4-carbon-dark','porsche-911-pacific-coast','lamborghini-aventador-neon',
-    'nissan-gtr-r34-osaka-rain','f1-redbull-racing','cricket-glory-moment','lion-geometric-gold'
+  // FIX 5.3: Hardcoded launch products with real static dates (not new Date() every request)
+  const launchSlugs: {slug: string; lastmod: string}[] = [
+    {slug:'mahadev-cosmic-trance', lastmod:'2025-03-01'},
+    {slug:'radha-krishna-watercolor', lastmod:'2025-03-01'},
+    {slug:'radha-krishna-emerald-dance', lastmod:'2025-03-01'},
+    {slug:'ganesh-vibrant-pop', lastmod:'2025-04-01'},
+    {slug:'lakshmi-gold-lotus', lastmod:'2025-04-01'},
+    {slug:'bmw-m4-carbon-dark', lastmod:'2025-03-01'},
+    {slug:'porsche-911-pacific-coast', lastmod:'2025-03-01'},
+    {slug:'lamborghini-aventador-neon', lastmod:'2025-03-01'},
+    {slug:'nissan-gtr-r34-osaka-rain', lastmod:'2025-03-01'},
+    {slug:'f1-redbull-racing', lastmod:'2025-03-01'},
+    {slug:'cricket-glory-moment', lastmod:'2025-03-01'},
+    {slug:'lion-geometric-gold', lastmod:'2025-03-01'},
+    {slug:'tiger-watercolor-majesty', lastmod:'2025-05-01'},
+    {slug:'ms-dhoni-finishing-master', lastmod:'2025-05-01'},
   ];
-  const today = new Date().toISOString().slice(0, 10);
-  for (const slug of launchSlugs) {
-    if (!products.find((p: any) => p.slug === slug)) {
-      xml += `  <url><loc>${baseUrl}/product/${slug}</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>\n`;
+  for (const item of launchSlugs) {
+    if (!products.find((p: any) => p.slug === item.slug)) {
+      xml += `  <url><loc>${baseUrl}/product/${item.slug}</loc><lastmod>${item.lastmod}</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>\n`;
     }
   }
 
@@ -570,10 +585,12 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
   // SECURITY: Sanitize title and description to prevent HTML injection
   const safeTitle = title.replace(/[<>"]/g, '').slice(0, 120);
   const safeDesc = description.replace(/[<>"]/g, '').slice(0, 320);
-  const safeOgImage = ogImage && /^https?:\/\//.test(ogImage) ? ogImage : '';
+  // FIX 5.4: Default OG image fallback to Cloudinary brand image
+  const DEFAULT_OG_IMAGE = 'https://res.cloudinary.com/dax4yqumu/image/upload/c_fill,w_1200,h_630,q_auto,f_auto/chitraframe/og-default.jpg';
+  const safeOgImage = ogImage && /^https?:\/\//.test(ogImage) ? ogImage : DEFAULT_OG_IMAGE;
   const canonical = canonicalPath ? `https://chitraframe.in${canonicalPath}` : 'https://chitraframe.in';
 
-  const imageTag = safeOgImage ? `\n  <meta property="og:image" content="${safeOgImage}">\n  <meta name="twitter:card" content="summary_large_image">\n  <meta name="twitter:image" content="${safeOgImage}">` : '';
+  const imageTag = `\n  <meta property="og:image" content="${safeOgImage}">\n  <meta name="twitter:card" content="summary_large_image">\n  <meta name="twitter:image" content="${safeOgImage}">`;
   const canonicalTag = `\n  <link rel="canonical" href="${canonical}">`;
   const ldTag = jsonLd ? `\n  ${jsonLd}` : '';
 
@@ -623,11 +640,9 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
   <link rel="dns-prefetch" href="https://www.googletagmanager.com">
   <!-- Fonts: display=swap for performance -->
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- FIX 4.1: GSAP removed (~120kB saving) — CSS animations used instead -->
+  <!-- FIX 4.2: FontAwesome removed (~1.1MB saving) — inline SVGs used throughout -->
   <link href="/static/styles.css" rel="stylesheet">
-  <!-- GSAP for scroll animations — async to not block render -->
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   ${getGTMHead(gtmId)}${ga4Tag}${clarityTag}
 </head>
 <body>
