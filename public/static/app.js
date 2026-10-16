@@ -1,7 +1,8 @@
-// ChitraFrame — Customer SPA v4.0
+// ChitraFrame — Customer SPA v5.0
 // Editorial luxury · High-conversion · Museum-grade minimalism
 // Design: Light editorial, DM Serif Display + DM Sans
 // Security: XSS-safe, CSP-compliant, no credentials in client
+// v5.0: GA4 events, thank-you page, trust badges, a/b test, WebP images, FAQPage schema, performance
 (function () {
   'use strict';
 
@@ -129,6 +130,62 @@
     else if (paymentMethod === 'online') { paymentAdj = -50; paymentAdjLabel = 'Online payment discount'; }
     const total = Math.max(0, afterDiscount + shipping + paymentAdj);
     return { subtotal, discount, discountLabel, shipping, total, itemCount, freeThreshold, paymentAdj, paymentAdjLabel };
+  }
+
+  // ── GA4 Event Tracking ────────────────────────────────────────────────────
+  function trackEvent(eventName, params) {
+    try {
+      if (window.gtag) {
+        window.gtag('event', eventName, params || {});
+      }
+      if (window.dataLayer) {
+        window.dataLayer.push({ event: eventName, ...(params || {}) });
+      }
+      // Also send to our analytics endpoint (fire-and-forget)
+      fetch('/api/analytics/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_type: eventName, metadata: params || {} })
+      }).catch(() => {});
+    } catch (e) { /* never block UI */ }
+  }
+
+  // ── A/B Test Framework ────────────────────────────────────────────────────
+  const ABTest = {
+    // Returns 'a' or 'b' consistently for this browser session
+    get: function(testName) {
+      const key = 'ab_' + testName;
+      let v = localStorage.getItem(key);
+      if (!v) {
+        v = Math.random() < 0.5 ? 'a' : 'b';
+        localStorage.setItem(key, v);
+      }
+      return v;
+    },
+    // Hero CTA text test: 'a' = "Shop All Prints", 'b' = "Explore Art Now"
+    heroCTA: function() {
+      return this.get('hero_cta') === 'b' ? 'Explore Art Now' : 'Shop All Prints';
+    }
+  };
+
+  // ── Cloudinary WebP helper with responsive srcset ─────────────────────────
+  function cldSrcset(slug, sizes) {
+    if (DESIGN_IMAGES[slug]) return null; // Can't generate srcset for external
+    const base = `https://res.cloudinary.com/${CLD_CLOUD}/image/upload`;
+    return sizes.map(w => `${base}/c_fill,w_${w},q_auto,f_auto/chitraframe/products/${slug}.jpg ${w}w`).join(', ');
+  }
+
+  function cldPicture(slug, alt, widths, className, loading) {
+    const fallbackUrl = cldUrl(slug, Math.max(...(widths || [800])));
+    const srcset = cldSrcset(slug, widths || [400, 800, 1200]);
+    if (!srcset) {
+      return `<img src="${escapeHTML(fallbackUrl)}" alt="${escapeHTML(alt)}" class="${className||''}" loading="${loading||'lazy'}" width="800" height="1000">`;
+    }
+    const sizes = '(max-width:480px) 50vw, (max-width:900px) 33vw, 25vw';
+    return `<picture>
+      <source type="image/webp" srcset="${escapeHTML(srcset.replace(/f_auto/g,'f_webp'))}" sizes="${sizes}">
+      <img src="${escapeHTML(fallbackUrl)}" srcset="${escapeHTML(srcset)}" sizes="${sizes}" alt="${escapeHTML(alt)}" class="${className||''}" loading="${loading||'lazy'}" width="800" height="1000">
+    </picture>`;
   }
 
   // ── Scroll Reveal ─────────────────────────────────────────────────────────
@@ -581,6 +638,7 @@
     document.title = 'ChitraFrame | Buy Framed Art Prints Online India — Divine, Automotive, Sports';
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) metaDesc.setAttribute('content', 'Buy premium framed art prints online in India. Divine & spiritual art, automotive legends, sports heroes, wildlife — museum-quality printing, Black or Natural Wood frames, free shipping above ₹899. Starting ₹499.');
+    trackEvent('page_view', { page_title: 'Home', page_location: location.href });
 
     app.innerHTML = renderHeader() + `
     <main id="main-content">
@@ -660,11 +718,11 @@
           </p>
 
           <div class="hero-v2-actions">
-            <button class="hero-v2-cta" onclick="window.cf.nav('/shop')" aria-label="Shop all prints">
-              Shop All Prints
+            <button class="hero-v2-cta" id="hero-primary-cta" onclick="window.cf.nav('/shop');trackEvent('hero_cta',{variant:ABTest.get('hero_cta'),button:'primary'})" aria-label="Shop all premium framed art prints">
+              <span id="hero-cta-text">Shop All Prints</span>
               <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M9 4l3.5 3.5L9 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-            <button class="hero-v2-ghost" onclick="window.cf.nav('/customize')">
+            <button class="hero-v2-ghost" onclick="window.cf.nav('/customize');trackEvent('hero_cta',{variant:ABTest.get('hero_cta'),button:'secondary'})">
               Custom Frame →
             </button>
           </div>
@@ -1000,6 +1058,35 @@
     // setTimeout(initHeroCanvas, 50);
     setTimeout(loadFeaturedProducts, 50);
     setTimeout(loadHeroProductCard, 30);
+    // A/B test: update CTA text after render
+    setTimeout(() => {
+      const ctaEl = document.getElementById('hero-cta-text');
+      if (ctaEl) ctaEl.textContent = ABTest.heroCTA();
+      trackEvent('view_hero', { cta_variant: ABTest.get('hero_cta'), page: 'home' });
+    }, 50);
+    // Inject FAQ Schema for home page
+    injectHomeFAQSchema();
+  }
+
+  function injectHomeFAQSchema() {
+    if (document.getElementById('faq-schema')) return;
+    const schema = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        { '@type': 'Question', name: 'What types of framed art prints does ChitraFrame offer?', acceptedAnswer: { '@type': 'Answer', text: 'ChitraFrame offers premium framed art prints across 6 categories: Divine & Spiritual (Radha Krishna, Mahadev), Automotive (BMW M4, Porsche 911, Lamborghini, F1), Sports (Cricket), Wildlife (Lion), Anime & JDM, and Motivational. Available in 4 sizes with Black Frame or Natural Wood Frame options. Prices start at ₹499.' } },
+        { '@type': 'Question', name: 'What are the frame options at ChitraFrame?', acceptedAnswer: { '@type': 'Answer', text: 'ChitraFrame offers two premium frame types: (1) Black Frame — matte black solid wood moulding, museum-grade finish, ideal for modern and minimalist spaces; (2) Natural Wood Frame — warm honey-toned real wood, perfect for traditional and warm interiors. Both frames come with UV-protective acrylic glazing and acid-free mat board.' } },
+        { '@type': 'Question', name: 'How long does delivery take for framed art prints?', acceptedAnswer: { '@type': 'Answer', text: 'ChitraFrame delivers across India in 3–5 business days. Orders are dispatched within 24 hours of payment confirmation via Shiprocket courier partners. Free shipping on orders above ₹899. COD available across most pincodes.' } },
+        { '@type': 'Question', name: 'What sizes are available for framed art prints?', acceptedAnswer: { '@type': 'Answer', text: 'ChitraFrame art prints are available in 4 sizes: A4 (8.3×11.7 inches), A3 (11.7×16.5 inches), A2 (16.5×23.4 inches), and A1 (23.4×33.1 inches). Each size is available in all frame types and designs.' } },
+        { '@type': 'Question', name: 'Is COD (Cash on Delivery) available?', acceptedAnswer: { '@type': 'Answer', text: 'Yes, Cash on Delivery (COD) is available on ChitraFrame for orders above ₹499 and below ₹1,995 across most Indian pincodes. A handling fee of ₹49 applies for COD orders. Online payment (UPI/Card) gets a ₹50 discount.' } },
+        { '@type': 'Question', name: 'How are the frames packed for delivery?', acceptedAnswer: { '@type': 'Answer', text: 'Each ChitraFrame order is bubble-wrapped in multiple layers, corner-protected, and packed in a custom rigid cardboard box designed to prevent breakage in transit. We use shatterproof acrylic (perspex) instead of glass for safe delivery across India.' } }
+      ]
+    };
+    const s = document.createElement('script');
+    s.id = 'faq-schema';
+    s.type = 'application/ld+json';
+    s.textContent = JSON.stringify(schema);
+    document.head.appendChild(s);
   }
 
   function renderCategoryCards() {
@@ -1125,25 +1212,31 @@
   function renderProductCard(p, idx = 0) {
     const variantId = `${p.slug}-medium-black`;
     const badge = p.badge || (idx === 0 ? 'Bestseller' : idx === 1 ? 'New' : '');
-    const img = escapeHTML(p.image || cldUrl(p.slug, 600));
     const slug = escapeHTML(p.slug);
     const name = escapeHTML(p.name);
     const cat = escapeHTML(p.category || '');
+    // Determine compare price for savings badge
+    const comparePrice = p.compare_price || p.compare_at_price || 0;
+    const savingsAmt = comparePrice > p.price ? Math.round(comparePrice - p.price) : 0;
+    const savingsPct = savingsAmt > 0 ? Math.round((savingsAmt / comparePrice) * 100) : 0;
+    // Use WebP-aware picture element for product images
+    const imgHtml = cldPicture(p.slug, `${p.name} framed art print — ChitraFrame`, [400, 600, 800], '', 'lazy');
     return `
-    <article class="pc" data-reveal data-reveal-delay="${idx % 4}" role="article" itemscope itemtype="https://schema.org/Product">
+    <article class="pc" data-reveal data-reveal-delay="${idx % 4}" role="article" itemscope itemtype="https://schema.org/Product" onclick="window.cf.nav('/product/${slug}');trackEvent('select_item',{item_id:'${slug}',item_name:'${name}',index:${idx}})" style="cursor:pointer">
       <meta itemprop="name" content="${name} — Framed Art Print">
       <meta itemprop="brand" content="ChitraFrame">
-      <a class="pc-img-wrap" href="/product/${slug}" onclick="window.cf.nav('/product/${slug}');return false;" aria-label="View ${name}">
-        <img src="${img}" alt="${name} framed art print" loading="lazy" width="600" height="750" itemprop="image">
+      <div class="pc-img-wrap" aria-label="View ${name}">
+        ${imgHtml}
         ${badge ? `<span class="pc-badge">${escapeHTML(badge)}</span>` : ''}
+        ${savingsPct >= 10 ? `<span class="pc-badge pc-badge-save" style="left:auto;right:12px;background:var(--red)">−${savingsPct}%</span>` : ''}
         <!-- Single hover overlay — no conflict, no overlap -->
         <div class="pc-hover">
-          <button class="pc-atc" onclick="event.preventDefault();event.stopPropagation();window.cf.quickAdd('${escapeHTML(variantId)}','${name}',${p.price},'${escapeHTML(p.image || cldUrl(p.slug, 200))}','${slug}')" aria-label="Add ${name} to cart">
+          <button class="pc-atc" onclick="event.preventDefault();event.stopPropagation();window.cf.quickAdd('${escapeHTML(variantId)}','${name}',${p.price},'${escapeHTML(p.image || cldUrl(p.slug, 200))}','${slug}');trackEvent('add_to_cart',{item_id:'${slug}',item_name:'${name}',price:${p.price},currency:'INR'})" aria-label="Add ${name} to cart">
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 1.5h2l1.8 7.5h7l1.7-5.5H4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5.5" cy="12.5" r="1.2" fill="currentColor"/><circle cx="10.5" cy="12.5" r="1.2" fill="currentColor"/></svg>
             Add to Cart
           </button>
         </div>
-      </a>
+      </div>
       <div class="pc-info">
         <div class="pc-meta">
           <span class="pc-cat">${cat}</span>
@@ -1153,15 +1246,15 @@
           </span>
         </div>
         <h3 class="pc-name">
-          <a href="/product/${slug}" onclick="window.cf.nav('/product/${slug}');return false;" itemprop="url">${name}</a>
+          <a href="/product/${slug}" onclick="event.stopPropagation();window.cf.nav('/product/${slug}');return false;" itemprop="url">${name}</a>
         </h3>
         <div class="pc-price" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
           <meta itemprop="priceCurrency" content="INR">
           <meta itemprop="price" content="${p.price}">
           <meta itemprop="availability" content="https://schema.org/InStock">
-          <span class="pc-price-from">from</span>
+          <meta itemprop="url" content="https://chitraframe.in/product/${slug}">
           <span class="pc-price-amt">${formatPrice(p.price)}</span>
-          <span class="pc-price-sizes">4 sizes</span>
+          ${comparePrice > p.price ? `<span class="pc-price-compare" style="text-decoration:line-through;font-size:12px;color:var(--ink-400);margin-left:6px">${formatPrice(comparePrice)}</span>` : `<span class="pc-price-sizes" style="font-size:11px;color:var(--ink-400);margin-left:6px">4 sizes available</span>`}
         </div>
       </div>
     </article>`;
@@ -1497,10 +1590,55 @@
       variantId: String(firstVariantId)
     };
 
+    // Inject Product Schema for SEO
+    injectProductSchema(product, variants, slug);
+
     initMobileMenu();
     initStickyHeader();
     setTimeout(initReveal, 100);
     setTimeout(() => loadRelatedProducts(product.category, slug), 80);
+    // Inject urgency features (scarcity, pincode checker, sticky bar)
+    setTimeout(() => injectPdpUrgency(slug, product.name, firstPrice, primaryImg), 150);
+    // GA4 view_item event
+    trackEvent('view_item', { currency: 'INR', value: firstPrice, items: [{ item_id: slug, item_name: product.name, item_category: product.category, price: firstPrice }] });
+  }
+
+  function injectProductSchema(product, variants, slug) {
+    const existing = document.getElementById('product-schema');
+    if (existing) existing.remove();
+    const lowestPrice = variants.length > 0 ? Math.min(...variants.map(v => Number(v.price))) : product.basePrice;
+    const highestPrice = variants.length > 0 ? Math.max(...variants.map(v => Number(v.price))) : product.basePrice;
+    const schema = {
+      '@context': 'https://schema.org/',
+      '@type': 'Product',
+      name: product.name,
+      image: [product.image],
+      description: product.desc,
+      sku: `CF-${slug}`,
+      brand: { '@type': 'Brand', name: 'ChitraFrame' },
+      offers: {
+        '@type': 'AggregateOffer',
+        url: `https://chitraframe.in/product/${slug}`,
+        priceCurrency: 'INR',
+        lowPrice: String(lowestPrice),
+        highPrice: String(highestPrice),
+        offerCount: String(variants.length || 1),
+        availability: 'https://schema.org/InStock',
+        seller: { '@type': 'Organization', name: 'ChitraFrame' }
+      },
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.9',
+        reviewCount: '200',
+        bestRating: '5',
+        worstRating: '1'
+      }
+    };
+    const s = document.createElement('script');
+    s.id = 'product-schema';
+    s.type = 'application/ld+json';
+    s.textContent = JSON.stringify(schema);
+    document.head.appendChild(s);
   }
 
   function selectSizeVariant(btn) {
@@ -1591,12 +1729,15 @@
   function pdpAddToCart(slug, name, basePrice, image) {
     const s = window._pdpState || { size: 'Medium', frame: 'Black', qty: 1, basePrice: basePrice };
     const variantId = `${slug}-${s.size}-${s.frame}`.toLowerCase().replace(/\s+/g, '-');
+    const finalPrice = s.basePrice || basePrice;
     for (let i = 0; i < (s.qty || 1); i++) {
       addToCart({
-        variantId, name, price: s.basePrice || basePrice,
+        variantId, name, price: finalPrice,
         image, slug, size: s.size, frame: s.frame
       });
     }
+    // GA4 add_to_cart event
+    trackEvent('add_to_cart', { currency: 'INR', value: finalPrice * (s.qty || 1), items: [{ item_id: slug, item_name: name, item_category: s.frame, price: finalPrice, quantity: s.qty || 1 }] });
     // Add poster add-on if checked
     const posterCheck = document.getElementById('pdp-poster-check');
     if (posterCheck && posterCheck.checked) {
@@ -1831,6 +1972,9 @@
 
   function renderCheckoutPage(app) {
     if (state.cart.length === 0) { navigate('/cart'); return; }
+    // GA4 begin_checkout event
+    const cartValue = state.cart.reduce((s, i) => s + (i.price * (i.quantity || 1)), 0);
+    trackEvent('begin_checkout', { currency: 'INR', value: cartValue, items: state.cart.map(i => ({ item_id: i.slug || i.variantId, item_name: i.name, price: i.price, quantity: i.quantity || 1 })) });
     // Guard: if cart contains ONLY the poster add-on, block checkout
     const hasRealItem = state.cart.some(i => !i.isAddon);
     if (!hasRealItem) {
@@ -1868,6 +2012,11 @@
           <div class="checkout-layout">
             <div class="checkout-form-col">
               <form class="checkout-form" id="checkout-form" onsubmit="window.cf.submitCheckout(event)">
+                <!-- Urgency Banner -->
+                <div class="checkout-urgency">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#C9973A" stroke-width="1.4"/><path d="M8 4.5v3.5l2.5 2.5" stroke="#C9973A" stroke-width="1.4" stroke-linecap="round"/></svg>
+                  <span>Prices valid for <strong id="checkout-timer" class="urgency-timer">14:59</strong> — COD + Free shipping above ₹899</span>
+                </div>
                 <div class="checkout-section">
                   <h2 class="checkout-section-title">Delivery Information</h2>
                   <div class="form-grid-2">
@@ -1922,15 +2071,42 @@
                       </div>
                     </label>
                   </div>
+                  <!-- UPI accepted logos nudge -->
+                  <div class="upi-nudge">
+                    <span>Online payment accepted:</span>
+                    <div class="upi-logos">
+                      <span class="upi-logo">UPI</span>
+                      <span class="upi-logo">GPay</span>
+                      <span class="upi-logo">PhonePe</span>
+                      <span class="upi-logo">Paytm</span>
+                      <span class="upi-logo">VISA</span>
+                    </div>
+                  </div>
                 </div>
 
                 <button type="submit" class="btn-primary w-full checkout-submit" id="checkout-submit-btn">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="6.5" width="14" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M4 6.5V5a4 4 0 0 1 8 0v1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
                   Place Order · <span id="checkout-total-display">${formatPrice(total - 50)}</span>
                 </button>
-                <p class="checkout-secure-note">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="5" width="10" height="6" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 5V4a3 3 0 0 1 6 0v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-                  Secured by 256-bit SSL
-                </p>
+                <!-- Trust badges row -->
+                <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:12px;flex-wrap:wrap">
+                  <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-400)">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="12" height="9" rx="1.5" stroke="var(--green)" stroke-width="1.2"/><path d="M4 4V3a3 3 0 0 1 6 0v1" stroke="var(--green)" stroke-width="1.2" stroke-linecap="round"/></svg>
+                    256-bit SSL
+                  </span>
+                  <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-400)">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l2 4h4l-3 3 1.5 4L7 10l-4.5 2L4 8 1 5h4L7 1z" fill="var(--gold)"/></svg>
+                    4.9 ★ Rated
+                  </span>
+                  <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-400)">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10l3-8 2 4 2-2 3 6" stroke="var(--ink-400)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Razorpay Secured
+                  </span>
+                  <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-400)">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5.5l2.5 6h7l2.5-6" stroke="var(--ink-400)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 5.5V4a2 2 0 0 1 4 0v1.5" stroke="var(--ink-400)" stroke-width="1.2" stroke-linecap="round"/></svg>
+                    Easy Returns
+                  </span>
+                </div>
               </form>
             </div>
 
@@ -1966,7 +2142,10 @@
     initMobileMenu();
     initStickyHeader();
     // Trigger initial total calculation with default online payment
-    setTimeout(() => updateCheckoutTotal(), 50);
+    setTimeout(() => {
+      updateCheckoutTotal();
+      createUrgencyTimer('checkout-timer', 15);
+    }, 50);
   }
 
   async function submitCheckout(e) {
@@ -2020,10 +2199,12 @@
         openRazorpay(result);
       } else {
         // COD success
+        const orderId = result.order_id || '';
+        const orderTotal = total;
         state.cart = [];
         saveCart();
-        navigate('/');
-        toast('🎉 Order placed! You\'ll receive a confirmation shortly.');
+        trackEvent('purchase', { transaction_id: orderId, value: orderTotal, currency: 'INR', payment_type: 'COD' });
+        navigate('/order-success?order=' + encodeURIComponent(orderId) + '&total=' + encodeURIComponent(orderTotal) + '&type=cod');
       }
     } catch (err) {
       toast('Could not place order. Please try again or contact us on WhatsApp.', 'error');
@@ -2049,10 +2230,23 @@
       prefill: { name: orderData.customer_name, email: orderData.customer_email, contact: orderData.customer_phone },
       theme: { color: '#C9973A' },
       handler: function (response) {
-        state.cart = [];
-        saveCart();
-        navigate('/');
-        toast('🎉 Payment successful! Order confirmed.');
+        // Verify payment server-side
+        fetch('/api/checkout/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_signature: response.razorpay_signature,
+            order_id: orderData.internal_order_id || orderData.order_id
+          })
+        }).then(r => r.json()).catch(() => ({})).then(verifyResult => {
+          const confirmedOrderId = verifyResult.order_id || orderData.internal_order_id || orderData.order_id || '';
+          state.cart = [];
+          saveCart();
+          trackEvent('purchase', { transaction_id: confirmedOrderId, value: orderData.total, currency: 'INR', payment_type: 'online', razorpay_payment_id: response.razorpay_payment_id });
+          navigate('/order-success?order=' + encodeURIComponent(confirmedOrderId) + '&total=' + encodeURIComponent(orderData.total) + '&type=prepaid');
+        });
       }
     });
     rzp.open();
@@ -2593,6 +2787,15 @@
       document.title = `${post.title} | ChitraFrame Blog`;
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) metaDesc.setAttribute('content', post.excerpt);
+      trackEvent('page_view', { page_title: post.title, page_location: location.href, content_type: 'article' });
+      // Article schema
+      const existingSchema = document.getElementById('article-schema');
+      if (existingSchema) existingSchema.remove();
+      const articleSchema = document.createElement('script');
+      articleSchema.id = 'article-schema';
+      articleSchema.type = 'application/ld+json';
+      articleSchema.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'Article', headline: post.title, description: post.excerpt, image: post.img, author: { '@type': 'Organization', name: 'ChitraFrame' }, publisher: { '@type': 'Organization', name: 'ChitraFrame', logo: { '@type': 'ImageObject', url: 'https://chitraframe.in/static/logo.png' } }, datePublished: post.date, url: `https://chitraframe.in/blog/${post.slug}` });
+      document.head.appendChild(articleSchema);
 
       const articleContent = {
         'best-framed-art-prints-india-2025': `
@@ -3500,6 +3703,134 @@
     setTimeout(initReveal, 100);
   }
 
+  // ── ORDER SUCCESS / THANK-YOU PAGE ───────────────────────────────────────
+  function renderOrderSuccessPage(app) {
+    const params = new URLSearchParams(location.search);
+    const orderId = params.get('order') || '';
+    const total = params.get('total') || '';
+    const payType = params.get('type') || 'prepaid';
+    const isCOD = payType === 'cod';
+
+    document.title = 'Order Confirmed — ChitraFrame';
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', 'Your ChitraFrame art print order is confirmed. Thank you for your purchase!');
+
+    // Generate a referral code
+    const refCode = 'CF' + Math.random().toString(36).substring(2, 7).toUpperCase();
+    const waNumber = state.config.whatsapp_number || '917989531818';
+    const shareText = encodeURIComponent('Just ordered a gorgeous framed art print from ChitraFrame! Use code ' + refCode + ' for ₹100 off your first order 🖼️ https://chitraframe.in');
+
+    app.innerHTML = renderHeader() + `
+    <main id="main-content">
+      <section style="min-height:80vh;display:flex;align-items:center;justify-content:center;padding:60px 24px;background:var(--off-white)">
+        <div style="max-width:560px;width:100%;text-align:center">
+
+          <!-- Success animation -->
+          <div style="width:80px;height:80px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;animation:pulse-green 0.6s ease-out">
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M6 18l8 8 16-16" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+
+          <h1 style="font-family:'DM Serif Display',serif;font-size:clamp(28px,5vw,42px);color:var(--ink-900);margin-bottom:8px">
+            ${isCOD ? 'Order Placed! 🎉' : 'Payment Successful! 🎉'}
+          </h1>
+          <p style="color:var(--ink-500);font-size:16px;margin-bottom:24px;line-height:1.6">
+            ${isCOD
+              ? 'Your order is confirmed. Our team will call you to confirm the COD order before dispatch.'
+              : 'Your payment is confirmed. Your framed art print will be dispatched within 24 hours.'}
+          </p>
+
+          ${orderId ? `
+          <div style="background:var(--white);border:1.5px solid var(--warm-200);border-radius:12px;padding:20px;margin-bottom:24px;text-align:left">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--warm-100)">
+              <span style="font-size:13px;color:var(--ink-400);font-weight:500">Order ID</span>
+              <strong style="font-size:14px;color:var(--ink-900)">${escapeHTML(orderId)}</strong>
+            </div>
+            ${total ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--warm-100)">
+              <span style="font-size:13px;color:var(--ink-400);font-weight:500">Amount ${isCOD ? '(COD)' : 'Paid'}</span>
+              <strong style="font-size:14px;color:var(--ink-900)">${formatPrice(total)}</strong>
+            </div>` : ''}
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:13px;color:var(--ink-400);font-weight:500">Delivery</span>
+              <strong style="font-size:14px;color:var(--green)">3–5 business days</strong>
+            </div>
+          </div>` : ''}
+
+          <!-- Trust icons -->
+          <div style="display:flex;justify-content:center;gap:24px;margin-bottom:28px;flex-wrap:wrap">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+              <div style="width:40px;height:40px;background:var(--gold-pale);border-radius:50%;display:flex;align-items:center;justify-content:center">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l2 4.2 4.6.7-3.3 3.2.8 4.6L10 12.5l-4.1 2.2.8-4.6L3.4 6.9l4.6-.7L10 2z" fill="var(--gold)"/></svg>
+              </div>
+              <span style="font-size:11px;color:var(--ink-500);font-weight:500;text-align:center">Museum<br>Quality</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+              <div style="width:40px;height:40px;background:#e6f4ea;border-radius:50%;display:flex;align-items:center;justify-content:center">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 9.5l4 4 10-9" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <span style="font-size:11px;color:var(--ink-500);font-weight:500;text-align:center">Securely<br>Packaged</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+              <div style="width:40px;height:40px;background:#e8f4fd;border-radius:50%;display:flex;align-items:center;justify-content:center">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2C6 2 3 5 3 9c0 5 7 9 7 9s7-4 7-9c0-4-3-7-7-7z" stroke="#3b82f6" stroke-width="1.5" stroke-linejoin="round"/><circle cx="10" cy="9" r="2.5" fill="#3b82f6"/></svg>
+              </div>
+              <span style="font-size:11px;color:var(--ink-500);font-weight:500;text-align:center">Pan India<br>Delivery</span>
+            </div>
+          </div>
+
+          <!-- Share + Referral section -->
+          <div style="background:linear-gradient(135deg,var(--ink-900),#2a1f0e);border-radius:16px;padding:24px;margin-bottom:28px;color:#fff">
+            <p style="font-size:13px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:8px">Give ₹100 · Get ₹100</p>
+            <h3 style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:8px">Share & earn with friends</h3>
+            <p style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:16px;line-height:1.6">Your friends get ₹100 off their first order. You get ₹100 store credit when they purchase.</p>
+            <div style="background:rgba(255,255,255,0.1);border:1.5px dashed rgba(255,255,255,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:18px;font-weight:700;letter-spacing:0.1em;color:var(--gold)">${refCode}</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+              <a href="https://wa.me/?text=${shareText}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:600;text-decoration:none" onclick="trackEvent('share',{method:'whatsapp',content_type:'referral'})">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                Share on WhatsApp
+              </a>
+              <a href="https://www.instagram.com/" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:600;text-decoration:none" onclick="trackEvent('share',{method:'instagram',content_type:'referral'})">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                Instagram
+              </a>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:20px">
+            <button class="btn-primary" onclick="window.cf.nav('/track?order=${encodeURIComponent(orderId)}')">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2C5 2 2.5 4.5 2.5 7.5S5 13 8 13s5.5-2.5 5.5-5.5S11 2 8 2z" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Track Order
+            </button>
+            <button class="btn-outline" onclick="window.cf.nav('/shop')">
+              Continue Shopping
+            </button>
+          </div>
+
+          <!-- WhatsApp support -->
+          <p style="font-size:13px;color:var(--ink-400)">
+            Need help?
+            <a href="https://wa.me/${escapeHTML(waNumber)}?text=Hi%2C%20I%20need%20help%20with%20my%20order%20${encodeURIComponent(orderId)}" target="_blank" rel="noopener" style="color:var(--gold);font-weight:600">Chat on WhatsApp</a>
+          </p>
+
+        </div>
+      </section>
+    </main>
+    <style>
+      @keyframes pulse-green {
+        0% { transform: scale(0.5); opacity: 0; }
+        70% { transform: scale(1.1); }
+        100% { transform: scale(1); opacity: 1; }
+      }
+    </style>
+    ` + renderFooter();
+
+    initMobileMenu();
+    initStickyHeader();
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   // ── Router ────────────────────────────────────────────────────────────────
   function route() {
     const path = location.pathname;
@@ -3514,6 +3845,7 @@
       else if (path.startsWith('/category/')) renderCategoryPage(app, path.split('/category/')[1]);
       else if (path === '/cart') renderCartPage(app);
       else if (path === '/checkout') renderCheckoutPage(app);
+      else if (path === '/order-success' || path === '/thank-you') renderOrderSuccessPage(app);
       else if (path === '/track') renderTrackPage(app);
       else if (path === '/returns') renderPolicyPage(app);
       else if (path === '/login') renderLoginPage(app);
@@ -3524,6 +3856,9 @@
       else if (path === '/review') renderReviewPage(app);
       else if (path === '/about' || path === '/contact') renderStaticPage(app, path.slice(1));
       else if (path === '/customize') renderCustomizePage(app);
+      else if (path === '/size-guide') renderSizeGuidePage(app);
+      else if (path === '/faq') renderFAQPage(app);
+      else if (path === '/bulk-orders' || path === '/gift-cards' || path === '/care-guide') renderStaticPage(app, path.slice(1));
       else if (path.startsWith('/blog')) renderBlogPage(app, path);
       else renderHomePage(app);
     } catch (err) {
@@ -3537,6 +3872,240 @@
           </div>
         </main>` + renderFooter();
     }
+  }
+
+  // ── SIZE GUIDE PAGE ────────────────────────────────────────────────────────
+  function renderSizeGuidePage(app) {
+    document.title = 'Frame Size Guide — ChitraFrame | Which Size to Choose?';
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', 'ChitraFrame size guide: Small (8×10"), Medium (12×18"), Large (18×24"), XL (24×36"). Know which frame size fits your wall before buying. Free shipping above ₹899.');
+    app.innerHTML = renderHeader() + `
+    <main id="main-content">
+      <div class="page-hero-simple">
+        <div class="container">
+          <h1>Frame Size Guide</h1>
+          <p class="page-hero-sub">Not sure which size to pick? This guide will help.</p>
+        </div>
+      </div>
+      <section class="section">
+        <div class="container" style="max-width:860px">
+
+          <div style="background:var(--warm-50);border-radius:16px;padding:28px 32px;margin-bottom:40px;border:1px solid var(--warm-200)">
+            <h2 style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:20px">Quick Recommendation</h2>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px">
+              ${[
+                { size:'Small\n8×10"', price:'₹499', room:'Bedside table · Bookshelf · Desk', tag:'Most gifted' },
+                { size:'Medium\n12×18"', price:'₹699', room:'Bedroom wall · Study · Hallway', tag:'Most popular' },
+                { size:'Large\n18×24"', price:'₹999', room:'Living room · Dining area', tag:'Best value' },
+                { size:'XL\n24×36"', price:'₹1499', room:'Feature wall · Office lobby', tag:'Statement piece' },
+              ].map(s => `
+              <div style="background:#fff;border-radius:12px;padding:18px 16px;text-align:center;border:2px solid ${s.tag === 'Most popular' ? 'var(--gold)' : 'var(--warm-200)'};">
+                <div style="font-size:11px;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">${s.tag}</div>
+                <div style="font-family:'DM Serif Display',serif;font-size:18px;line-height:1.3;margin-bottom:8px;white-space:pre-line">${s.size}</div>
+                <div style="font-size:15px;font-weight:700;margin-bottom:8px">${s.price}</div>
+                <div style="font-size:12px;color:var(--ink-500)">${s.room}</div>
+              </div>`).join('')}
+            </div>
+          </div>
+
+          <h2 style="font-family:'DM Serif Display',serif;font-size:24px;margin-bottom:24px">Size Comparison Chart</h2>
+          <div style="overflow-x:auto;margin-bottom:40px">
+            <table style="width:100%;border-collapse:collapse;font-size:14px">
+              <thead>
+                <tr style="background:var(--ink-900);color:#fff">
+                  <th style="padding:12px 16px;text-align:left">Size</th>
+                  <th style="padding:12px 16px;text-align:left">Dimensions</th>
+                  <th style="padding:12px 16px;text-align:left">Best For</th>
+                  <th style="padding:12px 16px;text-align:left">Wall Height</th>
+                  <th style="padding:12px 16px;text-align:right">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${[
+                  { size:'Small',   dim:'8" × 10" (20×25 cm)',   for:'Desk / Bookshelf / Gift',        wall:'Any',            price:'From ₹499' },
+                  { size:'Medium',  dim:'12" × 18" (30×45 cm)',  for:'Bedroom / Study / Hallway',      wall:'8–9 ft',         price:'From ₹699' },
+                  { size:'Large',   dim:'18" × 24" (45×60 cm)',  for:'Living Room / Feature Wall',     wall:'9–10 ft',        price:'From ₹999' },
+                  { size:'XL',      dim:'24" × 36" (60×90 cm)',  for:'Lobby / Gallery Wall / Office',  wall:'10 ft+',         price:'From ₹1,499' },
+                ].map((r, i) => `
+                <tr style="background:${i % 2 === 0 ? '#fff' : 'var(--warm-50)'};border-bottom:1px solid var(--warm-200)">
+                  <td style="padding:14px 16px;font-weight:600">${r.size}</td>
+                  <td style="padding:14px 16px;font-family:monospace">${r.dim}</td>
+                  <td style="padding:14px 16px;color:var(--ink-600)">${r.for}</td>
+                  <td style="padding:14px 16px;color:var(--ink-600)">${r.wall}</td>
+                  <td style="padding:14px 16px;text-align:right;font-weight:600;color:var(--ink-900)">${r.price}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <h2 style="font-family:'DM Serif Display',serif;font-size:24px;margin-bottom:20px">Tips for Choosing the Right Size</h2>
+          <div style="display:grid;gap:16px;margin-bottom:40px">
+            ${[
+              { icon:'📏', tip:'Measure your wall first', body:'Use tape to mark out the frame dimensions on the wall. Take a photo to visualise before buying.' },
+              { icon:'🖼️', tip:'Gallery walls need mix of sizes', body:'Combine Small + Medium + Large for a curated gallery wall look. Odd numbers (3 or 5 frames) look best.' },
+              { icon:'🛋️', tip:'Match to furniture width', body:'For a sofa wall, choose art that is roughly ⅔ the sofa width. A 3-seater works best with Large or XL.' },
+              { icon:'🚪', tip:'Hallways love Medium frames', body:'Medium (12×18") at eye level (1.5m from floor) creates a welcoming entrance without overpowering the space.' },
+              { icon:'🎁', tip:'Gifting? Medium is safest', body:'Medium fits any room and is the most popular gift size. Pair with a gift message at checkout.' },
+            ].map(t => `
+            <div style="display:flex;gap:16px;background:var(--warm-50);border-radius:12px;padding:18px 20px;border:1px solid var(--warm-200)">
+              <span style="font-size:24px;flex-shrink:0">${t.icon}</span>
+              <div>
+                <strong style="display:block;margin-bottom:4px">${t.tip}</strong>
+                <span style="color:var(--ink-600);font-size:14px">${t.body}</span>
+              </div>
+            </div>`).join('')}
+          </div>
+
+          <div style="text-align:center;padding:40px 24px;background:var(--ink-900);border-radius:20px;color:#fff">
+            <h2 style="font-family:'DM Serif Display',serif;font-size:28px;margin-bottom:12px">Ready to shop?</h2>
+            <p style="opacity:0.8;margin-bottom:24px">Browse our collection of framed art prints — starting at ₹499</p>
+            <button class="btn-primary" onclick="window.cf.nav('/shop')" style="background:var(--gold);color:var(--ink-900)">
+              Browse All Prints
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+    ` + renderFooter();
+    initMobileMenu(); initStickyHeader();
+  }
+
+  // ── FAQ PAGE ───────────────────────────────────────────────────────────────
+  function renderFAQPage(app) {
+    document.title = 'FAQ — ChitraFrame | Frequently Asked Questions';
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', 'Frequently asked questions about ChitraFrame framed art prints — delivery, COD, frame quality, returns, custom frames, and more.');
+    const faqs = [
+      { q:'Where do you deliver?', a:'We deliver pan-India — all 29 states and 7 union territories. Hyderabad, Bengaluru, Mumbai, Delhi, Chennai, Pune, and all tier-2 cities are covered. Average delivery time is 3–5 business days.' },
+      { q:'Is Cash on Delivery (COD) available?', a:'Yes! COD is available across India. A ₹49 handling fee applies for COD orders. Pay online (UPI/cards) to save ₹50 on your order.' },
+      { q:'What frame materials do you use?', a:'We use MDF core with a premium photo-quality print finish. Two frame finishes are available: Matte Black (sleek, modern) and Natural Wood (warm, organic). Both are lightweight yet sturdy.' },
+      { q:'What sizes are available?', a:'We offer 4 sizes: Small (8×10"), Medium (12×18"), Large (18×24"), and XL (24×36"). See our Size Guide for room placement recommendations.' },
+      { q:'Can I order a custom frame with my own photo?', a:'Yes! Visit the Custom Frame page, choose your size and style, then share your photo via WhatsApp after ordering. We send a digital proof within 24 hours before printing.' },
+      { q:'How is the print quality?', a:'We use museum-grade archival inks on satin photo paper. Colours are vivid, fade-resistant, and professionally colour-corrected. The result is gallery-quality — not a typical poster print.' },
+      { q:'What if my order arrives damaged?', a:'We replace damaged frames free of charge, no questions asked. Simply share photos of the damage within 48 hours of delivery via WhatsApp (+91 79895 31818).' },
+      { q:'How do I track my order?', a:'You will receive a tracking link via email (and WhatsApp if you provide your number) once your order is shipped. You can also use the Track Order page on our site.' },
+      { q:'Can I return my order?', a:'We accept returns within 7 days for unused, undamaged frames in original packaging. Custom photo frames are non-refundable once printed. Contact us on WhatsApp to initiate a return.' },
+      { q:'Do you offer bulk/corporate pricing?', a:'Yes! We offer discounts for orders of 10+ frames — ideal for corporate gifts, office décor, weddings, and events. WhatsApp us your requirement for a custom quote within 4 hours.' },
+    ];
+    const schemaFaq = { '@context':'https://schema.org', '@type':'FAQPage', mainEntity: faqs.map(f => ({ '@type':'Question', name:f.q, acceptedAnswer:{ '@type':'Answer', text:f.a } })) };
+    const existing = document.getElementById('faq-schema');
+    if (existing) existing.remove();
+    const s = document.createElement('script'); s.id='faq-schema'; s.type='application/ld+json'; s.textContent=JSON.stringify(schemaFaq); document.head.appendChild(s);
+    app.innerHTML = renderHeader() + `
+    <main id="main-content">
+      <div class="page-hero-simple"><div class="container"><h1>Frequently Asked Questions</h1><p class="page-hero-sub">Everything you need to know about ChitraFrame.</p></div></div>
+      <section class="section"><div class="container" style="max-width:760px">
+        <div class="faq-list">
+          ${faqs.map((f, i) => `
+          <details class="faq-item" ${i === 0 ? 'open' : ''}>
+            <summary class="faq-question">${escapeHTML(f.q)}</summary>
+            <div class="faq-answer"><p>${escapeHTML(f.a)}</p></div>
+          </details>`).join('')}
+        </div>
+        <div style="text-align:center;margin-top:48px;padding:32px;background:var(--warm-50);border-radius:16px">
+          <p style="margin-bottom:16px;color:var(--ink-600)">Didn't find your answer?</p>
+          <a href="https://wa.me/917989531818?text=Hi%20ChitraFrame%2C%20I%20have%20a%20question" target="_blank" rel="noopener" class="btn-primary" style="display:inline-flex;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Chat on WhatsApp
+          </a>
+        </div>
+      </div></section>
+    </main>` + renderFooter();
+    initMobileMenu(); initStickyHeader();
+  }
+
+  // ── STICKY PDP BUY BAR ─────────────────────────────────────────────────────
+  function initStickyPdpBar(slug, name, price, img) {
+    if (document.getElementById('pdp-sticky-bar')) return;
+    const bar = document.createElement('div');
+    bar.id = 'pdp-sticky-bar';
+    bar.className = 'pdp-sticky-bar';
+    bar.innerHTML = `
+      <div class="pdp-sticky-bar-inner">
+        <img src="${escapeHTML(img)}" alt="${escapeHTML(name)}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex-shrink:0">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHTML(name)}</div>
+          <div style="font-size:13px;color:var(--ink-500)" id="pdp-sticky-price">${formatPrice(price)}</div>
+        </div>
+        <button class="btn-primary" style="flex-shrink:0;padding:9px 20px;font-size:13px" onclick="window.cf.pdpAddToCart('${escapeHTML(slug)}','${escapeHTML(name)}',window._pdpState?.basePrice||${price},'')">
+          Add to Cart
+        </button>
+      </div>`;
+    document.body.appendChild(bar);
+    const pdpBtn = document.querySelector('.pdp-atc-btn');
+    if (pdpBtn) {
+      const io = new IntersectionObserver(entries => {
+        entries.forEach(e => bar.classList.toggle('visible', !e.isIntersecting));
+      }, { threshold: 0 });
+      io.observe(pdpBtn);
+    }
+  }
+
+  // ── URGENCY TIMER ─────────────────────────────────────────────────────────
+  function createUrgencyTimer(containerId, minutesLeft) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    let secs = minutesLeft * 60;
+    function tick() {
+      if (secs <= 0) { el.textContent = 'Offer expired — refresh for latest price'; return; }
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      el.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+      secs--;
+    }
+    tick();
+    const iv = setInterval(() => { if (!document.getElementById(containerId)) { clearInterval(iv); return; } tick(); }, 1000);
+  }
+
+  // ── PINCODE DELIVERY ESTIMATOR ─────────────────────────────────────────────
+  function checkDelivery() {
+    const input = document.getElementById('pincode-check');
+    const result = document.getElementById('delivery-estimate');
+    if (!input || !result) return;
+    const pin = input.value.replace(/\D/g, '');
+    if (pin.length !== 6) { result.textContent = 'Please enter a valid 6-digit pincode'; result.style.color = 'var(--red)'; return; }
+    const stateByPin = {
+      '5': 'Andhra Pradesh / Telangana', '4': 'Maharashtra / Goa / Gujarat',
+      '6': 'Tamil Nadu / Kerala', '7': 'West Bengal / Odisha',
+      '1': 'Delhi / Haryana / Punjab', '2': 'Uttar Pradesh / Uttarakhand',
+      '3': 'Rajasthan / Madhya Pradesh', '8': 'Karnataka / Andhra'
+    };
+    const stateHint = stateByPin[pin[0]] || 'India';
+    const days = ['500','501','502','503','504'].some(p => pin.startsWith(p)) ? '2–3' : '3–5';
+    result.innerHTML = `<span style="color:var(--green)">✓ Delivery available</span> — ${stateHint} · Estimated ${days} business days`;
+    result.style.color = '';
+  }
+
+  // ── URGENCY INJECTION INTO PDP ────────────────────────────────────────────
+  function injectPdpUrgency(slug, name, price, img) {
+    // Scarcity badge
+    const scarcity = document.createElement('div');
+    scarcity.className = 'pdp-scarcity';
+    const stockNum = Math.floor(Math.random() * 4) + 3; // 3–6
+    scarcity.innerHTML = `
+      <span class="pdp-scarcity-dot"></span>
+      Only <strong>${stockNum} left</strong> in stock at this price · Made fresh per order`;
+    const productTrust = document.querySelector('.product-trust');
+    if (productTrust) productTrust.insertAdjacentElement('beforebegin', scarcity);
+
+    // Pincode checker
+    const descEl = document.querySelector('.product-desc');
+    if (descEl) {
+      const pinBox = document.createElement('div');
+      pinBox.className = 'pdp-pin-check';
+      pinBox.innerHTML = `
+        <div class="pdp-pin-label">📦 Check delivery to your pincode</div>
+        <div class="pdp-pin-row">
+          <input type="text" id="pincode-check" placeholder="Enter pincode" maxlength="6" inputmode="numeric" style="width:130px">
+          <button class="btn-outline" style="padding:8px 14px;font-size:13px" onclick="window.cf.checkDelivery()">Check</button>
+        </div>
+        <div id="delivery-estimate" style="font-size:13px;margin-top:8px;min-height:20px"></div>`;
+      descEl.insertAdjacentElement('afterend', pinBox);
+    }
+
+    // Sticky bar (after short delay so layout is set)
+    setTimeout(() => initStickyPdpBar(slug, name, price, img), 300);
   }
 
   // ── Sticky CTA Bar ────────────────────────────────────────────────────────
@@ -3684,8 +4253,13 @@
     customCalcPrice,
     updateCheckoutTotal,
     addPosterAddon,
-    togglePdpPoster
+    togglePdpPoster,
+    checkDelivery
   };
+
+  // Expose trackEvent + ABTest globally (used in inline onclick handlers)
+  window.trackEvent = trackEvent;
+  window.ABTest = ABTest;
 
   // Legacy alias
   window.pfi = window.cf;

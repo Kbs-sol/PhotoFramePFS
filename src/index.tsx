@@ -49,6 +49,15 @@ export type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('/static/*', serveStatic());
+// Cache-Control for immutable static assets (CSS/JS have content hashes or are versioned)
+app.use('/static/*.js', async (c, next) => {
+  await next();
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+});
+app.use('/static/*.css', async (c, next) => {
+  await next();
+  c.header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+});
 app.use('*', logger());
 app.use('*', async (c, next) => {
   await next();
@@ -494,9 +503,31 @@ app.get('/sitemap.xml', async (c) => {
     xml += `  <url><loc>${baseUrl}/category/${cat.slug}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
   }
 
-  // Blog
+  // Hardcoded blog posts (always present even without DB)
+  const hardcodedBlogSlugs = [
+    'best-framed-art-prints-india-2025',
+    'divine-wall-art-pooja-room',
+    'automotive-wall-art-car-enthusiasts',
+    'how-to-choose-frame-size-wall-art',
+    'black-vs-natural-wood-frame'
+  ];
+  for (const slug of hardcodedBlogSlugs) {
+    if (!blog.find((p: any) => p.slug === slug)) {
+      xml += `  <url><loc>${baseUrl}/blog/${slug}</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>\n`;
+    }
+  }
+
+  // Blog from DB
   for (const post of blog || []) {
     xml += `  <url><loc>${baseUrl}/blog/${post.slug}</loc><lastmod>${post.updated_at?.slice(0, 10)}</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>\n`;
+  }
+
+  // Category pages (also add hardcoded ones)
+  const hardcodedCategories = ['spiritual', 'automotive', 'sports', 'wildlife', 'anime', 'motivational'];
+  for (const cat of hardcodedCategories) {
+    if (!categories.find((c: any) => c.slug === cat)) {
+      xml += `  <url><loc>${baseUrl}/category/${cat}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n`;
+    }
   }
 
   xml += '</urlset>';
@@ -580,42 +611,38 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
   <meta property="og:type" content="website">
   <meta property="og:url" content="${canonical}">
   <meta property="og:site_name" content="ChitraFrame">
-  <meta name="twitter:site" content="@chitraframe">
+  <meta name="twitter:site" content="@chitraframe_in">
   <meta name="twitter:title" content="${safeTitle}">
   <meta name="twitter:description" content="${safeDesc}">${imageTag}${canonicalTag}${businessSchema}${ldTag}
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼️</text></svg>">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: { bg: '#050505', card: '#121212', gold: '#C5A059', red: '#CC0000', saffron: '#FF7A1A', green: '#22C55E', purple: '#7C3AED' }
-          }
-        }
-      }
-    }
-  </script>
+  <!-- Performance: preconnect to critical origins -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
+  <link rel="dns-prefetch" href="https://checkout.razorpay.com">
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  <!-- Fonts: display=swap for performance -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
   <link href="/static/styles.css" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <!-- GSAP for scroll animations — async to not block render -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   ${getGTMHead(gtmId)}${ga4Tag}${clarityTag}
 </head>
-<body class="bg-brand-bg text-gray-200 min-h-screen">
+<body>
+  <!-- Accessibility: skip to main content -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
   ${getGTMBody(gtmId)}
   <div id="app"></div>
-  <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js" defer></script>
 </body>
 </html>`;
 }
 
 // All customer-facing routes serve the SPA shell
 const customerRoutes = ['/', '/shop', '/product/:slug', '/category/:slug', '/cart', '/checkout', '/customize',
+  '/order-success', '/thank-you',
   '/track', '/track-order', '/returns', '/policy', '/policy/:section', '/about', '/contact', '/blog',
   '/blog/:slug', '/review', '/suggest', '/wishlist', '/account', '/account/:section', '/login', '/auth/callback',
   '/faq', '/privacy-policy', '/terms-and-conditions', '/shipping-policy', '/refund-policy',
