@@ -35,21 +35,88 @@ orders.post('/create', async (c) => {
     const sizeOrder = ['A4', 'Small', 'Medium', 'Large', 'XL'];
     let hasCustomFrame = false;
 
+    // ── VALID custom-frame size+finish combos ───────────────────────────────
+    // We cache the DB lookup once per order request to avoid N+1
+    // Key: "Small-standard", "Medium-premium", etc.
+    const VALID_SIZES = ['Small', 'Medium', 'Large', 'XL'];
+    const VALID_FINISHES = ['standard', 'premium'];
+    let customFramePriceCache: Record<string, number> | null = null;
+
+    async function getCustomFramePrice(size: string, finish: string): Promise<number | null> {
+      if (!VALID_SIZES.includes(size)) return null;
+      if (!VALID_FINISHES.includes(finish)) return null;
+
+      if (!customFramePriceCache) {
+        // Fetch all Direct Frame prices once
+        const { data: rows } = await sb.from('product_variants')
+          .select('sku, size, price')
+          .eq('frame_type', 'Direct Frame')
+          .eq('is_active', true);
+
+        customFramePriceCache = {};
+        for (const row of (rows || [])) {
+          const sku = row.sku || '';
+          if (sku.endsWith('-standard')) {
+            customFramePriceCache[`${row.size}-standard`] = Number(row.price);
+          } else if (sku.endsWith('-premium')) {
+            customFramePriceCache[`${row.size}-premium`] = Number(row.price);
+          }
+        }
+      }
+
+      return customFramePriceCache[`${size}-${finish}`] ?? null;
+    }
+
     for (const item of items) {
       let variantData: any;
 
       if (item.variantId?.toString().startsWith('custom-')) {
-        // Virtual variant for user-uploaded photos
+        // Custom photo frame — price MUST come from DB, not browser
         hasCustomFrame = true;
+
+        // Reject COD for custom frames immediately
+        if (paymentMethod === 'cod') {
+          return c.json({ error: 'Custom frames are prepaid only. COD is not available.' }, 400);
+        }
+
+        // Parse size and finish from the item
+        const itemSize: string = item.size || 'Medium';
+        // finish: 'standard' or 'premium' — normalise from UI labels
+        let itemFinish: string = (item.finish || item.frame || 'standard').toLowerCase();
+        if (itemFinish.includes('premium') || itemFinish.includes('natural') || itemFinish.includes('mount')) {
+          itemFinish = 'premium';
+        } else {
+          itemFinish = 'standard';
+        }
+
+        // Validate size
+        if (!VALID_SIZES.includes(itemSize)) {
+          return c.json({ error: `Invalid custom frame size: ${itemSize}. Valid sizes: ${VALID_SIZES.join(', ')}` }, 400);
+        }
+
+        // DB lookup — ignore browser-sent price entirely
+        const serverPrice = await getCustomFramePrice(itemSize, itemFinish);
+        if (serverPrice === null) {
+          return c.json({ error: `Custom frame price not found for ${itemSize} ${itemFinish}. Please contact support.` }, 400);
+        }
+
+        // Size label for display
+        const SIZE_LABEL: Record<string, string> = {
+          Small: '8×12"', Medium: '12×18"', Large: '16×20"', XL: '20×30"'
+        };
+        const finishLabel = itemFinish === 'premium'
+          ? 'Premium (Natural Wood or Mount, 1.5")'
+          : 'Standard (Matte Black, 1")';
+
         variantData = {
           id: item.variantId,
           product_id: 'custom-uploaded',
-          name: item.name || 'Custom Photo Frame',
-          size: item.size || 'Medium',
-          frame_type: item.frame || 'Standard',
-          price: item.price || 999,
-          sku: 'CUSTOM-PHOTO',
-          product: { name: 'Custom Photo', slug: 'custom-photo', is_custom_frame: true }
+          name: `Custom Frame — ${itemSize} ${SIZE_LABEL[itemSize] || ''} · ${finishLabel}`,
+          size: itemSize,
+          frame_type: 'Direct Frame',
+          price: serverPrice,   // ← SERVER price, ignoring item.price
+          sku: `custom-${itemSize.toLowerCase()}-${itemFinish}`,
+          product: { name: 'Custom Photo Frame', slug: 'custom-frame', is_custom_frame: true }
         };
       } else {
         const { data: variant } = await sb.from('product_variants')

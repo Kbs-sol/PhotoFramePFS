@@ -284,24 +284,7 @@
           </li>`).join('')}
       </ul>`;
 
-    // Check if poster already in cart
-    const hasPoster = state.cart.some(i => i.variantId === 'addon-poster-a3');
-    const hasFrameItem = state.cart.some(i => i.slug && i.slug !== 'addon-poster-a3');
-
     footer.innerHTML = `
-      ${hasFrameItem && !hasPoster ? `
-      <div class="cart-poster-upsell">
-        <div class="cart-poster-upsell-inner">
-          <div class="cart-poster-upsell-icon">🗞️</div>
-          <div class="cart-poster-upsell-text">
-            <strong>Add A3 Poster Print</strong>
-            <span>Rolled, unframed — perfect as a gift, spare, or bedroom print</span>
-          </div>
-          <button class="cart-poster-btn" onclick="window.cf.addPosterAddon()">
-            +₹89
-          </button>
-        </div>
-      </div>` : ''}
       <div class="cart-totals">
         <div class="cart-total-row"><span>Subtotal</span><span>${formatPrice(subtotal)}</span></div>
         ${discount > 0 ? `<div class="cart-total-row cart-discount"><span>${escapeHTML(discountLabel)}</span><span>−${formatPrice(discount)}</span></div>` : ''}
@@ -342,27 +325,7 @@
     renderCartDrawerContent();
   }
 
-  function addPosterAddon() {
-    // Poster is only available as an add-on when a frame product is in cart
-    const hasFrame = state.cart.some(i => i.slug && i.slug !== 'addon-poster-a3');
-    if (!hasFrame) { toast('Add a framed print first to unlock the poster add-on', 'error'); return; }
-    const already = state.cart.find(i => i.variantId === 'addon-poster-a3');
-    if (already) { toast('A3 Poster already in cart'); return; }
-    state.cart.push({
-      variantId: 'addon-poster-a3',
-      name: 'A3 Poster Print (Rolled)',
-      price: 89,
-      image: '',
-      slug: 'addon-poster-a3',
-      size: 'A3 (11.7×16.5")',
-      frame: 'Rolled — Unframed',
-      quantity: 1,
-      isAddon: true,
-    });
-    saveCart();
-    renderCartDrawerContent();
-    toast('A3 Poster add-on added! 🗞️');
-  }
+  // addPosterAddon removed — poster add-on no longer offered
 
   // ── HEADER ────────────────────────────────────────────────────────────────
   function renderHeader() {
@@ -890,7 +853,7 @@
             <ul class="editorial-bullets">
               <li>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l4 4 6-6" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                4 sizes: Small (8×10") to XL (24×36")
+                4 sizes: Small (8×12") to XL (20×30")
               </li>
               <li>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l4 4 6-6" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1009,7 +972,7 @@
           <div class="faq-grid">
             ${[
               { q: 'Where can I buy framed art prints online in India?', a: 'ChitraFrame ships premium framed art prints to all major cities across India — Mumbai, Delhi, Bangalore, Hyderabad, Chennai, Pune, Kolkata and beyond. Order at chitraframe.in and get delivery in 3–5 business days.' },
-              { q: 'What sizes are available for framed wall art?', a: 'We offer four standard sizes: Small (8×10 inches), Medium (12×18 inches), Large (18×24 inches), and XL (24×36 inches). All sizes are available in Black or Natural Wood frame finishes.' },
+              { q: 'What sizes are available for framed wall art?', a: 'We offer four standard sizes: Small (8×12 inches), Medium (12×18 inches), Large (16×20 inches), and XL (20×30 inches). All sizes are available in Black or Natural Wood frame finishes.' },
               { q: 'What frame finishes does ChitraFrame offer?', a: 'We offer two premium frame finishes: Classic Matte Black (contemporary, versatile) and Natural Wood Oak (warm, rustic). Both use solid wood moulding and solid wood backing for a premium finish.' },
               { q: 'Is Cash on Delivery available?', a: 'Yes — COD is available across India on orders between ₹499 and ₹1,995. A nominal ₹49 COD handling fee applies. For online payment (UPI, cards), you save ₹50 automatically.' },
               { q: 'How is the art print packed for shipping?', a: 'Every frame is bubble-wrapped and placed in a custom rigid cardboard box with foam padding on all sides. We have a near-zero transit damage rate. In the rare case of damage, we replace it free.' },
@@ -1549,15 +1512,7 @@
                 </button>
               </div>
 
-              <!-- Poster Add-on -->
-              <label class="pdp-poster-addon">
-                <input type="checkbox" id="pdp-poster-check">
-                <div class="pdp-poster-content">
-                  <strong>Add A3 Poster Print (Rolled)</strong>
-                  <span>Unframed, rolled print — ideal as a gift or bedroom art</span>
-                </div>
-                <span class="pdp-poster-price">+₹89</span>
-              </label>
+
 
               <!-- Description -->
               <div class="product-desc">
@@ -1738,32 +1693,9 @@
     }
     // GA4 add_to_cart event
     trackEvent('add_to_cart', { currency: 'INR', value: finalPrice * (s.qty || 1), items: [{ item_id: slug, item_name: name, item_category: s.frame, price: finalPrice, quantity: s.qty || 1 }] });
-    // Add poster add-on if checked
-    const posterCheck = document.getElementById('pdp-poster-check');
-    if (posterCheck && posterCheck.checked) {
-      const already = state.cart.find(i => i.variantId === 'addon-poster-a3');
-      if (!already) {
-        state.cart.push({
-          variantId: 'addon-poster-a3',
-          name: 'A3 Poster Print (Rolled)',
-          price: 89,
-          image: '',
-          slug: 'addon-poster-a3',
-          size: 'A3 (11.7×16.5")',
-          frame: 'Rolled — Unframed',
-          quantity: 1,
-          isAddon: true,
-        });
-        saveCart();
-      }
-    }
   }
 
-  function togglePdpPoster(checked) {
-    // Visual feedback only — actual add happens on ATC
-    const label = document.getElementById('pdp-poster-addon');
-    if (label) label.classList.toggle('pdp-poster-addon--active', checked);
-  }
+  // togglePdpPoster removed — poster add-on no longer offered
 
   function showSizeGuide() {
     const modal = document.createElement('div');
@@ -1780,10 +1712,10 @@
           <table class="size-table">
             <thead><tr><th>Size</th><th>Dimensions</th><th>Best For</th></tr></thead>
             <tbody>
-              <tr><td>Small</td><td>8×10 inches (20×25 cm)</td><td>Desk, bedside, small walls</td></tr>
+              <tr><td>Small</td><td>8×12 inches (20×30 cm)</td><td>Desk, bedside, small walls</td></tr>
               <tr><td>Medium</td><td>12×18 inches (30×45 cm)</td><td>Bedroom, study, gallery wall</td></tr>
-              <tr><td>Large</td><td>18×24 inches (45×60 cm)</td><td>Living room, focal point</td></tr>
-              <tr><td>XL</td><td>24×36 inches (60×90 cm)</td><td>Statement wall, large rooms</td></tr>
+              <tr><td>Large</td><td>16×20 inches (40×50 cm)</td><td>Living room, focal point</td></tr>
+              <tr><td>XL</td><td>20×30 inches (50×75 cm)</td><td>Statement wall, large rooms</td></tr>
             </tbody>
           </table>
           <p class="size-note">All frames include a 1.5-inch border. For scale reference: A4 paper is approx. 8×12 inches.</p>
@@ -1975,28 +1907,9 @@
     // GA4 begin_checkout event
     const cartValue = state.cart.reduce((s, i) => s + (i.price * (i.quantity || 1)), 0);
     trackEvent('begin_checkout', { currency: 'INR', value: cartValue, items: state.cart.map(i => ({ item_id: i.slug || i.variantId, item_name: i.name, price: i.price, quantity: i.quantity || 1 })) });
-    // Guard: if cart contains ONLY the poster add-on, block checkout
-    const hasRealItem = state.cart.some(i => !i.isAddon);
-    if (!hasRealItem) {
-      app.innerHTML = renderHeader() + `
-      <main id="main-content">
-        <div class="container" style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center;padding:80px 24px">
-          <div style="font-size:48px">🗞️</div>
-          <h1 style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--ink-900)">Poster add-on needs a frame</h1>
-          <p style="color:var(--ink-500);max-width:420px;line-height:1.7">The A3 Poster Print is only available as an add-on alongside a framed print. Please add a framed art print to your cart to proceed to checkout.</p>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
-            <button class="btn-primary" onclick="window.cf.nav('/shop')">
-              Browse Framed Prints
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-            <button class="btn-outline" onclick="window.cf.nav('/cart')">Back to Cart</button>
-          </div>
-        </div>
-      </main>
-      ${renderFooter()}`;
-      initMobileMenu();
-      initStickyHeader();
-      return;
+    // Cart empty guard
+    const hasRealItem = state.cart.length > 0;
+    if (!hasRealItem) { navigate('/cart'); return;
     }
     const { subtotal, discount, shipping, total } = getCartTotals('online');
 
@@ -2150,12 +2063,8 @@
 
   async function submitCheckout(e) {
     e.preventDefault();
-    // Guard: block checkout if only poster add-on is in cart
-    const hasRealItem = state.cart.some(i => !i.isAddon);
-    if (!hasRealItem) {
-      toast('Please add a framed print before checking out. The poster is an add-on only.', 'error');
-      return;
-    }
+    // Cart empty guard
+    if (!state.cart.length) { toast('Your cart is empty.', 'error'); return; }
     const form = e.target;
     const btn = $('#checkout-submit-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Placing order...'; }
@@ -2829,24 +2738,24 @@
           <h2>BMW M Series & Hypercar Prints</h2>
           <p>For the BMW enthusiast: the M4 in carbon-dark livery is a masterpiece of automotive design language. Our BMW M4 Carbon Dark print captures the aggression of the M-series in a high-contrast, cinematic composition. Ideal for home offices, gaming rooms, and garages.</p>
           <h2>Formula 1 & Championship Racing Art</h2>
-          <p>F1 art is a growing category. Abstract speed compositions, championship liveries, and driver tribute prints work beautifully in matte black frames. Pair a large XL print (24×36") above a gaming setup or garage workbench for maximum impact.</p>
+          <p>F1 art is a growing category. Abstract speed compositions, championship liveries, and driver tribute prints work beautifully in matte black frames. Pair a large XL print (20×30") above a gaming setup or garage workbench for maximum impact.</p>
           <h2>Lamborghini & Supercar Wall Art</h2>
-          <p>The Lamborghini Huracán and Aventador are icons of Italian excess — and they look spectacular in angular, high-contrast art prints. Warm amber tones and sharp silhouettes work best. Choose a medium (12×18") or large (18×24") format for a statement piece.</p>
+          <p>The Lamborghini Huracán and Aventador are icons of Italian excess — and they look spectacular in angular, high-contrast art prints. Warm amber tones and sharp silhouettes work best. Choose a medium (12×18") or large (16×20") format for a statement piece.</p>
           <h2>Frame Choice for Car Art</h2>
           <p>Matte black frames are the default choice for automotive art — they match the dark, cinematic mood of most car prints. Natural wood works well for more editorial or vintage automotive compositions. All ChitraFrame automotive prints come with a choice of both finishes.</p>
           <h2>Where to Hang It</h2>
-          <p>Home garage: go large — XL (24×36") above the workbench. Home office: medium (12×18") in a curated gallery wall. Man cave or games room: create a three-print grid of different automotive subjects at the same scale.</p>`,
+          <p>Home garage: go large — XL (20×30") above the workbench. Home office: medium (12×18") in a curated gallery wall. Man cave or games room: create a three-print grid of different automotive subjects at the same scale.</p>`,
         'how-to-choose-frame-size-wall-art': `
           <p>Wrong frame size is the number one wall art mistake. It's easy to go too small — a 8×10" print on a large living room wall looks like a postage stamp. Here's how to get it right, room by room.</p>
           <h2>The 57–75% Rule</h2>
           <p>Art should fill between 57% and 75% of the wall space it anchors. For a typical 180cm sofa, that means 100–135cm of art width. Use a single XL frame or a gallery wall of 3–4 medium frames to hit this target.</p>
           <h2>ChitraFrame Size Guide</h2>
-          <p><strong>Small (8×10" / 20×25cm)</strong> — Ideal for bedside tables, bathroom walls, small study nooks, and gallery walls as accent pieces. Works beautifully in sets of 3–6.</p>
+          <p><strong>Small (8×12" / 20×30cm)</strong> — Ideal for bedside tables, bathroom walls, small study nooks, and gallery walls as accent pieces. Works beautifully in sets of 3–6.</p>
           <p><strong>Medium (12×18" / 30×45cm)</strong> — The most versatile size. Works above a desk, in a dining room, or as part of a two-frame living room pairing. Our most popular size.</p>
-          <p><strong>Large (18×24" / 45×60cm)</strong> — The statement size. Perfect above a sofa, bed, or fireplace. A single large print commands attention in any room.</p>
-          <p><strong>XL (24×36" / 60×90cm)</strong> — Dominates a wall. Use in spacious living rooms, large master bedrooms, or as the hero piece in a double-height entryway. Reserved for truly impactful art.</p>
+          <p><strong>Large (16×20" / 40×50cm)</strong> — The statement size. Perfect above a sofa, bed, or fireplace. A single large print commands attention in any room.</p>
+          <p><strong>XL (20×30" / 50×75cm)</strong> — Dominates a wall. Use in spacious living rooms, large master bedrooms, or as the hero piece in a double-height entryway. Reserved for truly impactful art.</p>
           <h2>Room-by-Room Recommendations</h2>
-          <p><strong>Living room:</strong> Large or XL above sofa. If the sofa is 160–200cm wide, choose an 18×24" or 24×36" frame. <strong>Bedroom:</strong> Large above headboard, small on side walls. <strong>Home office:</strong> Medium on the wall behind your chair (creates great video call backdrops). <strong>Bathroom:</strong> Small or medium — avoid very large prints in humid spaces.</p>
+          <p><strong>Living room:</strong> Large or XL above sofa. If the sofa is 160–200cm wide, choose an 16×20" or 20×30" frame. <strong>Bedroom:</strong> Large above headboard, small on side walls. <strong>Home office:</strong> Medium on the wall behind your chair (creates great video call backdrops). <strong>Bathroom:</strong> Small or medium — avoid very large prints in humid spaces.</p>
           <h2>Gallery Wall Planning</h2>
           <p>For gallery walls, stick to one frame finish (all matte black or all natural wood) for visual coherence. Mix sizes: one large + two mediums + two smalls is the classic arrangement. Maintain 5–8cm gaps between frames. Plan on the floor first, then transfer to the wall.</p>`,
         'black-vs-natural-wood-frame': `
@@ -3117,14 +3026,14 @@
   function customCalcPrice() {
     const sizeSelect = document.getElementById('custom-size');
     const frameVal = window._customFrameVal || 'black';
-    const sizePrices = { small: 699, medium: 999, large: 1499, xl: 2199 };
-    const frameExtra = { black: 0, 'natural-wood': 100 };
+    const sizePrices = { small: 449, medium: 749, large: 1099, xl: 1699 }; // Standard prices from DB
+    const frameExtra = { black: 0, 'natural-wood': 150, premium: 150 };
     const size = sizeSelect?.value || 'medium';
     const base = (sizePrices[size] || 999) + (frameExtra[frameVal] || 0);
     const el = document.getElementById('custom-price-display');
     if (el) el.textContent = formatPrice(base);
     // Update preview label
-    const sizeLabelMap = { small: 'Small (8×10")', medium: 'Medium (12×18")', large: 'Large (18×24")', xl: 'XL (24×36")' };
+    const sizeLabelMap = { small: 'Small (8×12")', medium: 'Medium (12×18")', large: 'Large (16×20")', xl: 'XL (20×30")' };
     const frameLabel = frameVal === 'natural-wood' ? 'Natural Wood' : 'Black';
     const lbl = document.getElementById('frame-preview-label');
     if (lbl) lbl.textContent = `${frameLabel} Frame · ${sizeLabelMap[size] || 'Medium'}`;
@@ -3144,32 +3053,32 @@
     const s = window._cfwState || window._customState || {};
 
     // Read from new wizard fields first, fallback to old field IDs
-    const name = (document.getElementById('cfw-name') || document.getElementById('custom-name'))?.value?.trim();
-    const phone = (document.getElementById('cfw-phone') || document.getElementById('custom-phone'))?.value?.trim();
-    const note = (document.getElementById('cfw-notes') || document.getElementById('custom-note'))?.value?.trim();
+    const name = (document.getElementById('cfp-name') || document.getElementById('cfw-name') || document.getElementById('custom-name'))?.value?.trim();
+    const phone = (document.getElementById('cfp-phone') || document.getElementById('cfw-phone') || document.getElementById('custom-phone'))?.value?.trim();
+    const note = (document.getElementById('cfp-notes') || document.getElementById('cfw-notes') || document.getElementById('custom-note'))?.value?.trim();
 
     if (!name || name.length < 2) { toast('Please enter your full name', 'error'); return; }
     if (!phone || !/^[6-9]\d{9}$/.test(phone.replace(/\D/g, ''))) { toast('Please enter a valid 10-digit WhatsApp number', 'error'); return; }
 
     // Build item details from cfwState
     const sizeLabel = s.sizeLabel || s.size || 'Medium (12×18")';
-    const style = s.style || 'Direct';
-    const basePrice = Number(s.basePrice || s.price || 799);
-    const mountAddon = s.mountAddon ? 250 : 0;
-    const posterAddon = s.posterAddon ? 199 : 0;
-    const totalItemPrice = basePrice + mountAddon + posterAddon;
-
-    const styleDisplay = style === 'Mount' ? 'Mount (White Border)' : 'Direct';
-    let itemName = `Custom Frame — ${sizeLabel} · ${styleDisplay}`;
-    if (s.posterAddon) itemName += ' + A3 Poster';
+    const finish = s.finish || 'standard';
+    const basePrice = Number(s.basePrice || 749);
+    const finishLabel = finish === 'premium'
+      ? 'Premium (Natural Wood or Mount, 1.5")'
+      : 'Standard (Matte Black, 1")';
+    const totalItemPrice = basePrice;
+    const styleDisplay = finishLabel;
+    const itemName = `Custom Frame — ${sizeLabel} · ${finishLabel}`;
 
     addToCart({
-      variantId: `custom-${(s.size||'medium').toLowerCase()}-${style.toLowerCase()}-${Date.now()}`,
+      variantId: `custom-${(s.size||'medium').toLowerCase()}-${finish}-${Date.now()}`,
       name: itemName,
       price: totalItemPrice,
-      image: DESIGN_IMAGES['lion-geometric-gold'] || '',
+      image: '',
       slug: 'custom-frame',
-      size: sizeLabel,
+      size: s.size || 'Medium',
+      finish: finish,
       frame: styleDisplay,
       customNote: note || '',
       customerName: name,
@@ -3184,7 +3093,7 @@
       body: JSON.stringify({
         name, phone,
         source: 'custom-frame-wizard',
-        notes: `Size: ${sizeLabel} | Style: ${styleDisplay} | Mount: ${mountAddon > 0} | Poster: ${posterAddon > 0} | Note: ${note || 'None'}`
+        notes: `Size: ${sizeLabel} | Finish: ${finish} | Note: ${note || 'None'}`
       })
     }).catch(() => {});
 
@@ -3197,8 +3106,8 @@
         buyer_whatsapp_phone: phone.replace(/\D/g, ''),
         uploaded_image_storage_path: s.uploadedDataUrl ? 'client-upload' : 'no-upload',
         selected_dimension_profile: (s.size || 'Medium').charAt(0).toUpperCase() + (s.size || 'Medium').slice(1),
-        selected_framing_style: style,
-        include_poster_print_copy: !!s.posterAddon,
+        selected_framing_style: finish,
+        include_poster_print_copy: false,
         user_special_instructions: note || '',
         computed_subtotal_amount: totalItemPrice
       })
@@ -3209,333 +3118,317 @@
   }
 
   function renderCustomizePage(app) {
-    document.title = 'Custom Photo Frame — Upload & Order | ChitraFrame';
+    document.title = 'Custom Photo Frame — Upload Your Photo | ChitraFrame';
     const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute('content', 'Order a custom photo frame at ChitraFrame. Upload your photo, choose your size and framing style, and we handle everything else. Delivered across India in 3–5 days.');
+    if (metaDesc) metaDesc.setAttribute('content', 'Frame your cherished photo with ChitraFrame. Upload, choose size and finish — we print, frame and deliver in 3–5 days. Museum-grade quality from ₹449.');
 
+    // Render shell immediately, then fetch prices async
     app.innerHTML = renderHeader() + `
-    <main id="main-content" class="cfw-main">
+    <main id="main-content" class="cfp-main">
       <script type="application/ld+json">
       {
         "@context": "https://schema.org/",
         "@type": "Service",
         "name": "Custom Photo Frame Order",
-        "description": "Upload your photo and order a custom museum-quality frame at ChitraFrame. 4 sizes, Black or Natural Wood or Mount framing. Delivered across India in 3–5 days.",
+        "description": "Upload your photo and order a custom museum-quality frame at ChitraFrame. 4 sizes, Standard (Matte Black) or Premium (Natural Wood or Mount). Delivered across India in 3–5 days.",
         "provider": { "@type": "Organization", "name": "ChitraFrame", "url": "https://chitraframe.in" },
         "areaServed": "IN",
         "serviceType": "Custom Photo Framing",
-        "offers": { "@type": "AggregateOffer", "priceCurrency": "INR", "lowPrice": "499", "highPrice": "1999", "offerCount": "4" }
+        "offers": { "@type": "AggregateOffer", "priceCurrency": "INR", "lowPrice": "449", "highPrice": "2199", "offerCount": "8" }
       }
       <\/script>
 
-      <!-- ── Page Header ─────────────────────────────────── -->
-      <div class="cfw-page-header">
-        <div class="container">
-          <nav class="breadcrumb-inline" aria-label="Breadcrumb">
-            <a href="/" onclick="window.cf.nav('/');return false;">Home</a> /
+      <!-- ── HERO ───────────────────────────────────────────────── -->
+      <div class="cfp-hero">
+        <div class="cfp-hero-inner container">
+          <nav class="cfp-breadcrumb" aria-label="Breadcrumb">
+            <a href="/" onclick="window.cf.nav('/');return false;">Home</a>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span aria-current="page">Custom Frame</span>
           </nav>
-          <h1 class="cfw-page-title">Frame Your <em>Photo</em></h1>
-          <p class="cfw-page-sub">Upload · Choose size · We print &amp; deliver in 3–5 days</p>
-          <div class="cfw-header-trust">
-            <span>✓ Any photo accepted</span>
-            <span>✓ Digital proof sent</span>
-            <span>✓ COD available</span>
-            <span>✓ Free replacement</span>
+          <h1 class="cfp-hero-title">Frame <em>Your</em> Photo</h1>
+          <p class="cfp-hero-sub">Museum-grade archival prints · Hand-finished frames · Pan-India delivery in 3–5 days</p>
+          <div class="cfp-hero-pills">
+            <span class="cfp-pill">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 7l3 3 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Any photo accepted
+            </span>
+            <span class="cfp-pill">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 7l3 3 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Digital proof sent
+            </span>
+            <span class="cfp-pill">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 7l3 3 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Free replacement guarantee
+            </span>
+            <span class="cfp-pill">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 7l3 3 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Prepaid · Secure payment
+            </span>
           </div>
         </div>
       </div>
 
-      <!-- ── Main Layout ────────────────────────────────── -->
-      <div class="cfw-layout">
+      <!-- ── STEP PROGRESS ─────────────────────────────────────── -->
+      <div class="cfp-steps-bar">
         <div class="container">
-          <div class="cfw-cols">
+          <div class="cfp-steps">
+            <div class="cfp-step cfp-step--active" id="cfp-step-1">
+              <span class="cfp-step-num">1</span><span class="cfp-step-label">Upload</span>
+            </div>
+            <div class="cfp-step-line"></div>
+            <div class="cfp-step" id="cfp-step-2">
+              <span class="cfp-step-num">2</span><span class="cfp-step-label">Size</span>
+            </div>
+            <div class="cfp-step-line"></div>
+            <div class="cfp-step" id="cfp-step-3">
+              <span class="cfp-step-num">3</span><span class="cfp-step-label">Finish</span>
+            </div>
+            <div class="cfp-step-line"></div>
+            <div class="cfp-step" id="cfp-step-4">
+              <span class="cfp-step-num">4</span><span class="cfp-step-label">Order</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-            <!-- LEFT: Form -->
-            <div class="cfw-form-col">
+      <!-- ── MAIN LAYOUT ───────────────────────────────────────── -->
+      <div class="cfp-body">
+        <div class="container">
+          <div class="cfp-cols">
 
-              <!-- ── SECTION 1: Upload ──────────────────── -->
-              <section class="cfw-section" aria-labelledby="cfw-s1-title">
-                <div class="cfw-section-header">
-                  <div class="cfw-section-num" aria-hidden="true">1</div>
+            <!-- LEFT COLUMN: Form -->
+            <div class="cfp-form-col">
+
+              <!-- SECTION 1: Upload -->
+              <section class="cfp-section" id="cfp-sec-1" aria-labelledby="cfp-s1-h">
+                <div class="cfp-sec-head">
+                  <div class="cfp-sec-num" aria-hidden="true">01</div>
                   <div>
-                    <h2 class="cfw-section-title" id="cfw-s1-title">Upload Your Photo</h2>
-                    <p class="cfw-section-hint">Any format, any resolution — we handle the quality</p>
+                    <h2 class="cfp-sec-title" id="cfp-s1-h">Upload Your Photo</h2>
+                    <p class="cfp-sec-hint">JPG, PNG, HEIC — any resolution. We optimise before printing.</p>
                   </div>
                 </div>
 
-                <label class="cfw-upload-zone" id="cfw-upload-label" for="cfw-file-input" tabindex="0" role="button" aria-label="Tap to upload your photo">
-                  <input type="file" id="cfw-file-input" accept="image/*" style="display:none" onchange="window.cf.cfwHandleUpload(this)">
-                  <div class="cfw-upload-idle" id="cfw-upload-idle">
-                    <div class="cfw-upload-icon-wrap" aria-hidden="true">
-                      <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="17" stroke="var(--gold)" stroke-width="1.2" opacity="0.4"/><path d="M18 11v10M13 16l5-5 5 5" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 27h14" stroke="var(--gold)" stroke-width="1.4" stroke-linecap="round" opacity="0.5"/></svg>
+                <label class="cfp-drop-zone" id="cfp-drop-label" for="cfp-file-inp" tabindex="0" role="button" aria-label="Tap to upload your photo">
+                  <input type="file" id="cfp-file-inp" accept="image/*" style="display:none" onchange="window.cf.cfwHandleUpload(this)">
+                  <div class="cfp-drop-idle" id="cfp-drop-idle">
+                    <div class="cfp-drop-icon" aria-hidden="true">
+                      <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                        <rect x="1" y="1" width="38" height="38" rx="10" stroke="var(--gold)" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.5"/>
+                        <path d="M20 12v12M14 18l6-6 6 6" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M11 30h18" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+                      </svg>
                     </div>
-                    <strong class="cfw-upload-cta">Tap to upload your photo</strong>
-                    <span class="cfw-upload-hint">JPG · PNG · HEIC — any size accepted</span>
-                    <span class="cfw-upload-wa-hint">Or share via WhatsApp after ordering</span>
+                    <strong class="cfp-drop-cta">Tap to upload your photo</strong>
+                    <span class="cfp-drop-hint">Or share via WhatsApp after ordering</span>
                   </div>
-                  <div class="cfw-upload-preview" id="cfw-upload-preview" style="display:none">
-                    <img id="cfw-thumb" alt="Your uploaded photo" class="cfw-thumb-img">
-                    <div class="cfw-upload-done">
-                      <span class="cfw-done-icon" aria-hidden="true">✓</span>
-                      <div>
-                        <strong>Photo uploaded!</strong>
-                        <p>We'll send you a digital proof before printing</p>
+                  <div class="cfp-drop-preview" id="cfp-drop-preview" style="display:none">
+                    <img id="cfp-thumb" alt="Your photo preview" class="cfp-thumb">
+                    <div class="cfp-drop-done">
+                      <div class="cfp-drop-done-tick">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9l4 4 8-8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                       </div>
-                      <button type="button" class="cfw-reupload-btn" onclick="document.getElementById('cfw-file-input').click();event.preventDefault();event.stopPropagation()">Change</button>
+                      <div>
+                        <strong>Photo uploaded</strong>
+                        <p>We'll send a digital proof before printing</p>
+                      </div>
+                      <button type="button" class="cfp-reupload" onclick="document.getElementById('cfp-file-inp').click();event.preventDefault();event.stopPropagation()">Change</button>
                     </div>
                   </div>
                 </label>
-                <p class="cfw-legal">By uploading, you confirm you have rights to print this image.</p>
+                <p class="cfp-legal-note">By uploading, you confirm you have rights to print this image.</p>
               </section>
 
-              <!-- ── SECTION 2: Size ───────────────────── -->
-              <section class="cfw-section" aria-labelledby="cfw-s2-title">
-                <div class="cfw-section-header">
-                  <div class="cfw-section-num" aria-hidden="true">2</div>
+              <!-- SECTION 2: Size -->
+              <section class="cfp-section" id="cfp-sec-2" aria-labelledby="cfp-s2-h">
+                <div class="cfp-sec-head">
+                  <div class="cfp-sec-num" aria-hidden="true">02</div>
                   <div>
-                    <h2 class="cfw-section-title" id="cfw-s2-title">Choose Your Size</h2>
-                    <p class="cfw-section-hint">Select the size that fits your wall</p>
+                    <h2 class="cfp-sec-title" id="cfp-s2-h">Choose Size</h2>
+                    <p class="cfp-sec-hint" id="cfp-size-hint">Prices loaded from live database</p>
                   </div>
                 </div>
 
-                <div class="cfw-sizes" role="group" aria-label="Frame size">
-                  <button class="cfw-size-tile" id="cfw-sz-small" type="button"
-                    onclick="window.cf.cfwSelectSize('Small','8×12&quot;',499,'cfw-sz-small')"
-                    aria-pressed="false">
-                    <div class="cfw-size-visual" aria-hidden="true">
-                      <div class="cfw-size-frame cfw-size-frame--small"></div>
-                    </div>
-                    <div class="cfw-size-label">
-                      <strong>Small</strong>
-                      <span>8 × 12"</span>
-                      <span class="cfw-size-ctx">Desk &amp; shelf</span>
-                    </div>
-                    <span class="cfw-size-price-tag">₹499</span>
-                  </button>
+                <!-- Price loading state -->
+                <div id="cfp-price-loading" class="cfp-price-loading" style="display:none">
+                  <div class="cfp-spinner" aria-label="Loading prices"></div>
+                  <span>Loading prices…</span>
+                </div>
+                <div id="cfp-price-error" class="cfp-price-error" style="display:none">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="#ef4444" stroke-width="1.5"/><path d="M9 5v5M9 13v.5" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round"/></svg>
+                  Prices unavailable, please try again.
+                  <button class="cfp-retry-btn" onclick="window.cf.cfwLoadPrices()">Retry</button>
+                </div>
 
-                  <button class="cfw-size-tile cfw-size-tile--active" id="cfw-sz-medium" type="button"
-                    onclick="window.cf.cfwSelectSize('Medium','12×18&quot;',799,'cfw-sz-medium')"
-                    aria-pressed="true">
-                    <div class="cfw-size-popular-tag" aria-hidden="true">Most Popular</div>
-                    <div class="cfw-size-visual" aria-hidden="true">
-                      <div class="cfw-size-frame cfw-size-frame--medium"></div>
-                    </div>
-                    <div class="cfw-size-label">
-                      <strong>Medium</strong>
-                      <span>12 × 18"</span>
-                      <span class="cfw-size-ctx">Bedroom wall</span>
-                    </div>
-                    <span class="cfw-size-price-tag">₹799</span>
-                  </button>
-
-                  <button class="cfw-size-tile" id="cfw-sz-large" type="button"
-                    onclick="window.cf.cfwSelectSize('Large','18×24&quot;',1149,'cfw-sz-large')"
-                    aria-pressed="false">
-                    <div class="cfw-size-visual" aria-hidden="true">
-                      <div class="cfw-size-frame cfw-size-frame--large"></div>
-                    </div>
-                    <div class="cfw-size-label">
-                      <strong>Large</strong>
-                      <span>18 × 24"</span>
-                      <span class="cfw-size-ctx">Living room</span>
-                    </div>
-                    <span class="cfw-size-price-tag">₹1,149</span>
-                  </button>
-
-                  <button class="cfw-size-tile" id="cfw-sz-xl" type="button"
-                    onclick="window.cf.cfwSelectSize('XL','24×36&quot;',1749,'cfw-sz-xl')"
-                    aria-pressed="false">
-                    <div class="cfw-size-visual" aria-hidden="true">
-                      <div class="cfw-size-frame cfw-size-frame--xl"></div>
-                    </div>
-                    <div class="cfw-size-label">
-                      <strong>XL</strong>
-                      <span>24 × 36"</span>
-                      <span class="cfw-size-ctx">Statement wall</span>
-                    </div>
-                    <span class="cfw-size-price-tag">₹1,749</span>
-                  </button>
+                <div class="cfp-size-grid" id="cfp-size-grid" role="group" aria-label="Frame size" style="display:none">
+                  <!-- Injected by JS after price fetch -->
                 </div>
               </section>
 
-              <!-- ── SECTION 3: Frame Style ─────────────── -->
-              <section class="cfw-section" aria-labelledby="cfw-s3-title">
-                <div class="cfw-section-header">
-                  <div class="cfw-section-num" aria-hidden="true">3</div>
+              <!-- SECTION 3: Finish -->
+              <section class="cfp-section" id="cfp-sec-3" aria-labelledby="cfp-s3-h">
+                <div class="cfp-sec-head">
+                  <div class="cfp-sec-num" aria-hidden="true">03</div>
                   <div>
-                    <h2 class="cfw-section-title" id="cfw-s3-title">Frame Style</h2>
-                    <p class="cfw-section-hint">All frames are solid wood, handcrafted</p>
+                    <h2 class="cfp-sec-title" id="cfp-s3-h">Frame Finish</h2>
+                    <p class="cfp-sec-hint">Both options include glass front and hanging hardware</p>
                   </div>
                 </div>
 
-                <div class="cfw-frames" role="group" aria-label="Frame style">
-                  <button class="cfw-frame-tile cfw-frame-tile--active" id="cfw-ft-black" type="button"
-                    onclick="window.cf.cfwSelectFrameType('Black Frame',0,'cfw-ft-black','cfw-ft-wood','cfw-ft-mount')"
-                    aria-pressed="true">
-                    <div class="cfw-frame-swatch cfw-frame-swatch--black" aria-hidden="true"></div>
-                    <div class="cfw-frame-label">
-                      <strong>Black Frame</strong>
-                      <span>Classic matte</span>
-                    </div>
-                    <span class="cfw-frame-price-tag">Included</span>
-                  </button>
-
-                  <button class="cfw-frame-tile" id="cfw-ft-wood" type="button"
-                    onclick="window.cf.cfwSelectFrameType('Natural Wood',0,'cfw-ft-wood','cfw-ft-black','cfw-ft-mount')"
-                    aria-pressed="false">
-                    <div class="cfw-frame-swatch cfw-frame-swatch--wood" aria-hidden="true"></div>
-                    <div class="cfw-frame-label">
-                      <strong>Natural Wood</strong>
-                      <span>Warm oak tone</span>
-                    </div>
-                    <span class="cfw-frame-price-tag">Included</span>
-                  </button>
-
-                  <button class="cfw-frame-tile" id="cfw-ft-mount" type="button"
-                    onclick="window.cf.cfwSelectFrameType('Mount Frame',250,'cfw-ft-mount','cfw-ft-black','cfw-ft-wood')"
-                    aria-pressed="false">
-                    <div class="cfw-frame-swatch cfw-frame-swatch--mount" aria-hidden="true"></div>
-                    <div class="cfw-frame-label">
-                      <strong>Mount Frame</strong>
-                      <span>White mat border</span>
-                    </div>
-                    <span class="cfw-frame-price-tag cfw-frame-addon">+₹250</span>
-                  </button>
+                <div class="cfp-finish-grid" id="cfp-finish-grid" role="group" aria-label="Frame finish">
+                  <!-- Injected by JS after price fetch -->
                 </div>
-
-                <!-- Poster add-on -->
-                <label class="cfw-addon-check" id="cfw-poster-addon">
-                  <input type="checkbox" id="cfw-poster-check" onchange="window.cf.cfwCalcPrice()">
-                  <div class="cfw-addon-check-body">
-                    <div>
-                      <strong>Add A3 Poster Print</strong>
-                      <span>An extra rolled A3 print of your photo</span>
-                    </div>
-                    <span class="cfw-addon-check-price">+₹199</span>
-                  </div>
-                </label>
               </section>
 
-              <!-- ── SECTION 4: Your Details ────────────── -->
-              <section class="cfw-section" aria-labelledby="cfw-s4-title">
-                <div class="cfw-section-header">
-                  <div class="cfw-section-num" aria-hidden="true">4</div>
+              <!-- SECTION 4: Your Details -->
+              <section class="cfp-section" id="cfp-sec-4" aria-labelledby="cfp-s4-h">
+                <div class="cfp-sec-head">
+                  <div class="cfp-sec-num" aria-hidden="true">04</div>
                   <div>
-                    <h2 class="cfw-section-title" id="cfw-s4-title">Your Details</h2>
-                    <p class="cfw-section-hint">Two fields — we handle everything else</p>
+                    <h2 class="cfp-sec-title" id="cfp-s4-h">Your Details</h2>
+                    <p class="cfp-sec-hint">Two fields — we handle everything else</p>
                   </div>
                 </div>
 
-                <div class="cfw-fields">
-                  <div class="cfw-field">
-                    <label for="cfw-name" class="cfw-field-label">Full Name *</label>
-                    <input type="text" id="cfw-name" class="cfw-input" placeholder="Your full name"
-                      maxlength="100" autocomplete="name" inputmode="text">
+                <div class="cfp-fields">
+                  <div class="cfp-field">
+                    <label for="cfp-name" class="cfp-field-label">Full Name <span class="cfp-required">*</span></label>
+                    <input type="text" id="cfp-name" class="cfp-input" placeholder="Your full name" maxlength="100" autocomplete="name" inputmode="text">
                   </div>
-                  <div class="cfw-field">
-                    <label for="cfw-phone" class="cfw-field-label">WhatsApp / Mobile *</label>
-                    <input type="tel" id="cfw-phone" class="cfw-input" placeholder="10-digit mobile number"
-                      maxlength="15" autocomplete="tel" inputmode="numeric">
+                  <div class="cfp-field">
+                    <label for="cfp-phone" class="cfp-field-label">WhatsApp / Mobile <span class="cfp-required">*</span></label>
+                    <input type="tel" id="cfp-phone" class="cfp-input" placeholder="10-digit mobile number" maxlength="15" autocomplete="tel" inputmode="numeric">
                   </div>
-                  <div class="cfw-field">
-                    <label for="cfw-notes" class="cfw-field-label">
+                  <div class="cfp-field">
+                    <label for="cfp-notes" class="cfp-field-label">
                       Special Instructions
-                      <span class="cfw-optional-tag">Optional</span>
+                      <span class="cfp-optional-tag">Optional</span>
                     </label>
-                    <textarea id="cfw-notes" class="cfw-textarea" rows="3" maxlength="800"
-                      placeholder="Crop preferences, orientation, colour notes... our team reads every word"></textarea>
+                    <textarea id="cfp-notes" class="cfp-textarea" rows="3" maxlength="800"
+                      placeholder="Crop preferences, orientation, colour notes… our team reads every word."></textarea>
                   </div>
                 </div>
 
-                <div class="cfw-bulk-note">
+                <p class="cfp-prepaid-note">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L1 4v4c0 3.3 2.6 6.2 6 7 3.4-.8 6-3.7 6-7V4L7 1z" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 7l2 2 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Secure prepaid payment only — processed via Razorpay
+                </p>
+
+                <div class="cfp-bulk-note">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4 6h6M4 8.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
                   Ordering 10+ frames?
                   <a href="/contact" onclick="window.cf.nav('/contact');return false;">Contact us for bulk pricing →</a>
                 </div>
 
-                <!-- Desktop order CTA (inside form col, visible on >= 640px) -->
-                <div class="cfw-desktop-ctas">
-                  <button class="cfw-order-btn" onclick="window.cf.submitCustomOrder()" id="cfw-cart-btn">
+                <!-- Desktop CTAs -->
+                <div class="cfp-ctas-desktop">
+                  <button class="cfp-order-btn" id="cfp-cart-btn" onclick="window.cf.submitCustomOrder()">
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M1 1h2.5l2.4 9.6h8.1l2-7H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="15" r="1.2" fill="currentColor"/><circle cx="13" cy="15" r="1.2" fill="currentColor"/></svg>
-                    Proceed to Cart &amp; Secure Order
-                    <span class="cfw-order-btn-price" id="cfw-desktop-total">₹898</span>
+                    Proceed to Checkout
+                    <span class="cfp-btn-price" id="cfp-desktop-total">—</span>
                   </button>
-                  <button class="cfw-wa-order-btn" type="button" onclick="window.cf.cfwWhatsAppOrder()">
+                  <button class="cfp-wa-btn" type="button" onclick="window.cf.cfwWhatsAppOrder()">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.6 2.4A7.8 7.8 0 0 0 2.4 13.6L1 15l1.5-.4A7.8 7.8 0 1 0 13.6 2.4z" fill="#25D366"/><path d="M5.5 4.5c-.1-.3-.3-.3-.5-.3s-.3 0-.5.1c-.2.1-.7.7-.7 1.7s.7 2 .8 2.1 1.4 2.2 3.4 3c.5.2.8.3 1.1.3s.6-.1.8-.3c.2-.2.5-.8.6-1.1.1-.2 0-.4-.1-.5l-1.2-.6c-.2-.1-.4 0-.5.1l-.4.5c-.1.1-.2.1-.4 0a5.2 5.2 0 0 1-1.6-1.4c-.1-.2 0-.3.1-.4l.3-.4c.1-.1.1-.3.1-.4L5.5 4.5z" fill="#fff"/></svg>
-                    Order via WhatsApp instead
+                    Ask on WhatsApp
                   </button>
                 </div>
               </section>
 
-            </div>
+            </div><!-- /cfp-form-col -->
 
-            <!-- RIGHT: Summary sidebar (desktop only) -->
-            <aside class="cfw-sidebar" aria-label="Order summary">
+            <!-- RIGHT COLUMN: Sticky Summary -->
+            <aside class="cfp-sidebar" aria-label="Order summary">
               <!-- Live mockup -->
-              <div class="cfw-mockup-wrap">
-                <div class="cfw-mockup-frame" id="cfw-frame-outer">
-                  <div class="cfw-mockup-mat" id="cfw-mat-border">
-                    <div class="cfw-mockup-photo" id="cfw-photo-area">
+              <div class="cfp-mockup-wrap">
+                <div class="cfp-mockup-frame" id="cfp-frame-outer">
+                  <div class="cfp-mockup-mat" id="cfp-mat-border">
+                    <div class="cfp-mockup-photo" id="cfp-photo-area">
                       <svg viewBox="0 0 160 200" fill="none" width="100%" height="100%">
                         <rect width="160" height="200" fill="#1a1a2e"/>
-                        <circle cx="80" cy="80" r="44" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.4"/>
-                        <circle cx="80" cy="64" r="18" fill="var(--gold)" opacity="0.15"/>
-                        <path d="M44 140 Q80 118 116 140" stroke="var(--gold)" stroke-width="1.5" fill="none" opacity="0.4"/>
-                        <text x="80" y="180" text-anchor="middle" fill="rgba(201,151,58,0.5)" font-size="9" font-family="serif">Your Photo Here</text>
+                        <circle cx="80" cy="80" r="44" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.3"/>
+                        <circle cx="80" cy="64" r="18" fill="var(--gold)" opacity="0.1"/>
+                        <path d="M44 140 Q80 118 116 140" stroke="var(--gold)" stroke-width="1.5" fill="none" opacity="0.3"/>
+                        <text x="80" y="180" text-anchor="middle" fill="rgba(201,151,58,0.4)" font-size="9" font-family="serif">Your Photo Here</text>
                       </svg>
                     </div>
                   </div>
                 </div>
-                <p class="cfw-mockup-caption" id="cfw-mockup-label">Medium · Black Frame · ₹898</p>
+                <p class="cfp-mockup-caption" id="cfp-mockup-label">Medium · Standard · —</p>
               </div>
 
               <!-- Summary card -->
-              <div class="cfw-summary-box">
-                <h3 class="cfw-summary-box-title">Order Summary</h3>
-                <div class="cfw-sum-rows">
-                  <div class="cfw-sum-row"><span>Size</span><span id="cfw-sum-size">Medium (12×18")</span></div>
-                  <div class="cfw-sum-row"><span>Frame</span><span id="cfw-sum-style">Black Frame</span></div>
-                  <div class="cfw-sum-row" id="cfw-sum-mount-row" style="display:none"><span>Mount add-on</span><span>+₹250</span></div>
-                  <div class="cfw-sum-row" id="cfw-sum-poster-row" style="display:none"><span>A3 Poster print</span><span>+₹199</span></div>
-                  <div class="cfw-sum-sep"></div>
-                  <div class="cfw-sum-row cfw-sum-sub"><span>Subtotal</span><span id="cfw-sum-subtotal">₹799</span></div>
-                  <div class="cfw-sum-row" id="cfw-sum-shipping"><span>Shipping</span><span id="cfw-sum-shipping-val">₹99</span></div>
-                  <div class="cfw-sum-sep"></div>
-                  <div class="cfw-sum-row cfw-sum-total-row"><span>Total</span><span id="cfw-sum-total">₹898</span></div>
+              <div class="cfp-summary-card">
+                <h3 class="cfp-summary-title">Order Summary</h3>
+                <div class="cfp-sum-rows">
+                  <div class="cfp-sum-row">
+                    <span>Size</span>
+                    <span id="cfp-sum-size">—</span>
+                  </div>
+                  <div class="cfp-sum-row">
+                    <span>Finish</span>
+                    <span id="cfp-sum-finish">—</span>
+                  </div>
+                  <div class="cfp-sum-sep"></div>
+                  <div class="cfp-sum-row cfp-sum-sub">
+                    <span>Subtotal</span>
+                    <span id="cfp-sum-subtotal">—</span>
+                  </div>
+                  <div class="cfp-sum-row" id="cfp-sum-shipping-row">
+                    <span>Shipping</span>
+                    <span id="cfp-sum-shipping-val">—</span>
+                  </div>
+                  <div class="cfp-sum-row cfp-sum-discount">
+                    <span>Prepaid discount</span>
+                    <span id="cfp-sum-discount">−₹50</span>
+                  </div>
+                  <div class="cfp-sum-sep"></div>
+                  <div class="cfp-sum-row cfp-sum-total-row">
+                    <span>Total</span>
+                    <span id="cfp-sum-total">—</span>
+                  </div>
                 </div>
-                <p class="cfw-free-hint" id="cfw-free-hint">Add ₹101 more for <strong>free shipping!</strong></p>
+                <p class="cfp-free-hint" id="cfp-free-hint" style="display:none"></p>
 
-                <button class="cfw-order-btn" onclick="window.cf.submitCustomOrder()">
+                <button class="cfp-order-btn" onclick="window.cf.submitCustomOrder()">
                   <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><path d="M1 1h2.5l2.4 9.6h8.1l2-7H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="15" r="1.2" fill="currentColor"/><circle cx="13" cy="15" r="1.2" fill="currentColor"/></svg>
-                  Proceed to Cart &amp; Secure Order
+                  Proceed to Checkout
                 </button>
-                <button class="cfw-wa-order-btn" type="button" onclick="window.cf.cfwWhatsAppOrder()">
+                <button class="cfp-wa-btn" type="button" onclick="window.cf.cfwWhatsAppOrder()">
                   <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M13.6 2.4A7.8 7.8 0 0 0 2.4 13.6L1 15l1.5-.4A7.8 7.8 0 1 0 13.6 2.4z" fill="#25D366"/><path d="M5.5 4.5c-.1-.3-.3-.3-.5-.3s-.3 0-.5.1c-.2.1-.7.7-.7 1.7s.7 2 .8 2.1 1.4 2.2 3.4 3c.5.2.8.3 1.1.3s.6-.1.8-.3c.2-.2.5-.8.6-1.1.1-.2 0-.4-.1-.5l-1.2-.6c-.2-.1-.4 0-.5.1l-.4.5c-.1.1-.2.1-.4 0a5.2 5.2 0 0 1-1.6-1.4c-.1-.2 0-.3.1-.4l.3-.4c.1-.1.1-.3.1-.4L5.5 4.5z" fill="#fff"/></svg>
-                  Order via WhatsApp
+                  Ask on WhatsApp
                 </button>
 
-                <div class="cfw-sidebar-trust">
-                  <div>⭐ 4.9 · 2,000+ happy orders</div>
-                  <div>🛡️ Digital proof before printing</div>
-                  <div>📦 Free replacement on damage</div>
+                <div class="cfp-sidebar-trust">
+                  <div class="cfp-trust-item">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L1 4v4c0 3.3 2.6 6.2 6 7 3.4-.8 6-3.7 6-7V4L7 1z" stroke="var(--gold)" stroke-width="1.2"/></svg>
+                    Digital proof before printing
+                  </div>
+                  <div class="cfp-trust-item">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3 3 6-6" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    Free replacement on damage
+                  </div>
+                  <div class="cfp-trust-item">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="12" height="9" rx="1.5" stroke="var(--gold)" stroke-width="1.2"/><path d="M4 4V3a3 3 0 0 1 6 0v1" stroke="var(--gold)" stroke-width="1.2"/></svg>
+                    Razorpay secure payment
+                  </div>
                 </div>
               </div>
             </aside>
 
-          </div>
+          </div><!-- /cfp-cols -->
         </div>
       </div>
 
-      <!-- ── Mobile sticky bottom bar ─────────────────── -->
-      <div class="cfw-bottom-bar" id="cfw-bottom-bar" aria-label="Order total and CTA">
-        <div class="cfw-bottom-bar-inner">
-          <div class="cfw-bottom-price">
-            <span class="cfw-bottom-label">Total</span>
-            <span class="cfw-bottom-total" id="cfw-sticky-total">₹898</span>
+      <!-- Mobile sticky bottom bar -->
+      <div class="cfp-bottom-bar" id="cfp-bottom-bar" aria-label="Order total and CTA">
+        <div class="cfp-bottom-inner">
+          <div class="cfp-bottom-price">
+            <span class="cfp-bottom-label">Total</span>
+            <span class="cfp-bottom-total" id="cfp-sticky-total">—</span>
           </div>
-          <button class="cfw-bottom-cta" onclick="window.cf.submitCustomOrder()">
-            Place Order →
+          <button class="cfp-bottom-cta" onclick="window.cf.submitCustomOrder()">
+            Checkout →
           </button>
         </div>
       </div>
@@ -3543,13 +3436,143 @@
     </main>
     ${renderFooter()}`;
 
-    // ── State & logic ──────────────────────────────────────────────────────
+    // ── State ──────────────────────────────────────────────────────────────────
     window._cfwState = {
-      size: 'Medium', sizeLabel: 'Medium (12×18")', basePrice: 799,
-      style: 'Black Frame', frameType: 'Black Frame', mountAddon: 0,
-      posterAddon: false, uploadedFile: null, uploadedDataUrl: null
+      size: 'Medium',
+      sizeLabel: 'Medium (12×18")',
+      finish: 'standard',
+      basePrice: null,          // null until prices loaded from server
+      priceMap: {},             // { 'Small-standard': 449, 'Small-premium': 599, … }
+      freeShippingThreshold: 899,
+      shippingCharge: 99,
+      prepaidDiscount: 50,
+      uploadedFile: null,
+      uploadedDataUrl: null,
+      pricesLoaded: false,
     };
 
+    // ── Price fetch ────────────────────────────────────────────────────────────
+    window.cf.cfwLoadPrices = async function() {
+      const loading = document.getElementById('cfp-price-loading');
+      const error = document.getElementById('cfp-price-error');
+      const grid = document.getElementById('cfp-size-grid');
+      const finGrid = document.getElementById('cfp-finish-grid');
+      const hint = document.getElementById('cfp-size-hint');
+      const orderBtn = document.getElementById('cfp-cart-btn');
+
+      if (loading) loading.style.display = 'flex';
+      if (error) error.style.display = 'none';
+      if (grid) grid.style.display = 'none';
+
+      // Disable checkout until prices are confirmed
+      if (orderBtn) orderBtn.disabled = true;
+
+      try {
+        const resp = await fetch('/api/custom-frame/prices');
+        const data = await resp.json();
+
+        if (!data.success || !data.sizes || !data.sizes.length) {
+          throw new Error(data.error || 'No price data returned');
+        }
+
+        const s = window._cfwState;
+        s.freeShippingThreshold = data.config.free_shipping_threshold || 899;
+        s.shippingCharge = data.config.shipping_charge || 99;
+        s.prepaidDiscount = data.config.prepaid_discount || 50;
+        s.pricesLoaded = true;
+
+        // Build price map
+        s.priceMap = {};
+        for (const sz of data.sizes) {
+          if (sz.standard) s.priceMap[sz.size + '-standard'] = sz.standard;
+          if (sz.premium)  s.priceMap[sz.size + '-premium']  = sz.premium;
+        }
+
+        // Set default to Medium standard
+        s.basePrice = s.priceMap['Medium-standard'] || null;
+
+        // Render size tiles
+        if (grid) {
+          grid.innerHTML = data.sizes.map(sz => {
+            const stdPrice = sz.standard ? '₹' + sz.standard.toLocaleString('en-IN') : '—';
+            const premPrice = sz.premium  ? '₹' + sz.premium.toLocaleString('en-IN')  : '—';
+            const isDefault = sz.size === 'Medium';
+            return `
+            <button class="cfp-size-tile${isDefault ? ' cfp-size-tile--active' : ''}"
+              id="cfp-sz-${sz.id}"
+              type="button"
+              onclick="window.cf.cfwSelectSize('${sz.size}','${sz.label}','cfp-sz-${sz.id}')"
+              aria-pressed="${isDefault ? 'true' : 'false'}">
+              ${sz.popular ? '<div class="cfp-size-popular">Most Popular</div>' : ''}
+              <div class="cfp-size-visual" aria-hidden="true">
+                <div class="cfp-size-frame cfp-size-frame--${sz.id}"></div>
+              </div>
+              <div class="cfp-size-info">
+                <strong class="cfp-size-name">${sz.size}</strong>
+                <span class="cfp-size-dim">${sz.label}</span>
+                <span class="cfp-size-room">${sz.context}</span>
+              </div>
+              <div class="cfp-size-prices">
+                <span class="cfp-size-std-price">${stdPrice}</span>
+                <span class="cfp-size-sep">·</span>
+                <span class="cfp-size-prm-price">${premPrice}</span>
+              </div>
+            </button>`;
+          }).join('');
+          grid.style.display = 'grid';
+        }
+
+        // Render finish tiles
+        if (finGrid) {
+          const stdBasePrice = s.priceMap['Medium-standard'];
+          const prmBasePrice = s.priceMap['Medium-premium'];
+          finGrid.innerHTML = `
+          <button class="cfp-finish-tile cfp-finish-tile--active" id="cfp-fin-std" type="button"
+            onclick="window.cf.cfwSelectFinish('standard','cfp-fin-std','cfp-fin-prm')"
+            aria-pressed="true">
+            <div class="cfp-finish-swatch cfp-finish-swatch--standard" aria-hidden="true">
+              <div class="cfp-finish-swatch-inner"></div>
+            </div>
+            <div class="cfp-finish-info">
+              <strong>Standard (Matte Black, 1")</strong>
+              <span>Clean, modern profile — complements all designs</span>
+            </div>
+            <span class="cfp-finish-price" id="cfp-fin-std-price">${stdBasePrice ? '₹' + stdBasePrice.toLocaleString('en-IN') : '—'}</span>
+          </button>
+
+          <button class="cfp-finish-tile" id="cfp-fin-prm" type="button"
+            onclick="window.cf.cfwSelectFinish('premium','cfp-fin-prm','cfp-fin-std')"
+            aria-pressed="false">
+            <div class="cfp-finish-swatch cfp-finish-swatch--premium" aria-hidden="true">
+              <div class="cfp-finish-swatch-inner"></div>
+            </div>
+            <div class="cfp-finish-info">
+              <strong>Premium (Natural Wood or Mount, 1.5")</strong>
+              <span>Warm oak or white mat border — gallery-grade look</span>
+            </div>
+            <span class="cfp-finish-price" id="cfp-fin-prm-price">${prmBasePrice ? '₹' + prmBasePrice.toLocaleString('en-IN') : '—'}</span>
+          </button>`;
+        }
+
+        if (hint) hint.textContent = 'Prices loaded from live database';
+        if (orderBtn) orderBtn.disabled = false;
+
+        // Initial calc
+        window.cf.cfwCalcPrice();
+
+        if (loading) loading.style.display = 'none';
+
+      } catch (err) {
+        console.error('[cfwLoadPrices]', err);
+        if (loading) loading.style.display = 'none';
+        if (error) error.style.display = 'flex';
+        if (grid) grid.style.display = 'none';
+        if (hint) hint.textContent = 'Prices unavailable, please try again';
+        // Keep checkout disabled
+      }
+    };
+
+    // ── Upload handler ─────────────────────────────────────────────────────────
     window.cf.cfwHandleUpload = function(input) {
       const file = input.files[0];
       if (!file) return;
@@ -3557,151 +3580,165 @@
       const reader = new FileReader();
       reader.onload = (e) => {
         window._cfwState.uploadedDataUrl = e.target.result;
-        const thumb = document.getElementById('cfw-thumb');
-        const idle = document.getElementById('cfw-upload-idle');
-        const preview = document.getElementById('cfw-upload-preview');
+        const thumb = document.getElementById('cfp-thumb');
+        const idle = document.getElementById('cfp-drop-idle');
+        const preview = document.getElementById('cfp-drop-preview');
         if (thumb) thumb.src = e.target.result;
         if (idle) idle.style.display = 'none';
-        if (preview) { preview.style.display = 'flex'; }
-        const photoArea = document.getElementById('cfw-photo-area');
+        if (preview) preview.style.display = 'flex';
+        // Live mockup update
+        const photoArea = document.getElementById('cfp-photo-area');
         if (photoArea) {
-          photoArea.innerHTML = '<img src="'+e.target.result+'" alt="Preview" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:2px;">';
+          photoArea.innerHTML = '<img src="' + e.target.result + '" alt="Preview" style="width:100%;height:100%;object-fit:cover;border-radius:2px;">';
         }
+        // Activate step 2
+        const s1 = document.getElementById('cfp-step-1');
+        const s2 = document.getElementById('cfp-step-2');
+        if (s1) s1.classList.add('cfp-step--done');
+        if (s2) s2.classList.add('cfp-step--active');
       };
       reader.readAsDataURL(file);
     };
 
-    window.cf.cfwSelectSize = function(size, dim, price, cardId) {
-      window._cfwState.size = size;
-      window._cfwState.sizeLabel = size + ' (' + dim + ')';
-      window._cfwState.basePrice = price;
-      document.querySelectorAll('.cfw-size-tile').forEach(c => {
-        c.classList.remove('cfw-size-tile--active');
+    // ── Size selection ─────────────────────────────────────────────────────────
+    window.cf.cfwSelectSize = function(size, label, cardId) {
+      const s = window._cfwState;
+      s.size = size;
+      s.sizeLabel = size + ' (' + label + ')';
+      s.basePrice = s.priceMap[size + '-' + s.finish] || null;
+
+      document.querySelectorAll('.cfp-size-tile').forEach(c => {
+        c.classList.remove('cfp-size-tile--active');
         c.setAttribute('aria-pressed', 'false');
       });
       const card = document.getElementById(cardId);
-      if (card) { card.classList.add('cfw-size-tile--active'); card.setAttribute('aria-pressed', 'true'); }
+      if (card) { card.classList.add('cfp-size-tile--active'); card.setAttribute('aria-pressed', 'true'); }
+
+      // Update finish tile prices for new size
+      const stdKey = size + '-standard';
+      const prmKey = size + '-premium';
+      const stdEl = document.getElementById('cfp-fin-std-price');
+      const prmEl = document.getElementById('cfp-fin-prm-price');
+      if (stdEl) stdEl.textContent = s.priceMap[stdKey] ? '₹' + s.priceMap[stdKey].toLocaleString('en-IN') : '—';
+      if (prmEl) prmEl.textContent = s.priceMap[prmKey] ? '₹' + s.priceMap[prmKey].toLocaleString('en-IN') : '—';
+
       window.cf.cfwCalcPrice();
     };
 
-    window.cf.cfwSelectStyle = function(style, addon, activeId, inactiveId) {
-      window._cfwState.style = style;
-      window._cfwState.frameType = style;
-      window._cfwState.mountAddon = addon;
-      document.querySelectorAll('.cfw-frame-tile').forEach(b => {
-        b.classList.remove('cfw-frame-tile--active');
-        b.setAttribute('aria-pressed', 'false');
-      });
-      const aBtn = document.getElementById(activeId);
-      if (aBtn) { aBtn.classList.add('cfw-frame-tile--active'); aBtn.setAttribute('aria-pressed', 'true'); }
-      const mountRow = document.getElementById('cfw-sum-mount-row');
-      if (mountRow) mountRow.style.display = addon > 0 ? 'flex' : 'none';
-      const mat = document.getElementById('cfw-mat-border');
-      if (mat) {
-        mat.style.padding = style === 'Mount Frame' ? '14px' : '0';
-        mat.style.background = style === 'Mount Frame' ? '#fff' : 'transparent';
-      }
-      window.cf.cfwCalcPrice();
-    };
+    // ── Finish selection ───────────────────────────────────────────────────────
+    window.cf.cfwSelectFinish = function(finish, activeId) {
+      const inactiveIds = Array.prototype.slice.call(arguments, 2);
+      const s = window._cfwState;
+      s.finish = finish;
+      s.basePrice = s.priceMap[s.size + '-' + finish] || null;
 
-    window.cf.cfwSelectFrameType = function(frameType, mountAddon, activeId) {
-      const inactiveIds = Array.prototype.slice.call(arguments, 3);
-      window._cfwState.frameType = frameType;
-      window._cfwState.style = frameType;
-      window._cfwState.mountAddon = mountAddon;
-      document.querySelectorAll('.cfw-frame-tile').forEach(b => {
-        b.classList.remove('cfw-frame-tile--active');
+      document.querySelectorAll('.cfp-finish-tile').forEach(b => {
+        b.classList.remove('cfp-finish-tile--active');
         b.setAttribute('aria-pressed', 'false');
       });
       const aBtn = document.getElementById(activeId);
-      if (aBtn) { aBtn.classList.add('cfw-frame-tile--active'); aBtn.setAttribute('aria-pressed', 'true'); }
-      inactiveIds.forEach(function(id) {
-        const b = document.getElementById(id);
-        if (b) { b.classList.remove('cfw-frame-tile--active'); b.setAttribute('aria-pressed', 'false'); }
-      });
-      const frameOuter = document.getElementById('cfw-frame-outer');
+      if (aBtn) { aBtn.classList.add('cfp-finish-tile--active'); aBtn.setAttribute('aria-pressed', 'true'); }
+
+      // Update mockup frame colour
+      const frameOuter = document.getElementById('cfp-frame-outer');
       if (frameOuter) {
-        if (frameType === 'Natural Wood') {
+        if (finish === 'premium') {
           frameOuter.style.background = 'linear-gradient(135deg,#8B6914 0%,#C4922E 50%,#8B6914 100%)';
-          frameOuter.style.borderColor = 'transparent';
         } else {
           frameOuter.style.background = '#1a1a1a';
-          frameOuter.style.borderColor = '#1a1a1a';
         }
       }
-      const mat = document.getElementById('cfw-mat-border');
-      if (mat) {
-        if (frameType === 'Mount Frame') { mat.style.padding = '14px'; mat.style.background = '#fff'; }
-        else { mat.style.padding = '0'; mat.style.background = 'transparent'; }
-      }
-      const mountRow = document.getElementById('cfw-sum-mount-row');
-      if (mountRow) mountRow.style.display = mountAddon > 0 ? 'flex' : 'none';
+
       window.cf.cfwCalcPrice();
     };
 
+    // ── Legacy cfwSelectFrameType alias (keep for safety) ─────────────────────
+    window.cf.cfwSelectFrameType = window.cf.cfwSelectFinish;
+
+    // ── Price calculation ──────────────────────────────────────────────────────
     window.cf.cfwCalcPrice = function() {
       const s = window._cfwState;
-      s.posterAddon = document.getElementById('cfw-poster-check') ? document.getElementById('cfw-poster-check').checked : false;
-      const subtotal = s.basePrice + s.mountAddon + (s.posterAddon ? 199 : 0);
-      const shipping = subtotal >= 899 ? 0 : 99;
-      const total = subtotal + shipping;
-      const el = function(id) { return document.getElementById(id); };
-      if (el('cfw-sum-size')) el('cfw-sum-size').textContent = s.sizeLabel;
-      if (el('cfw-sum-style')) {
-        const styleLabel = s.frameType || s.style || 'Black Frame';
-        el('cfw-sum-style').textContent = styleLabel.endsWith('Frame') ? styleLabel : styleLabel + ' Frame';
+      if (s.basePrice === null || !s.pricesLoaded) return; // prices not loaded yet
+
+      const subtotal = s.basePrice;
+      const shipping = subtotal >= s.freeShippingThreshold ? 0 : s.shippingCharge;
+      const discount = s.prepaidDiscount; // always prepaid
+      const total = subtotal + shipping - discount;
+
+      const el = id => document.getElementById(id);
+      const fmt = n => '₹' + Number(n).toLocaleString('en-IN');
+
+      // Summary card
+      if (el('cfp-sum-size'))     el('cfp-sum-size').textContent = s.sizeLabel;
+      if (el('cfp-sum-finish'))   el('cfp-sum-finish').textContent = s.finish === 'premium'
+        ? 'Premium (Natural Wood or Mount, 1.5")'
+        : 'Standard (Matte Black, 1")';
+      if (el('cfp-sum-subtotal')) el('cfp-sum-subtotal').textContent = fmt(subtotal);
+      if (el('cfp-sum-shipping-val')) {
+        el('cfp-sum-shipping-val').innerHTML = shipping === 0
+          ? '<span style="color:var(--green)">Free</span>'
+          : fmt(shipping);
       }
-      if (el('cfw-sum-mount-row')) el('cfw-sum-mount-row').style.display = s.mountAddon > 0 ? 'flex' : 'none';
-      if (el('cfw-sum-poster-row')) el('cfw-sum-poster-row').style.display = s.posterAddon ? 'flex' : 'none';
-      if (el('cfw-sum-subtotal')) el('cfw-sum-subtotal').textContent = '\u20b9' + subtotal;
-      if (el('cfw-sum-shipping-val')) el('cfw-sum-shipping-val').innerHTML = shipping === 0 ? '<span style="color:var(--green)">Free</span>' : '\u20b9' + shipping;
-      if (el('cfw-sum-total')) el('cfw-sum-total').textContent = '\u20b9' + total;
-      if (el('cfw-sticky-total')) el('cfw-sticky-total').textContent = '\u20b9' + total;
-      if (el('cfw-desktop-total')) el('cfw-desktop-total').textContent = '\u20b9' + total;
-      const freeLeft = 899 - subtotal;
-      if (el('cfw-free-hint')) {
+      if (el('cfp-sum-discount')) el('cfp-sum-discount').textContent = '−' + fmt(discount);
+      if (el('cfp-sum-total'))    el('cfp-sum-total').textContent = fmt(total);
+
+      // Totals in CTA buttons
+      if (el('cfp-sticky-total'))  el('cfp-sticky-total').textContent = fmt(total);
+      if (el('cfp-desktop-total')) el('cfp-desktop-total').textContent = fmt(total);
+
+      // Free shipping hint
+      const freeLeft = s.freeShippingThreshold - subtotal;
+      if (el('cfp-free-hint')) {
         if (freeLeft > 0) {
-          el('cfw-free-hint').innerHTML = 'Add <strong>\u20b9'+freeLeft+'</strong> more for <strong>free shipping!</strong>';
-          el('cfw-free-hint').style.display = 'block';
+          el('cfp-free-hint').innerHTML = 'Add <strong>' + fmt(freeLeft) + '</strong> more for <strong>free shipping!</strong>';
+          el('cfp-free-hint').style.display = 'block';
         } else {
-          el('cfw-free-hint').innerHTML = '\ud83c\udf89 You\'ve unlocked <strong>free shipping!</strong>';
-          el('cfw-free-hint').style.display = 'block';
+          el('cfp-free-hint').innerHTML = '🎉 You\'ve unlocked <strong>free shipping!</strong>';
+          el('cfp-free-hint').style.display = 'block';
         }
       }
-      const lbl = el('cfw-mockup-label');
-      const styleLabel2 = s.frameType || s.style || 'Black Frame';
-      const styleName = styleLabel2.endsWith('Frame') ? styleLabel2 : styleLabel2 + ' Frame';
-      if (lbl) lbl.textContent = s.size + ' \u00b7 ' + styleName + ' \u00b7 \u20b9' + total;
-      s.subtotal = subtotal; s.shipping = shipping; s.total = total;
+
+      // Mockup label
+      const lbl = el('cfp-mockup-label');
+      if (lbl) lbl.textContent = s.size + ' · ' + (s.finish === 'premium' ? 'Premium' : 'Standard') + ' · ' + fmt(total);
+
+      // Store on state for submitCustomOrder
+      s.total = total; s.shipping = shipping; s.subtotal = subtotal;
     };
 
+    // ── WhatsApp (ask, not order) ──────────────────────────────────────────────
     window.cf.cfwWhatsAppOrder = function() {
-      const nameEl = document.getElementById('cfw-name');
-      const phoneEl = document.getElementById('cfw-phone');
-      const notesEl = document.getElementById('cfw-notes');
-      const name = nameEl ? nameEl.value.trim() : '';
-      const phone = phoneEl ? phoneEl.value.trim() : '';
-      const notes = notesEl ? notesEl.value.trim() : '';
+      const nameEl = document.getElementById('cfp-name');
+      const phoneEl = document.getElementById('cfp-phone');
+      const notesEl = document.getElementById('cfp-notes');
+      const name  = nameEl  ? nameEl.value.trim()  : '';
+      const phone = phoneEl ? phoneEl.value.trim()  : '';
+      const notes = notesEl ? notesEl.value.trim()  : '';
       const s = window._cfwState || {};
-      const msg = 'Hi ChitraFrame! I want a custom frame.\n'
-        + (name ? 'Name: ' + name + '\n' : '')
+      const finishLabel = s.finish === 'premium'
+        ? 'Premium (Natural Wood or Mount, 1.5")'
+        : 'Standard (Matte Black, 1")';
+      const msg = 'Hi ChitraFrame! I have a question about a custom frame order.\n'
+        + (name  ? 'Name: '  + name  + '\n' : '')
         + (phone ? 'Phone: ' + phone + '\n' : '')
-        + 'Size: ' + (s.sizeLabel || 'Medium 12\u00d718') + '\n'
-        + 'Style: ' + (s.frameType || s.style || 'Black Frame')
-        + (notes ? '\nNotes: ' + notes : '');
+        + 'Size: '   + (s.sizeLabel || 'Medium 12×18"') + '\n'
+        + 'Finish: ' + finishLabel + '\n'
+        + 'Note: Orders are placed on the ChitraFrame website.\n'
+        + (notes ? 'Message: ' + notes : '');
       window.open('https://wa.me/917989531818?text=' + encodeURIComponent(msg), '_blank');
     };
 
-    // Legacy no-op for cfwGoStep compatibility
+    // Legacy no-op
     window.cf.cfwGoStep = function() {};
 
-    // Init defaults
-    window.cf.cfwCalcPrice();
+    // ── Init ───────────────────────────────────────────────────────────────────
+    window.cf.cfwLoadPrices();
 
     initMobileMenu();
     initStickyHeader();
     setTimeout(initReveal, 100);
   }
+
 
   // ── ORDER SUCCESS / THANK-YOU PAGE ───────────────────────────────────────
   function renderOrderSuccessPage(app) {
@@ -3878,7 +3915,7 @@
   function renderSizeGuidePage(app) {
     document.title = 'Frame Size Guide — ChitraFrame | Which Size to Choose?';
     const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute('content', 'ChitraFrame size guide: Small (8×10"), Medium (12×18"), Large (18×24"), XL (24×36"). Know which frame size fits your wall before buying. Free shipping above ₹899.');
+    if (metaDesc) metaDesc.setAttribute('content', 'ChitraFrame size guide: Small (8×12"), Medium (12×18"), Large (16×20"), XL (20×30"). Know which frame size fits your wall before buying. Free shipping above ₹899.');
     app.innerHTML = renderHeader() + `
     <main id="main-content">
       <div class="page-hero-simple">
@@ -3894,10 +3931,10 @@
             <h2 style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:20px">Quick Recommendation</h2>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px">
               ${[
-                { size:'Small\n8×10"', price:'₹499', room:'Bedside table · Bookshelf · Desk', tag:'Most gifted' },
-                { size:'Medium\n12×18"', price:'₹699', room:'Bedroom wall · Study · Hallway', tag:'Most popular' },
-                { size:'Large\n18×24"', price:'₹999', room:'Living room · Dining area', tag:'Best value' },
-                { size:'XL\n24×36"', price:'₹1499', room:'Feature wall · Office lobby', tag:'Statement piece' },
+                { size:'Small\n8×12"', price:'From ₹449', room:'Bedside table · Bookshelf · Desk', tag:'Most gifted' },
+                { size:'Medium\n12×18"', price:'From ₹749', room:'Bedroom wall · Study · Hallway', tag:'Most popular' },
+                { size:'Large\n16×20"', price:'From ₹1,099', room:'Living room · Dining area', tag:'Best value' },
+                { size:'XL\n20×30"', price:'From ₹1,699', room:'Feature wall · Office lobby', tag:'Statement piece' },
               ].map(s => `
               <div style="background:#fff;border-radius:12px;padding:18px 16px;text-align:center;border:2px solid ${s.tag === 'Most popular' ? 'var(--gold)' : 'var(--warm-200)'};">
                 <div style="font-size:11px;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">${s.tag}</div>
@@ -3922,10 +3959,10 @@
               </thead>
               <tbody>
                 ${[
-                  { size:'Small',   dim:'8" × 10" (20×25 cm)',   for:'Desk / Bookshelf / Gift',        wall:'Any',            price:'From ₹499' },
-                  { size:'Medium',  dim:'12" × 18" (30×45 cm)',  for:'Bedroom / Study / Hallway',      wall:'8–9 ft',         price:'From ₹699' },
-                  { size:'Large',   dim:'18" × 24" (45×60 cm)',  for:'Living Room / Feature Wall',     wall:'9–10 ft',        price:'From ₹999' },
-                  { size:'XL',      dim:'24" × 36" (60×90 cm)',  for:'Lobby / Gallery Wall / Office',  wall:'10 ft+',         price:'From ₹1,499' },
+                  { size:'Small',   dim:'8" × 12" (20×30 cm)',   for:'Desk / Bookshelf / Gift',        wall:'Any',            price:'From ₹449' },
+                  { size:'Medium',  dim:'12" × 18" (30×45 cm)',  for:'Bedroom / Study / Hallway',      wall:'8–9 ft',         price:'From ₹749' },
+                  { size:'Large',   dim:'16" × 20" (40×50 cm)',  for:'Living Room / Feature Wall',     wall:'9–10 ft',        price:'From ₹1,099' },
+                  { size:'XL',      dim:'20" × 30" (50×75 cm)',  for:'Lobby / Gallery Wall / Office',  wall:'10 ft+',         price:'From ₹1,699' },
                 ].map((r, i) => `
                 <tr style="background:${i % 2 === 0 ? '#fff' : 'var(--warm-50)'};border-bottom:1px solid var(--warm-200)">
                   <td style="padding:14px 16px;font-weight:600">${r.size}</td>
@@ -3980,7 +4017,7 @@
       { q:'Where do you deliver?', a:'We deliver pan-India — all 29 states and 7 union territories. Hyderabad, Bengaluru, Mumbai, Delhi, Chennai, Pune, and all tier-2 cities are covered. Average delivery time is 3–5 business days.' },
       { q:'Is Cash on Delivery (COD) available?', a:'Yes! COD is available across India. A ₹49 handling fee applies for COD orders. Pay online (UPI/cards) to save ₹50 on your order.' },
       { q:'What frame materials do you use?', a:'We use MDF core with a premium photo-quality print finish. Two frame finishes are available: Matte Black (sleek, modern) and Natural Wood (warm, organic). Both are lightweight yet sturdy.' },
-      { q:'What sizes are available?', a:'We offer 4 sizes: Small (8×10"), Medium (12×18"), Large (18×24"), and XL (24×36"). See our Size Guide for room placement recommendations.' },
+      { q:'What sizes are available?', a:'We offer 4 sizes: Small (8×12"), Medium (12×18"), Large (16×20"), and XL (20×30"). See our Size Guide for room placement recommendations.' },
       { q:'Can I order a custom frame with my own photo?', a:'Yes! Visit the Custom Frame page, choose your size and style, then share your photo via WhatsApp after ordering. We send a digital proof within 24 hours before printing.' },
       { q:'How is the print quality?', a:'We use museum-grade archival inks on satin photo paper. Colours are vivid, fade-resistant, and professionally colour-corrected. The result is gallery-quality — not a typical poster print.' },
       { q:'What if my order arrives damaged?', a:'We replace damaged frames free of charge, no questions asked. Simply share photos of the damage within 48 hours of delivery via WhatsApp (+91 79895 31818).' },
@@ -4252,8 +4289,6 @@
     submitCustomOrder,
     customCalcPrice,
     updateCheckoutTotal,
-    addPosterAddon,
-    togglePdpPoster,
     checkDelivery
   };
 

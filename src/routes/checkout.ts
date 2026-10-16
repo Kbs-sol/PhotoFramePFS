@@ -127,11 +127,47 @@ checkout.post('/create-razorpay-order', async (c) => {
         }
       }
 
-      // Now calculate server amount using the prefetched map
+      // Prefetch custom frame prices from DB once
+      const VALID_SIZES = ['Small', 'Medium', 'Large', 'XL'];
+      const VALID_FINISHES = ['standard', 'premium'];
+      let customFramePrices: Record<string, number> = {};
+      const hasCustomItems = items.some((i: any) => i.variantId?.toString().startsWith('custom-'));
+      if (hasCustomItems) {
+        const { data: cfRows } = await sb.from('product_variants')
+          .select('sku, size, price')
+          .eq('frame_type', 'Direct Frame')
+          .eq('is_active', true);
+        for (const row of (cfRows || [])) {
+          const sku = row.sku || '';
+          if (sku.endsWith('-standard')) customFramePrices[`${row.size}-standard`] = Number(row.price);
+          else if (sku.endsWith('-premium')) customFramePrices[`${row.size}-premium`] = Number(row.price);
+        }
+      }
+
+      // Now calculate server amount using the prefetched maps
       for (const item of items) {
         if (item.variantId?.toString().startsWith('custom-')) {
-          // For custom frames use the provided price but cap it at safety bounds
-          serverAmount += Math.max(499, Math.min(Number(item.price) || 999, 9999)) * (item.quantity || 1);
+          // SECURITY: Ignore browser-sent price — look up from DB
+          const itemSize = item.size || 'Medium';
+          let itemFinish = (item.finish || item.frame || 'standard').toLowerCase();
+          if (itemFinish.includes('premium') || itemFinish.includes('natural') || itemFinish.includes('mount')) {
+            itemFinish = 'premium';
+          } else {
+            itemFinish = 'standard';
+          }
+
+          if (!VALID_SIZES.includes(itemSize)) {
+            return c.json({ error: `Invalid custom frame size: ${itemSize}` }, 400);
+          }
+          if (!VALID_FINISHES.includes(itemFinish)) {
+            return c.json({ error: `Invalid custom frame finish: ${itemFinish}` }, 400);
+          }
+
+          const serverPrice = customFramePrices[`${itemSize}-${itemFinish}`];
+          if (!serverPrice) {
+            return c.json({ error: `Custom frame price not found for ${itemSize} ${itemFinish}` }, 400);
+          }
+          serverAmount += serverPrice * (item.quantity || 1);
         } else {
           const price = variantPriceMap[item.variantId];
           if (!price) return c.json({ error: `Invalid or inactive item: ${item.variantId}` }, 400);
@@ -147,6 +183,17 @@ checkout.post('/create-razorpay-order', async (c) => {
         }
         // Don't return error here — just skip the discount if invalid; the main order creation will handle it
       }
+
+      // Apply shipping and prepaid discount for custom frames
+      // This ensures Razorpay amount matches what the order record will charge
+      if (hasCustomItems) {
+        const cfConfig = await getConfigs(c.env, ['free_shipping_threshold', 'shipping_charge', 'prepaid_discount']);
+        const freeThreshold = Number(cfConfig.free_shipping_threshold || 899);
+        const shippingCharge = serverAmount >= freeThreshold ? 0 : Number(cfConfig.shipping_charge || 99);
+        const prepaidDiscount = Number(cfConfig.prepaid_discount || 50); // custom frames are always prepaid
+        serverAmount = serverAmount + shippingCharge - prepaidDiscount;
+      }
+
       serverAmount = Math.max(1, serverAmount); // prevent zero/negative
     } else {
       // Fallback: use client-provided amount but enforce sanity bounds

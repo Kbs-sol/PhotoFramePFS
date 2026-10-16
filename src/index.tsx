@@ -362,7 +362,7 @@ app.post('/api/custom-orders', async (c) => {
       uploaded_image_storage_path: String(body.uploaded_image_storage_path || 'no-upload').slice(0, 500),
       selected_dimension_profile: String(body.selected_dimension_profile || 'Medium').slice(0, 50),
       selected_framing_style: String(body.selected_framing_style || 'Direct').slice(0, 50),
-      include_poster_print_copy: Boolean(body.include_poster_print_copy),
+      include_poster_print_copy: false, // poster add-on removed
       user_special_instructions: String(body.user_special_instructions || '').slice(0, 1000),
       computed_subtotal_amount: Number(body.computed_subtotal_amount) || 0,
       intake_status: 'pending_image',
@@ -798,7 +798,7 @@ An optimized, conversion-driven e-commerce environment featuring curated pre-des
 - XL Frame Profile: 24×36 inches format orientation | Base: ₹1,749
 
 ## Financial Adjustments & Checkout Rules
-- Poster Print Expansion: +₹199 option (Includes an additional A3 rolled poster duplication tier).
+- Standard (Matte Black, 1") and Premium (Natural Wood or Mount, 1.5") frame finish options.
 - Delivery Threshold: Free shipping is applied to orders with a total cart balance greater than or equal to ₹899. Orders below this threshold incur a standard shipping fee of ₹99.
 - Cash On Delivery (COD) Processing Fee: +₹49 added directly to orders selecting COD.
 - Online Payment Incentive: -₹50 discount deducted directly from the cart subtotal for prepaid transactions.

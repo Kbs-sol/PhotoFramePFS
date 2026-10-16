@@ -837,8 +837,6 @@
       { key: 'price_medium',      label: 'Medium (12×18 inches)',      default: 799,  note: 'Default / most popular size' },
       { key: 'price_large',       label: 'Large (18×24 inches)',       default: 1149, note: '' },
       { key: 'price_xl',          label: 'XL (24×36 inches)',          default: 1749, note: '' },
-      { key: 'price_premium_addon', label: 'Premium White Mount Add-on', default: 250, note: 'Added on top of base size price' },
-      { key: 'price_poster',      label: 'Poster Print Add-on',        default: 199,  note: 'A3 rolled poster; shown on product + cart pages' },
       { key: 'price_acrylic_addon', label: 'Acrylic Glass Upgrade',    default: 350,  note: 'Optional upgrade add-on' },
       { key: 'price_cod_fee',     label: 'COD Fee',                    default: 49,   note: 'Added to order total for COD orders' },
       { key: 'price_prepaid_discount', label: 'Prepaid Discount',      default: 50,   note: 'Deducted from prepaid order total' },
@@ -898,37 +896,7 @@
       </div>
     </div>
 
-    <!-- Poster Add-On Price — separate card with emerald accent for visibility -->
-    <div class="poster-price-card mt-6">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="w-8 h-8 rounded-full bg-green-900/40 border border-green-600/40 flex items-center justify-center">
-          <i class="fas fa-print text-green-400 text-xs"></i>
-        </div>
-        <div>
-          <h3 class="font-bold text-sm text-green-300">Poster Print Add-On Price (₹)</h3>
-          <p class="text-[10px] text-gray-500 mt-0.5">Shown as "+₹X" on product page, cart, and custom frame page. Stored in <code class="text-blue-300">site_config</code> as <code class="text-blue-300">poster_addon_price</code>.</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-3">
-        <span class="text-gray-400 text-sm font-bold">₹</span>
-        <input type="number" name="price_field" data-key="poster_addon_price"
-               class="admin-input" style="max-width:140px;"
-               value="${settings['poster_addon_price'] !== undefined ? settings['poster_addon_price'] : 199}"
-               min="0" max="9999" step="1" placeholder="199"
-               id="poster-addon-price-input">
-        <button onclick="admin.savePosterAddonPrice()" class="admin-btn admin-btn-primary text-xs px-3 py-1.5">
-          <i class="fas fa-save mr-1"></i>Save Poster Price
-        </button>
-        <span id="poster-price-saved-badge" class="badge-emerald hidden">
-          <i class="fas fa-check text-[9px]"></i> Saved
-        </span>
-      </div>
-      <p class="text-[10px] text-gray-600 mt-2">
-        <i class="fas fa-info-circle mr-1"></i>
-        Current live value: <strong class="text-green-400">₹${settings['poster_addon_price'] || '199'}</strong>
-        &nbsp;·&nbsp; Enable/disable poster sales in Settings → "Poster/Print-Only Sales Enabled"
-      </p>
-    </div>
+    <!-- Poster Add-On Price card removed — poster add-on no longer offered -->
 
     <div class="stat-card mt-6">
       <h3 class="font-bold text-base mb-3 text-gray-300"><i class="fas fa-eye mr-2 text-brand-gold"></i>Live Price Preview</h3>
@@ -947,11 +915,7 @@
         }).join('')}
       </div>
       <div class="mt-3 pt-3 border-t border-gray-800 flex gap-4 text-center">
-        <div class="flex-1 bg-gray-900/60 rounded-lg p-2">
-          <div class="text-[10px] text-gray-500 uppercase tracking-widest">Poster Add-On</div>
-          <div class="text-base font-bold text-green-400">+₹${settings['poster_addon_price'] || '199'}</div>
-          <div class="text-[10px] text-gray-600">A3 rolled print</div>
-        </div>
+
         <div class="flex-1 bg-gray-900/60 rounded-lg p-2">
           <div class="text-[10px] text-gray-500 uppercase tracking-widest">Mount Add-On</div>
           <div class="text-base font-bold text-brand-gold">+₹${settings['price_premium_addon'] || '250'}</div>
@@ -1008,7 +972,6 @@
       { key: 'whatsapp_disputes', label: 'WhatsApp Disputes Number', type: 'text' },
       { key: 'bulk_order_phone1', label: 'Bulk/Corporate Orders Phone 1', type: 'text' },
       { key: 'bulk_order_phone2', label: 'Bulk/Corporate Orders Phone 2', type: 'text' },
-      { key: 'poster_enabled', label: 'Poster/Print-Only Sales Enabled', type: 'toggle' },
       { key: 'review_photo_enabled', label: 'Allow Photo in Reviews', type: 'toggle' },
       { key: 'openrouter_model', label: 'OpenRouter AI Model', type: 'text' },
       { key: 'openrouter_api_key_hint', label: 'OpenRouter API Key (set in Cloudflare Secrets as OPENROUTER_API_KEY)', type: 'text' }
@@ -1155,7 +1118,7 @@
       }
     },
     resetPricingDefaults() {
-      const defaults = { price_small:'499', price_medium:'799', price_large:'1149', price_xl:'1749', price_premium_addon:'250', price_poster:'199', poster_addon_price:'199', price_acrylic_addon:'350', price_cod_fee:'49', price_prepaid_discount:'50', price_shipping:'99', price_free_shipping_threshold:'899', free_shipping_threshold:'899' };
+      const defaults = { price_small:'499', price_medium:'799', price_large:'1149', price_xl:'1749', price_acrylic_addon:'350', price_cod_fee:'49', price_prepaid_discount:'50', price_shipping:'99', price_free_shipping_threshold:'899', free_shipping_threshold:'899' };
       document.querySelectorAll('input[name="price_field"]').forEach(inp => {
         const key = inp.dataset.key;
         if (defaults[key] !== undefined) inp.value = defaults[key];
@@ -1190,28 +1153,7 @@
       }
     },
 
-    // ---- Poster Add-On Price (dedicated quick-save) ----
-    async savePosterAddonPrice() {
-      const inp = document.getElementById('poster-addon-price-input');
-      if (!inp) { toast('Poster price field not found', 'error'); return; }
-      const val = parseInt(inp.value, 10);
-      if (isNaN(val) || val < 0) { toast('Invalid poster add-on price', 'error'); return; }
-      try {
-        await api('PUT', '/settings', { poster_addon_price: String(val) });
-        // Animate the input field
-        inp.classList.add('price-field-saved');
-        setTimeout(() => inp.classList.remove('price-field-saved'), 1300);
-        // Show saved badge
-        const badge = document.getElementById('poster-price-saved-badge');
-        if (badge) {
-          badge.classList.remove('hidden');
-          setTimeout(() => badge.classList.add('hidden'), 2500);
-        }
-        toast('Poster add-on price saved: ₹' + val, 'success');
-      } catch(e) {
-        toast('Error saving poster price: ' + (e.message||'Unknown'), 'error');
-      }
-    },
+    // savePosterAddonPrice removed — poster add-on no longer offered
 
     // ---- Print order image ----
     printOrderImage(imageUrl, name, orderId) {
