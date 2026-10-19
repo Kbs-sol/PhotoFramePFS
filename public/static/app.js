@@ -367,9 +367,10 @@
         </nav>
 
         <div class="header-actions">
-          <button class="header-icon-btn" onclick="window.cf.nav('/track')" aria-label="Track order">
+          <a href="/track" onclick="window.cf.nav('/track');return false;" class="header-icon-btn header-track-link" aria-label="Track order" title="Track your order">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1l2.5 5H17l-4.5 3.3 1.7 5.2L9 11.5l-5.2 3 1.7-5.2L1 6h5.5L9 1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
-          </button>
+            <span class="header-track-label">Track</span>
+          </a>
           <button class="header-icon-btn cart-btn" onclick="window.cf.openCart()" aria-label="Cart, ${cartCount} items">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M1 1h2.5l2.4 9.6h8.1l2-7H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="15" r="1.2" fill="currentColor"/><circle cx="13" cy="15" r="1.2" fill="currentColor"/></svg>
             <span class="cart-count" style="display:${cartCount > 0 ? 'inline-flex' : 'none'}">${cartCount}</span>
@@ -399,7 +400,7 @@
             <a href="/about" onclick="window.cf.nav('/about');closeMobileMenu();return false;">About Us</a>
           </nav>
           <div class="mobile-menu-bottom">
-            <p class="text-sm text-ink-400">Free shipping above ₹799</p>
+            <p class="text-sm text-ink-400">Free shipping above ₹899 · COD Available</p>
           </div>
         </div>
       </div>
@@ -523,9 +524,37 @@
       </div>
     </footer>
 
-    <a href="${escapeHTML(waLink)}" target="_blank" rel="noopener noreferrer" class="whatsapp-widget" aria-label="Chat on WhatsApp">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20.5 3.5A11.5 11.5 0 0 0 1.5 12.4a11.4 11.4 0 0 0 1.5 5.6L1.5 22.5l4.6-1.5a11.5 11.5 0 0 0 5.9 1.6 11.5 11.5 0 0 0 8.5-19.6z" fill="white"/></svg>
-    </a>`;
+    <a href="${escapeHTML(waLink)}" target="_blank" rel="noopener noreferrer" class="whatsapp-widget" aria-label="Chat on WhatsApp" data-tooltip="Chat with us">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M20.5 3.5A11.5 11.5 0 0 0 1.5 12.4a11.4 11.4 0 0 0 1.5 5.6L1.5 22.5l4.6-1.5a11.5 11.5 0 0 0 5.9 1.6 11.5 11.5 0 0 0 8.5-19.6z" fill="white"/><path d="M9 10.5s.5-1 1.5-.5l1 .5c.5.3.5 1-.3 2s-2.2 1.8-3 1.5c-.8-.3-2.5-1.5-3.2-3.5" stroke="#25D366" stroke-width="1.2" stroke-linecap="round"/></svg>
+    </a>
+
+    <!-- ══ EXIT INTENT OVERLAY ══ -->
+    <div class="exit-intent-overlay" id="exit-intent-overlay" role="dialog" aria-modal="true" aria-label="Special offer">
+      <div class="exit-intent-modal">
+        <div class="exit-intent-top">
+          <button class="exit-intent-close" onclick="window.cf.closeExitIntent()" aria-label="Close offer">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+          <div class="exit-intent-tag">Members-only offer</div>
+          <h2 class="exit-intent-title">Wait — before you go!</h2>
+          <p class="exit-intent-sub">Get early access to new designs &amp; exclusive offers.</p>
+        </div>
+        <div class="exit-intent-body">
+          <div class="exit-intent-offer">
+            <div class="exit-intent-offer-icon">🎁</div>
+            <div class="exit-intent-offer-text">
+              <strong>₹50 off your first order</strong><br>
+              Plus: new drop alerts, styling tips &amp; festival exclusives. Zero spam, unsubscribe anytime.
+            </div>
+          </div>
+          <form class="exit-intent-form" onsubmit="window.cf.handleExitIntentSubmit(event)">
+            <input type="email" name="email" placeholder="Enter your email" required autocomplete="email" aria-label="Your email address">
+            <button type="submit">Get ₹50 Off</button>
+          </form>
+          <button class="exit-intent-skip" onclick="window.cf.closeExitIntent()">No thanks, I'll pay full price</button>
+        </div>
+      </div>
+    </div>`;
   }
 
   // ── HOME PAGE ─────────────────────────────────────────────────────────────
@@ -647,7 +676,7 @@
                   <strong class="hero-custom-title">Custom Photo Frame</strong>
                   <span class="hero-custom-sub">Your memory, museum-quality</span>
                   <div class="hero-custom-meta">
-                    <span class="hero-custom-price">From ₹499</span>
+                    <span class="hero-custom-price">From ₹449</span>
                     <span class="hero-custom-ships">Ships in 3–5 days</span>
                   </div>
                 </div>
@@ -660,7 +689,7 @@
 
           </div>
           <!-- floating price chip -->
-          <div class="hero-v2-price-chip">Starting ₹499</div>
+          <div class="hero-v2-price-chip">From ₹449</div>
         </div>
 
         <!-- Right panel: copy -->
@@ -988,6 +1017,55 @@
         </div>
       </section>
 
+      <!-- ══ RECENTLY ORDERED TICKER ══ -->
+      <div class="order-ticker" aria-live="polite" aria-label="Recent orders">
+        <div class="order-ticker-inner" id="order-ticker-inner">
+          ${[
+            { name: 'Rahul M.', city: 'Hyderabad', product: 'Mahadev Cosmic Trance', size: 'Large', mins: 4 },
+            { name: 'Priya S.', city: 'Bangalore', product: 'Porsche 911', size: 'Medium', mins: 12 },
+            { name: 'Arjun K.', city: 'Mumbai', product: 'Radha Krishna Watercolor', size: 'XL', mins: 23 },
+            { name: 'Sneha T.', city: 'Delhi', product: 'BMW M4 Carbon', size: 'Large', mins: 37 },
+            { name: 'Vivek R.', city: 'Chennai', product: 'Lion Geometric Gold', size: 'Medium', mins: 51 },
+            { name: 'Anita P.', city: 'Pune', product: 'Lamborghini Neon', size: 'Small', mins: 68 },
+          ].map(o => `
+            <div class="order-tick-item">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" fill="var(--green)" opacity="0.2"/><path d="M4 7l2 2 4-4" stroke="var(--green)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <strong>${escapeHTML(o.name)}</strong> from ${escapeHTML(o.city)} just ordered <em>${escapeHTML(o.product)}</em> (${escapeHTML(o.size)})
+              <span>${o.mins} min ago</span>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- ══ CUSTOM FRAME CTA BANNER ══ -->
+      <section class="custom-cta-banner" aria-label="Custom photo frame offer">
+        <div class="container">
+          <div class="custom-cta-inner">
+            <div class="custom-cta-left">
+              <div class="custom-cta-icon" aria-hidden="true">
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="4" y="4" width="40" height="40" rx="6" stroke="var(--gold)" stroke-width="1.5"/><rect x="10" y="10" width="28" height="28" rx="3" stroke="var(--gold)" stroke-width="1" opacity="0.4"/><circle cx="24" cy="24" r="8" stroke="var(--gold)" stroke-width="1" opacity="0.6"/><path d="M20 24a4 4 0 1 1 8 0 4 4 0 0 1-8 0" fill="var(--gold)" opacity="0.2"/></svg>
+              </div>
+              <div>
+                <h2 class="custom-cta-title">Frame Your Favourite Memory</h2>
+                <p class="custom-cta-sub">Upload any photo — wedding, family, travel, pet — we print and frame it museum-style. Digital proof sent before printing.</p>
+                <div class="custom-cta-features">
+                  <span><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5l3 3 6-6" stroke="var(--green)" stroke-width="1.4" stroke-linecap="round"/></svg> Any photo accepted</span>
+                  <span><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5l3 3 6-6" stroke="var(--green)" stroke-width="1.4" stroke-linecap="round"/></svg> Digital proof within 24h</span>
+                  <span><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5l3 3 6-6" stroke="var(--green)" stroke-width="1.4" stroke-linecap="round"/></svg> From ₹449 · Ships in 3–5 days</span>
+                  <span><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5l3 3 6-6" stroke="var(--green)" stroke-width="1.4" stroke-linecap="round"/></svg> Free replacement guarantee</span>
+                </div>
+              </div>
+            </div>
+            <div class="custom-cta-right">
+              <button class="custom-cta-btn" onclick="window.cf.nav('/customize');trackEvent('custom_cta_banner','home')">
+                Start Custom Frame
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <p class="custom-cta-note">Prepaid only · ₹50 prepaid discount applied</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ══ NEWSLETTER ══ -->
       <section class="newsletter-section" aria-labelledby="newsletter-heading">
         <div class="container">
@@ -1029,6 +1107,8 @@
     }, 50);
     // Inject FAQ Schema for home page
     injectHomeFAQSchema();
+    // Exit intent — initialise after 3 seconds (let user settle)
+    setTimeout(initExitIntent, 3000);
   }
 
   function injectHomeFAQSchema() {
@@ -1054,12 +1134,12 @@
 
   function renderCategoryCards() {
     const categories = [
-      { slug: 'spiritual', label: 'Divine & Spiritual', sub: '3 designs', cta: 'Puja rooms, meditation spaces', img: DESIGN_IMAGES['mahadev-cosmic-trance'], color: '#12103a' },
-      { slug: 'automotive', label: 'Automotive Art', sub: '5 designs', cta: 'Car lovers, garage walls', img: DESIGN_IMAGES['porsche-911-pacific-coast'], color: '#071525' },
-      { slug: 'sports', label: 'Sports Legends', sub: '1 design', cta: 'Cricket, football, motorsport', img: DESIGN_IMAGES['cricket-glory-moment'], color: '#001030' },
-      { slug: 'wildlife', label: 'Wildlife', sub: '1 design', cta: 'Living rooms, offices', img: DESIGN_IMAGES['lion-geometric-gold'], color: '#1a1100' },
-      { slug: 'anime', label: 'Anime & JDM', sub: '2 designs', cta: 'Gaming rooms, gift ideas', img: DESIGN_IMAGES['nissan-gtr-r34-osaka-rain'], color: '#14001a' },
-      { slug: 'motivational', label: 'Motivational', sub: '2 designs', cta: 'Home office, gym walls', img: DESIGN_IMAGES['f1-redbull-racing'], color: '#0a0a0a' },
+      { slug: 'spiritual', label: 'Divine & Spiritual', sub: 'Puja rooms & meditation', img: DESIGN_IMAGES['mahadev-cosmic-trance'], color: '#12103a' },
+      { slug: 'automotive', label: 'Automotive Art', sub: 'For car enthusiasts', img: DESIGN_IMAGES['porsche-911-pacific-coast'], color: '#071525' },
+      { slug: 'sports', label: 'Sports Legends', sub: 'Cricket, F1 & more', img: DESIGN_IMAGES['cricket-glory-moment'], color: '#001030' },
+      { slug: 'wildlife', label: 'Wildlife', sub: 'Living rooms & offices', img: DESIGN_IMAGES['lion-geometric-gold'], color: '#1a1100' },
+      { slug: 'anime', label: 'Anime & JDM', sub: 'Gaming rooms & gifts', img: DESIGN_IMAGES['nissan-gtr-r34-osaka-rain'], color: '#14001a' },
+      { slug: 'motivational', label: 'Motivational', sub: 'Home office & gym walls', img: DESIGN_IMAGES['f1-redbull-racing'], color: '#0a0a0a' },
     ];
 
     return categories.map((cat, i) => `
@@ -2982,6 +3062,67 @@
     }
   }
 
+  // ── EXIT INTENT ─────────────────────────────────────────────────────────
+  let _exitIntentShown = false;
+  function initExitIntent() {
+    // Don't show if already shown this session or user already subscribed
+    if (_exitIntentShown || sessionStorage.getItem('exit_intent_shown') || localStorage.getItem('cf_subscribed')) return;
+
+    // Desktop: show on mouseleave near top of viewport
+    const onMouseLeave = (e) => {
+      if (e.clientY <= 5 && !_exitIntentShown) {
+        showExitIntent();
+        document.removeEventListener('mouseleave', onMouseLeave);
+      }
+    };
+
+    // Mobile: show after 45 seconds of session
+    const mobileTimer = setTimeout(() => {
+      if (!_exitIntentShown) showExitIntent();
+    }, 45000);
+
+    document.addEventListener('mouseleave', onMouseLeave);
+    // Clean up timer if user already interacted
+    document.addEventListener('click', '.exit-intent-overlay', () => clearTimeout(mobileTimer), { once: true });
+  }
+
+  function showExitIntent() {
+    if (_exitIntentShown) return;
+    _exitIntentShown = true;
+    sessionStorage.setItem('exit_intent_shown', '1');
+    const overlay = document.getElementById('exit-intent-overlay');
+    if (overlay) {
+      overlay.classList.add('active');
+      trackEvent('exit_intent_shown', { page: location.pathname });
+    }
+  }
+
+  function closeExitIntent() {
+    const overlay = document.getElementById('exit-intent-overlay');
+    if (overlay) overlay.classList.remove('active');
+    trackEvent('exit_intent_dismissed', { page: location.pathname });
+  }
+
+  async function handleExitIntentSubmit(e) {
+    e.preventDefault();
+    const email = e.target.querySelector('[name="email"]').value.trim();
+    if (!email) return;
+    try {
+      await fetch(`${API}/leads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'exit_intent' })
+      });
+      localStorage.setItem('cf_subscribed', '1');
+      closeExitIntent();
+      toast('🎉 Subscribed! Your ₹50 discount has been noted — apply at checkout.');
+      trackEvent('exit_intent_subscribed', { page: location.pathname });
+    } catch (err) {
+      closeExitIntent();
+      toast('Subscribed! Welcome to ChitraFrame.');
+    }
+  }
+
   // ── Config Loader ─────────────────────────────────────────────────────────
   async function loadConfig() {
     try {
@@ -4289,7 +4430,9 @@
     submitCustomOrder,
     customCalcPrice,
     updateCheckoutTotal,
-    checkDelivery
+    checkDelivery,
+    closeExitIntent,
+    handleExitIntentSubmit,
   };
 
   // Expose trackEvent + ABTest globally (used in inline onclick handlers)

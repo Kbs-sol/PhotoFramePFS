@@ -534,14 +534,357 @@ app.get('/sitemap.xml', async (c) => {
   return new Response(xml, { headers: { 'Content-Type': 'application/xml' } });
 });
 
-// robots.txt
+// robots.txt — enhanced for crawl efficiency
 app.get('/robots.txt', (c) => {
   return c.text(`User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /api/admin
-Sitemap: https://chitraframe.in/sitemap.xml`);
+Disallow: /api/
+Disallow: /cart
+Disallow: /checkout
+Disallow: /order-success
+Disallow: /thank-you
+Disallow: /auth/
+Disallow: /account/
+Disallow: /login
+Crawl-delay: 1
+
+User-agent: Googlebot
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Crawl-delay: 0
+
+User-agent: Bingbot
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Crawl-delay: 1
+
+Sitemap: https://chitraframe.in/sitemap-index.xml
+Sitemap: https://chitraframe.in/sitemap.xml
+Sitemap: https://chitraframe.in/sitemap-images.xml
+Sitemap: https://chitraframe.in/sitemap-products.xml`);
 });
+
+// ── Google Search Console verification ─────────────────────────────────────
+// REPLACE the content value below with your actual GSC verification token
+// Go to: https://search.google.com/search-console → Add Property → HTML Tag method
+// Copy the content="XXXXXX" value and paste it into GOOGLE_SITE_VERIFICATION env var
+app.get('/google-site-verification.html', (c) => {
+  const token = c.env.GOOGLE_SITE_VERIFICATION || 'PASTE_YOUR_GSC_TOKEN_HERE';
+  return c.html(`<!DOCTYPE html><html><head><title>Google Verification</title></head><body>google-site-verification: google${token}.html</body></html>`);
+});
+
+// ── Bing / Microsoft Webmaster Tools verification ────────────────────────────
+// Go to: https://www.bing.com/webmasters → Add Site → XML File method
+// Copy the content token from the BingSiteAuth.xml they generate
+app.get('/BingSiteAuth.xml', (c) => {
+  const token = c.env.BING_SITE_VERIFICATION || 'PASTE_YOUR_BING_AUTH_CODE_HERE';
+  return c.text(`<?xml version="1.0"?>
+<users>
+  <user>${token}</user>
+</users>`, 200, { 'Content-Type': 'application/xml' });
+});
+
+// ── Pinterest site verification ─────────────────────────────────────────────
+// Go to: https://analytics.pinterest.com → Claim Website → enter chitraframe.in
+app.get('/pinterest-site-verification.html', (c) => {
+  const token = c.env.PINTEREST_VERIFICATION || 'PASTE_YOUR_PINTEREST_TOKEN_HERE';
+  return c.html(`<html><head><meta name="p:domain_verify" content="${token}"/></head><body></body></html>`);
+});
+
+// ── Product Sitemap (for Google Shopping / Merchant Center) ─────────────────
+app.get('/sitemap-products.xml', async (c) => {
+  const baseUrl = 'https://chitraframe.in';
+  const today = new Date().toISOString().slice(0, 10);
+
+  // All known product slugs (hardcoded + DB)
+  const launchSlugs = [
+    'mahadev-cosmic-trance','radha-krishna-watercolor','radha-krishna-emerald-dance',
+    'bmw-m4-carbon-dark','porsche-911-pacific-coast','lamborghini-aventador-neon',
+    'nissan-gtr-r34-osaka-rain','f1-redbull-racing','cricket-glory-moment','lion-geometric-gold',
+    'radha-krishna-temple-glow','krishna-flute-twilight','ganesh-modern-geometric',
+    'ferrari-laferrari-vermelho','mclaren-papaya-orange','bmw-m3-e46-touring-grey',
+    'virat-kohli-century-pose','ms-dhoni-helicopter-shot','rohit-sharma-golden-pose',
+    'snow-leopard-mountain-mist','wolf-pack-northern-lights','eagle-soaring-golden-sky'
+  ];
+
+  let products: any[] = [];
+  try {
+    if (c.env.SUPABASE_URL) {
+      const sb = getSupabase(c.env);
+      const r = await sb.from('products').select('slug, updated_at, name').eq('is_active', true);
+      products = r.data || [];
+    }
+  } catch (e) {}
+
+  const allSlugs = [...new Set([...launchSlugs, ...products.map((p: any) => p.slug)])];
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+`;
+  for (const slug of allSlugs) {
+    const p = products.find((pr: any) => pr.slug === slug);
+    const lastmod = p?.updated_at?.slice(0, 10) || today;
+    xml += `  <url>
+    <loc>${baseUrl}/product/${slug}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/dax4yqumu/image/upload/f_auto,q_auto,w_800/chitraframe/${slug}.jpg</image:loc>
+      <image:title>${p?.name || slug.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} — Framed Art Print</image:title>
+      <image:caption>Museum-quality framed art print by ChitraFrame — ${slug.replace(/-/g, ' ')}. Available in 4 sizes with Black or Natural Wood frame. Ships pan-India in 3-5 days.</image:caption>
+    </image:image>
+  </url>
+`;
+  }
+  xml += '</urlset>';
+  return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8' } });
+});
+
+// ── Image Sitemap ──────────────────────────────────────────────────────────
+app.get('/sitemap-images.xml', async (c) => {
+  const baseUrl = 'https://chitraframe.in';
+  const today = new Date().toISOString().slice(0, 10);
+
+  const pages = [
+    { path: '/', title: 'ChitraFrame Home — Buy Framed Art Prints Online India' },
+    { path: '/shop', title: 'Shop All Framed Art Prints — ChitraFrame' },
+    { path: '/category/spiritual', title: 'Divine & Spiritual Art Prints — Radha Krishna, Mahadev, Ganesh' },
+    { path: '/category/automotive', title: 'Automotive Wall Art Prints — BMW, Porsche, Ferrari, F1' },
+    { path: '/category/sports', title: 'Sports Wall Art Prints — Cricket Legends' },
+    { path: '/category/wildlife', title: 'Wildlife Art Prints — Lion, Wolf, Eagle' },
+    { path: '/customize', title: 'Custom Photo Frame — Upload Your Photo' },
+  ];
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+`;
+  for (const pg of pages) {
+    xml += `  <url>
+    <loc>${baseUrl}${pg.path}</loc>
+    <lastmod>${today}</lastmod>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/dax4yqumu/image/upload/f_auto,q_auto,w_1200/chitraframe/og-cover.jpg</image:loc>
+      <image:title>${pg.title}</image:title>
+    </image:image>
+  </url>
+`;
+  }
+  xml += '</urlset>';
+  return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8' } });
+});
+
+// ── Google Merchant Center / Shopping Feed ─────────────────────────────────
+// Fetches live products from Supabase and generates Google-compatible XML feed
+// Submit this URL in Google Merchant Center → Feeds → Fetch
+app.get('/feed/google.xml', async (c) => {
+  const today = new Date().toISOString();
+  const baseUrl = 'https://chitraframe.in';
+  const cloudinary = 'https://res.cloudinary.com/dax4yqumu/image/upload/f_auto,q_auto,w_800/chitraframe';
+
+  // Product data with pricing — uses variants for accurate price range
+  const productCatalog = [
+    { id: 'mahadev-cosmic-trance', title: 'Mahadev Cosmic Trance Framed Art Print', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame', price: 649, gtin: '', description: 'Lord Shiva as a luminous cosmic silhouette. Museum-quality archival print in handcrafted Black or Natural Wood frame. Perfect for puja rooms and living rooms.' },
+    { id: 'radha-krishna-watercolor', title: 'Radha Krishna Watercolor Framed Art Print', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame', price: 649, description: 'Radha and Krishna in ethereal watercolor style. Soft pastels and divine energy. Archival pigment print in premium frame.' },
+    { id: 'radha-krishna-emerald-dance', title: 'Radha Krishna Emerald Dance Framed Art Print', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame', price: 699, description: 'Radha and Krishna in emerald-toned divine dance. Rich jewel tones and flowing forms. Museum-quality framed print.' },
+    { id: 'bmw-m4-carbon-dark', title: 'BMW M4 Carbon Dark Framed Art Print', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame', price: 749, description: 'BMW M4 in dark carbon aesthetic. Dramatic angles and precision engineering captured in archival art. Perfect for car enthusiasts.' },
+    { id: 'porsche-911-pacific-coast', title: 'Porsche 911 Pacific Coast Framed Art Print', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame', price: 749, description: 'Porsche 911 on the Pacific Coast Highway. Retro sunset tones and open-road romance. Museum-quality framed automotive art.' },
+    { id: 'lamborghini-aventador-neon', title: 'Lamborghini Aventador Neon Framed Art Print', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame', price: 749, description: 'Lamborghini Aventador in electric neon aesthetic. High-contrast drama and supercar energy. Archival print in premium frame.' },
+    { id: 'nissan-gtr-r34-osaka-rain', title: 'Nissan GTR R34 Osaka Rain Framed Art Print', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame', price: 749, description: 'Nissan GTR R34 in Osaka rain. JDM legend meets cinematic Japanese aesthetics. Museum-quality automotive wall art.' },
+    { id: 'f1-redbull-racing', title: 'F1 Red Bull Racing Framed Art Print', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame', price: 749, description: 'Formula 1 Red Bull Racing in high-speed glory. Dynamic composition and racing energy. Archival quality framed print.' },
+    { id: 'cricket-glory-moment', title: 'Cricket Glory Moment Framed Art Print', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame', price: 649, description: 'A defining cricket moment captured in stunning art. Perfect gift for cricket fans. Museum-quality archival print in premium frame.' },
+    { id: 'lion-geometric-gold', title: 'Lion Geometric Gold Framed Art Print', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame', price: 649, description: 'Majestic lion in geometric gold art style. Bold geometric forms and regal presence. Perfect for home and office.' },
+  ];
+
+  let feed = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+  <channel>
+    <title>ChitraFrame — Premium Framed Art Prints India</title>
+    <link>${baseUrl}</link>
+    <description>Buy museum-quality framed art prints online in India. Divine, Automotive, Sports and Wildlife — 51 designs, 4 sizes. Ships pan-India in 3-5 days. Starting ₹499.</description>
+`;
+
+  for (const p of productCatalog) {
+    const imgUrl = `${cloudinary}/${p.id}.jpg`;
+    const productUrl = `${baseUrl}/product/${p.id}`;
+    // Generate variants (4 sizes × 2 finishes)
+    const sizes = ['Small 8x12in', 'Medium 12x18in', 'Large 16x20in', 'XL 20x30in'];
+    const sizePrices = [p.price, p.price + 100, p.price + 350, p.price + 900];
+    const finishes = ['Black Frame', 'Natural Wood Frame'];
+
+    for (let si = 0; si < sizes.length; si++) {
+      for (const finish of finishes) {
+        const variantPrice = sizePrices[si] + (finish === 'Natural Wood Frame' ? 150 : 0);
+        const itemId = `${p.id}-${sizes[si].split(' ')[0].toLowerCase()}-${finish.includes('Black') ? 'black' : 'wood'}`;
+        feed += `
+    <item>
+      <g:id>${itemId}</g:id>
+      <g:title>${p.title} — ${sizes[si]} ${finish}</g:title>
+      <g:description>${p.description} Size: ${sizes[si]}. Finish: ${finish}. Free shipping above ₹899. Delivers pan-India in 3-5 days.</g:description>
+      <g:link>${productUrl}</g:link>
+      <g:image_link>${imgUrl}</g:image_link>
+      <g:condition>new</g:condition>
+      <g:availability>in stock</g:availability>
+      <g:price>${variantPrice} INR</g:price>
+      <g:brand>${p.brand}</g:brand>
+      <g:google_product_category>${p.category}</g:google_product_category>
+      <g:item_group_id>${p.id}</g:item_group_id>
+      <g:product_type>Home Decor &gt; Wall Art &gt; Framed Prints</g:product_type>
+      <g:shipping>
+        <g:country>IN</g:country>
+        <g:service>Standard</g:service>
+        <g:price>${variantPrice >= 899 ? '0' : '99'} INR</g:price>
+      </g:shipping>
+      <g:custom_label_0>${p.id.includes('radha') || p.id.includes('mahadev') || p.id.includes('ganesh') ? 'Spiritual' : p.id.includes('bmw') || p.id.includes('porsche') || p.id.includes('lamborghini') || p.id.includes('nissan') || p.id.includes('f1') ? 'Automotive' : p.id.includes('cricket') || p.id.includes('kohli') || p.id.includes('dhoni') ? 'Sports' : 'Wildlife'}</g:custom_label_0>
+      <g:custom_label_1>${sizes[si].split(' ')[0]}</g:custom_label_1>
+      <g:custom_label_2>${finish}</g:custom_label_2>
+    </item>`;
+      }
+    }
+  }
+
+  feed += `
+  </channel>
+</rss>`;
+
+  return new Response(feed, {
+    headers: {
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=86400', // 24h cache — merchant center fetches daily
+    }
+  });
+});
+
+// ── Sitemap Index ──────────────────────────────────────────────────────────
+// Tells Google / Bing about all our sitemaps in one central file
+app.get('/sitemap-index.xml', (c) => {
+  const baseUrl = 'https://chitraframe.in';
+  const today = new Date().toISOString().slice(0, 10);
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>${baseUrl}/sitemap.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${baseUrl}/sitemap-products.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${baseUrl}/sitemap-images.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+</sitemapindex>`;
+  return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+});
+
+// ── Meta Catalog / Instagram Shopping feed (JSON) ─────────────────────────
+// Submit at: Business Manager → Commerce Manager → Catalog → Data Sources → Add feed
+// Feed URL: https://chitraframe.in/feed/meta-catalog.json
+app.get('/feed/meta-catalog.json', async (c) => {
+  const baseUrl = 'https://chitraframe.in';
+  const cloudinary = 'https://res.cloudinary.com/dax4yqumu/image/upload/f_auto,q_auto,w_1200/chitraframe';
+
+  const products = [
+    { id: 'mahadev-cosmic-trance', title: 'Mahadev Cosmic Trance Framed Print', price: 649, description: 'Lord Shiva cosmic silhouette — museum-quality archival print in handcrafted frame.', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame' },
+    { id: 'radha-krishna-watercolor', title: 'Radha Krishna Watercolor Framed Print', price: 599, description: 'Ethereal Radha-Krishna watercolor devotional art in premium frame.', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame' },
+    { id: 'radha-krishna-emerald-dance', title: 'Radha Krishna Emerald Dance Framed Print', price: 699, description: 'Radha Krishna emerald toned divine dance — framed museum-quality print.', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame' },
+    { id: 'bmw-m4-carbon-dark', title: 'BMW M4 Carbon Dark Framed Print', price: 799, description: 'BMW M4 in dramatic carbon dark aesthetic — archival framed art for car enthusiasts.', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame' },
+    { id: 'porsche-911-pacific-coast', title: 'Porsche 911 Pacific Coast Framed Print', price: 749, description: 'Retro Porsche 911 on Pacific Coast — sunset tones in premium frame.', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame' },
+    { id: 'lamborghini-aventador-neon', title: 'Lamborghini Aventador Neon Framed Print', price: 849, description: 'Lamborghini Aventador in neon cyberpunk style — electric framed automotive art.', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame' },
+    { id: 'nissan-gtr-r34-osaka-rain', title: 'Nissan GTR R34 Osaka Rain Framed Print', price: 799, description: 'JDM legend Nissan GTR R34 in cinematic Osaka rain — archival framed print.', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame' },
+    { id: 'f1-redbull-racing', title: 'F1 Red Bull Racing Framed Print', price: 749, description: 'Formula 1 Red Bull in dynamic painterly style — framed motorsport wall art.', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame' },
+    { id: 'cricket-glory-moment', title: 'Cricket Glory Moment Framed Print', price: 599, description: 'Indian cricket victory moment — archival framed sports wall art.', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame' },
+    { id: 'lion-geometric-gold', title: 'Lion Geometric Gold Framed Print', price: 649, description: 'Majestic lion in geometric gold art — bold framed wildlife print.', category: 'Home & Garden > Decor > Artwork', brand: 'ChitraFrame' },
+  ];
+
+  const items = products.map(p => ({
+    id: p.id,
+    title: p.title,
+    description: p.description,
+    availability: 'in stock',
+    condition: 'new',
+    price: `${p.price} INR`,
+    link: `${baseUrl}/product/${p.id}`,
+    image_link: `${cloudinary}/${p.id}.jpg`,
+    brand: p.brand,
+    google_product_category: p.category,
+    product_type: 'Home Decor > Wall Art > Framed Prints',
+    shipping: [{ country: 'IN', service: 'Standard', price: p.price >= 899 ? '0 INR' : '99 INR' }],
+    currency: 'INR',
+    sale_price: '',
+    item_group_id: p.id,
+    custom_label_0: p.id.includes('mahadev') || p.id.includes('radha') ? 'Spiritual' : p.id.includes('bmw') || p.id.includes('porsche') || p.id.includes('lamborghini') || p.id.includes('nissan') || p.id.includes('f1') ? 'Automotive' : p.id.includes('cricket') ? 'Sports' : 'Wildlife',
+  }));
+
+  return c.json({ data: items }, 200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'public, max-age=86400',
+  });
+});
+
+// ── security.txt ─────────────────────────────────────────────────────────
+// Google, Bing, and security researchers check this — builds trust signals
+app.get('/.well-known/security.txt', (c) => {
+  return c.text(`Contact: mailto:support@chitraframe.in
+Contact: https://wa.me/917989531818
+Preferred-Languages: en, hi
+Canonical: https://chitraframe.in/.well-known/security.txt
+Policy: https://chitraframe.in/policy
+Expires: ${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()}`, 200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'public, max-age=86400',
+  });
+});
+
+// ── humans.txt ───────────────────────────────────────────────────────────
+// Validates brand authenticity to crawlers and curious visitors
+app.get('/humans.txt', (c) => {
+  return c.text(`/* TEAM */
+Brand: ChitraFrame
+Location: Hyderabad, Telangana, India
+Contact: support@chitraframe.in
+
+/* THANKS */
+Hono.js — https://hono.dev
+Cloudflare Pages — https://pages.cloudflare.com
+Supabase — https://supabase.com
+Cloudinary — https://cloudinary.com
+Razorpay — https://razorpay.com
+
+/* SITE */
+Last update: ${new Date().toISOString().slice(0, 10)}
+Language: English
+Doctype: HTML5
+Standards: W3C
+Platform: Cloudflare Workers
+`, 200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'public, max-age=86400',
+  });
+});
+
+// ── ads.txt ──────────────────────────────────────────────────────────────
+// Required if you run Google AdSense / DV360 / Google Ads (no harm to have it blank)
+app.get('/ads.txt', (c) => {
+  return c.text(`# ChitraFrame ads.txt
+# Add your Google Publisher ID below when you have Google Ads:
+# google.com, pub-XXXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
+`, 200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'public, max-age=86400',
+  });
+});
+
+// ── WhatsApp Business API verification (if using WABA) ───────────────────
+// Place this only if you use Meta WhatsApp Business API:
+// app.get('/.well-known/whatsapp-business-verification', (c) => { ... })
 
 // ==========================================
 // CUSTOMER FRONTEND PAGES (SPA Shell)
@@ -566,16 +909,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->`;
 }
 
-function pageShell(title: string, description: string, gtmId?: string, ogImage?: string, jsonLd?: string, analytics?: { ga4?: string, clarity?: string }, canonicalPath?: string): string {
+function pageShell(title: string, description: string, gtmId?: string, ogImage?: string, jsonLd?: string, analytics?: { ga4?: string, clarity?: string }, canonicalPath?: string, extraMeta?: string): string {
   // SECURITY: Sanitize title and description to prevent HTML injection
   const safeTitle = title.replace(/[<>"]/g, '').slice(0, 120);
   const safeDesc = description.replace(/[<>"]/g, '').slice(0, 320);
-  const safeOgImage = ogImage && /^https?:\/\//.test(ogImage) ? ogImage : '';
+  const safeOgImage = ogImage && /^https?:\/\//.test(ogImage) ? ogImage : 'https://res.cloudinary.com/dax4yqumu/image/upload/f_auto,q_auto,w_1200/chitraframe/og-cover.jpg';
   const canonical = canonicalPath ? `https://chitraframe.in${canonicalPath}` : 'https://chitraframe.in';
 
-  const imageTag = safeOgImage ? `\n  <meta property="og:image" content="${safeOgImage}">\n  <meta name="twitter:card" content="summary_large_image">\n  <meta name="twitter:image" content="${safeOgImage}">` : '';
+  // OG image dimensions hint (1200×630 standard)
+  const imageTag = `\n  <meta property="og:image" content="${safeOgImage}">\n  <meta property="og:image:width" content="1200">\n  <meta property="og:image:height" content="630">\n  <meta property="og:image:alt" content="${safeTitle}">\n  <meta name="twitter:card" content="summary_large_image">\n  <meta name="twitter:image" content="${safeOgImage}">`;
   const canonicalTag = `\n  <link rel="canonical" href="${canonical}">`;
+  // hreflang for en-IN + en
+  const hreflangTag = `\n  <link rel="alternate" hreflang="en-IN" href="${canonical}">\n  <link rel="alternate" hreflang="en" href="${canonical}">`;
   const ldTag = jsonLd ? `\n  ${jsonLd}` : '';
+  const extraMetaTag = extraMeta ? `\n  ${extraMeta}` : '';
 
   // Business Schema (always present) — LocalBusiness + Organization + WebSite
   const businessSchema = `\n  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":["LocalBusiness","Store"],"@id":"https://chitraframe.in/#business","name":"ChitraFrame","url":"https://chitraframe.in","logo":{"@type":"ImageObject","url":"https://chitraframe.in/static/images/logo.png","width":400,"height":100},"image":"https://chitraframe.in/static/images/logo.png","description":"ChitraFrame — India's premium framed art print brand. Museum-quality art prints in divine, automotive, sports and wildlife categories. Black and Natural Wood frames. Delivered pan-India in 3-5 days from ₹499.","address":{"@type":"PostalAddress","streetAddress":"Hyderabad","addressLocality":"Hyderabad","addressRegion":"Telangana","postalCode":"500001","addressCountry":"IN"},"telephone":"+91-79895-31818","email":"support@chitraframe.in","priceRange":"₹₹","currenciesAccepted":"INR","paymentAccepted":"Credit Card, Debit Card, UPI, Net Banking, COD","openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],"opens":"09:00","closes":"19:00"}],"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","reviewCount":"2000","bestRating":"5","worstRating":"1"},"sameAs":["https://instagram.com/chitraframe.in","https://facebook.com/chitraframe.in","https://wa.me/917989531818"],"hasOfferCatalog":{"@type":"OfferCatalog","name":"ChitraFrame Art Prints","itemListElement":[{"@type":"Offer","itemOffered":{"@type":"Product","name":"Divine Art Prints"}},{"@type":"Offer","itemOffered":{"@type":"Product","name":"Automotive Wall Art"}},{"@type":"Offer","itemOffered":{"@type":"Product","name":"Sports Legends Prints"}},{"@type":"Offer","itemOffered":{"@type":"Product","name":"Wildlife Art Prints"}}]}},{"@type":"WebSite","@id":"https://chitraframe.in/#website","url":"https://chitraframe.in","name":"ChitraFrame","description":"Buy framed art prints online India — divine, automotive, sports, wildlife. Museum quality. Ships in 3–5 days.","publisher":{"@id":"https://chitraframe.in/#business"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://chitraframe.in/shop?q={search_term_string}"},"query-input":"required name=search_term_string"}}]}</script>`;
@@ -599,33 +946,63 @@ function pageShell(title: string, description: string, gtmId?: string, ogImage?:
   </script>` : '';
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en-IN" prefix="og: https://ogp.me/ns#">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>${safeTitle}</title>
   <meta name="description" content="${safeDesc}">
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <!-- Open Graph — required for WhatsApp, Facebook, Telegram link previews -->
   <meta property="og:title" content="${safeTitle}">
   <meta property="og:description" content="${safeDesc}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="${canonical}">
   <meta property="og:site_name" content="ChitraFrame">
+  <meta property="og:locale" content="en_IN">
+  <!-- Twitter / X Card -->
+  <meta name="twitter:creator" content="@chitraframe_in">
   <meta name="twitter:site" content="@chitraframe_in">
   <meta name="twitter:title" content="${safeTitle}">
-  <meta name="twitter:description" content="${safeDesc}">${imageTag}${canonicalTag}${businessSchema}${ldTag}
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼️</text></svg>">
-  <!-- Performance: preconnect to critical origins -->
+  <meta name="twitter:description" content="${safeDesc}">${imageTag}${canonicalTag}${hreflangTag}${businessSchema}${ldTag}${extraMetaTag}
+  <!-- ── Favicons & PWA ── -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230F0E0C'/><text x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-family='serif' font-size='18' fill='%23C9973A'>CF</text></svg>">
+  <link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230F0E0C'/><text x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-family='serif' font-size='18' fill='%23C9973A'>CF</text></svg>">
+  <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='36' fill='%230F0E0C'/><text x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-family='serif' font-size='96' fill='%23C9973A'>CF</text></svg>">
+  <meta name="theme-color" content="#C9973A" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0F0E0C" media="(prefers-color-scheme: dark)">
+  <meta name="application-name" content="ChitraFrame">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ChitraFrame">
+  <meta name="msapplication-TileColor" content="#0F0E0C">
+  <!-- ── Geo targeting for Indian search engines ── -->
+  <meta name="geo.region" content="IN-TG">
+  <meta name="geo.placename" content="Hyderabad, Telangana, India">
+  <meta name="geo.position" content="17.3850;78.4867">
+  <meta name="ICBM" content="17.3850, 78.4867">
+  <meta name="language" content="English">
+  <meta name="revisit-after" content="7 days">
+  <meta name="author" content="ChitraFrame">
+  <meta name="copyright" content="ChitraFrame India">
+  <meta name="rating" content="general">
+  <meta name="distribution" content="global">
+  <meta name="category" content="shopping, home decor, art prints, frames">
+  <!-- ── Keywords (still used by some Indian/niche engines) ── -->
+  <meta name="keywords" content="framed art prints India, buy wall art online India, custom photo frame India, divine art prints, Radha Krishna frame, Mahadev wall art, automotive wall art, car art prints, ChitraFrame">
+  <!-- ── Performance: preconnect to critical origins ── -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
   <link rel="dns-prefetch" href="https://checkout.razorpay.com">
   <link rel="dns-prefetch" href="https://www.googletagmanager.com">
-  <!-- Fonts: display=swap for performance -->
+  <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+  <!-- ── Fonts: display=swap for LCP performance ── -->
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
   <link href="/static/styles.css" rel="stylesheet">
-  <!-- GSAP for scroll animations — async to not block render -->
+  <!-- GSAP for scroll animations — defer to not block FCP -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   ${getGTMHead(gtmId)}${ga4Tag}${clarityTag}
@@ -757,10 +1134,31 @@ for (const route of customerRoutes) {
       description = 'Get in touch with ChitraFrame via WhatsApp, email or Instagram. We respond within 2 hours. Bulk orders, custom frames, returns — we\'re here to help.';
     }
 
-    return c.html(pageShell(title, description, gtmId, ogImage, jsonLd, {
+    // Breadcrumb JSON-LD for product/category/blog pages
+    const safePageTitle = title.replace(/[<>"]/g, '').replace(/"/g, '&quot;').slice(0, 120);
+    let breadcrumbLd = '';
+    if (route === '/product/:slug') {
+      const slug = c.req.param('slug');
+      breadcrumbLd = `<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://chitraframe.in"},{"@type":"ListItem","position":2,"name":"Shop","item":"https://chitraframe.in/shop"},{"@type":"ListItem","position":3,"name":"${safePageTitle}","item":"https://chitraframe.in/product/${slug}"}]}</script>`;
+    } else if (route === '/category/:slug') {
+      const slug = c.req.param('slug');
+      breadcrumbLd = `<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://chitraframe.in"},{"@type":"ListItem","position":2,"name":"Shop","item":"https://chitraframe.in/shop"},{"@type":"ListItem","position":3,"name":"${safePageTitle}","item":"https://chitraframe.in/category/${slug}"}]}</script>`;
+    } else if (route === '/blog/:slug') {
+      const slug = c.req.param('slug');
+      breadcrumbLd = `<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://chitraframe.in"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://chitraframe.in/blog"},{"@type":"ListItem","position":3,"name":"${safePageTitle}","item":"https://chitraframe.in/blog/${slug}"}]}</script>`;
+    }
+    const combinedLd = [jsonLd, breadcrumbLd].filter(Boolean).join('\n  ');
+
+    // Per-page extra meta tags
+    let extraMeta = '';
+    if (route === '/shop') {
+      extraMeta = `<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">`;
+    }
+
+    return c.html(pageShell(title, description, gtmId, ogImage, combinedLd, {
       ga4: c.env.GA4_MEASUREMENT_ID,
       clarity: c.env.MICROSOFT_CLARITY_ID
-    }, route === '/product/:slug' ? `/product/${c.req.param('slug')}` : route === '/category/:slug' ? `/category/${c.req.param('slug')}` : route === '/blog/:slug' ? `/blog/${c.req.param('slug')}` : route === '/' ? '/' : route.includes(':') ? undefined : route));
+    }, route === '/product/:slug' ? `/product/${c.req.param('slug')}` : route === '/category/:slug' ? `/category/${c.req.param('slug')}` : route === '/blog/:slug' ? `/blog/${c.req.param('slug')}` : route === '/' ? '/' : route.includes(':') ? undefined : route, extraMeta));
   });
 }
 
