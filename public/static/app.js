@@ -1166,8 +1166,17 @@
     const images = p.images || [];
     const sorted = [...images].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
     const imageUrl = sorted[0]?.image_url || p.og_image_url || p.image_url || DESIGN_IMAGES[p.slug] || cldUrl(p.slug, 600);
-    const variants = (p.variants || []).filter(v => v.is_active !== false);
-    const price = variants.length > 0 ? Math.min(...variants.map(v => Number(v.price) || 9999)) : (p.base_price || 599);
+    const variants = (p.variants || []).filter(v => {
+      if (v.is_active === false) return false;
+      const sku = (v.sku || '').toLowerCase();
+      const frameType = (v.frame_type || '').toLowerCase();
+      const size = (v.size || '').toLowerCase();
+      // Filter out unframed posters / 99 rs variants
+      if (sku.includes('noframe') || sku.includes('poster') || frameType.includes('no frame') || frameType.includes('unframed') || size === 'a4' || Number(v.price) < 300) return false;
+      return true;
+    });
+    const framedPrices = variants.map(v => Number(v.price)).filter(pr => pr >= 300);
+    const price = framedPrices.length > 0 ? Math.min(...framedPrices) : Math.max(449, Number(p.base_price) || 449);
     const catName = (typeof p.category === 'object' && p.category?.name) ? p.category.name : (p.category || '');
     const catSlug = (typeof p.category === 'object' && p.category?.slug) ? p.category.slug : catName.toLowerCase();
     return { slug: p.slug, name: p.name, category: catName, categorySlug: catSlug, price, image: imageUrl, badge: p.badge || (p.is_featured ? 'Featured' : ''), _raw: p };
@@ -1484,146 +1493,210 @@
       if (!p || !p.slug) throw new Error('empty');
       galleryImages = [...(p.images || [])].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
       const primaryImg = galleryImages[0]?.image_url || p.og_image_url || DESIGN_IMAGES[p.slug] || cldUrl(p.slug, 800);
-      variants = (p.variants || []).filter(v => v.is_active !== false).sort((a, b) => Number(a.price) - Number(b.price));
-      const basePrice = variants.length > 0 ? Number(variants[0].price) : (p.base_price || 599);
-      const catName = (typeof p.category === 'object' && p.category?.name) ? p.category.name : (p.category || 'Art Print');
-      product = {
-        slug: p.slug, name: p.name, category: catName,
-        basePrice, desc: p.description || 'Museum-quality art print, framed and delivered across India.',
-        seoTitle: p.seo_title || `${p.name} | ChitraFrame India`,
-        seoDesc: p.seo_description || `Buy ${p.name} premium framed art print. Ships across India from \u20b9${basePrice}.`,
-        image: primaryImg, _raw: p
-      };
-    } catch (e) {
-      // Graceful fallback using DESIGN_IMAGES
-      const fallbackImg = DESIGN_IMAGES[slug] || cldUrl(slug, 800);
-      product = { slug, name: slug.replace(/-/g, ' ').replace(/\b./g, c => c.toUpperCase()), category: 'Art Print',
-        basePrice: 599, desc: 'Museum-quality framed art print.', image: fallbackImg,
-        seoTitle: `${slug} | ChitraFrame India`, seoDesc: 'Buy premium framed art print.' };
-      galleryImages = [{ image_url: fallbackImg, display_order: 0 }];
+    // Filter out noframe variants
+    variants = (p.variants || []).filter(v => {
+      if (v.is_active === false) return false;
+      const sku = (v.sku || '').toLowerCase();
+      const frameType = (v.frame_type || '').toLowerCase();
+      const size = (v.size || '').toLowerCase();
+      if (sku.includes('noframe') || sku.includes('poster') || frameType.includes('no frame') || frameType.includes('unframed') || size === 'a4' || Number(v.price) < 300) return false;
+      return true;
+    }).sort((a, b) => Number(a.price) - Number(b.price));
+
+    // Define canonical sizes & frame types
+    const SIZES = [
+      { key: 'Small', label: 'Small (8×12")', basePrice: 449, premPrice: 699 },
+      { key: 'Medium', label: 'Medium (12×18")', basePrice: 749, premPrice: 999 },
+      { key: 'Large', label: 'Large (16×20")', basePrice: 1099, premPrice: 1349 },
+      { key: 'XL', label: 'XL (20×30")', basePrice: 1699, premPrice: 1999 }
+    ];
+
+    // Map existing variants to fill real pricing
+    const priceMap = {};
+    for (const v of variants) {
+      const s = v.size || 'Medium';
+      const ft = (v.frame_type || '').toLowerCase().includes('premium') || (v.sku || '').toLowerCase().includes('premium') ? 'premium' : 'standard';
+      priceMap[`${s}-${ft}`] = Number(v.price);
     }
 
-    document.title = product.seoTitle;
-    const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute('content', product.seoDesc);
+    const initialSize = 'Medium';
+    const initialFrame = 'standard'; // 'standard' or 'premium'
+    const getPrice = (sz, fr) => priceMap[`${sz}-${fr}`] || (fr === 'premium' ? (SIZES.find(s=>s.key===sz)?.premPrice || 999) : (SIZES.find(s=>s.key===sz)?.basePrice || 749));
+    const firstPrice = getPrice(initialSize, initialFrame);
 
-    const firstVariantId = variants[0]?.id || `${slug}-medium-black`;
-    const firstPrice = variants[0] ? Number(variants[0].price) : product.basePrice;
-    const primaryImg = galleryImages[0]?.image_url || product.image;
+    const basePrice = Math.min(
+      ...SIZES.map(s => getPrice(s.key, 'standard'))
+    );
+    const catName = (typeof p.category === 'object' && p.category?.name) ? p.category.name : (p.category || 'Art Print');
+    product = {
+      slug: p.slug, name: p.name, category: catName,
+      basePrice, desc: p.description || 'Museum-quality art print, framed and delivered across India.',
+      seoTitle: p.seo_title || `${p.name} | ChitraFrame India`,
+      seoDesc: p.seo_description || `Buy ${p.name} premium framed art print. Ships across India from ₹${basePrice}.`,
+      image: primaryImg, _raw: p
+    };
+  } catch (e) {
+    const fallbackImg = DESIGN_IMAGES[slug] || cldUrl(slug, 800);
+    product = { slug, name: slug.replace(/-/g, ' ').replace(/\b./g, c => c.toUpperCase()), category: 'Art Print',
+      basePrice: 449, desc: 'Museum-quality framed art print.', image: fallbackImg,
+      seoTitle: `${slug} | ChitraFrame India`, seoDesc: 'Buy premium framed art print.' };
+    galleryImages = [{ image_url: fallbackImg, display_order: 0 }];
+  }
 
-    app.innerHTML = renderHeader() + `
-    <main id="main-content">
-      <div class="product-detail">
-        <div class="container">
-          <div class="product-layout">
-            <!-- Gallery -->
-            <div class="product-gallery">
-              <div class="product-main-img" id="pdp-main-wrap">
+  document.title = product.seoTitle;
+  const metaDesc = document.querySelector('meta[name="description"]');
+  if (metaDesc) metaDesc.setAttribute('content', product.seoDesc);
+
+  const initialSize = 'Medium';
+  const initialFrame = 'standard';
+  const firstPrice = 749;
+  const primaryImg = galleryImages[0]?.image_url || product.image;
+
+  app.innerHTML = renderHeader() + `
+  <main id="main-content">
+    <div class="product-detail">
+      <div class="container">
+        <div class="product-layout">
+          <!-- Gallery with Live Interactive Frame Preview -->
+          <div class="product-gallery">
+            <div class="pdp-frame-preview-container" id="pdp-preview-container">
+              <div class="pdp-frame-mockup frame-standard" id="pdp-frame-mockup">
                 <img id="product-main-image" src="${escapeHTML(primaryImg)}" alt="${escapeHTML(product.name)} framed art print" loading="eager" fetchpriority="high">
               </div>
-              ${galleryImages.length > 1 ? `
-              <div class="product-thumbnails">
-                ${galleryImages.map((img, i) => `
-                  <button class="thumb-btn${i === 0 ? ' thumb-active' : ''}" onclick="window.cf.switchThumb(this,'${escapeHTML(img.image_url)}')" aria-label="View image ${i+1}">
-                    <img src="${escapeHTML(img.image_url)}" alt="${escapeHTML(product.name)} view ${i+1}" loading="lazy">
-                  </button>`).join('')}
-              </div>` : ''}
+            </div>
+            <div class="frame-preview-toggle-hint">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 1.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11zm0 3a.75.75 0 00-.75.75v3.5c0 .414.336.75.75.75h2.5a.75.75 0 000-1.5h-1.75V6.25A.75.75 0 008 5.5z"/></svg>
+              <span>Live Frame Preview: switch style below</span>
+            </div>
+            ${galleryImages.length > 1 ? `
+            <div class="product-thumbnails" style="margin-top:14px;">
+              ${galleryImages.map((img, i) => `
+                <button class="thumb-btn${i === 0 ? ' thumb-active' : ''}" onclick="window.cf.switchThumb(this,'${escapeHTML(img.image_url)}')" aria-label="View image ${i+1}">
+                  <img src="${escapeHTML(img.image_url)}" alt="${escapeHTML(product.name)} view ${i+1}" loading="lazy">
+                </button>`).join('')}
+            </div>` : ''}
+          </div>
+
+          <!-- Info -->
+          <div class="product-info">
+            <nav class="product-breadcrumb" aria-label="Breadcrumb">
+              <a href="/" onclick="window.cf.nav('/');return false;">Home</a>
+              <span>/</span>
+              <a href="/shop" onclick="window.cf.nav('/shop');return false;">Shop</a>
+              <span>/</span>
+              <a href="/category/${escapeHTML((product._raw?.category?.slug || product.category || '').toLowerCase())}" onclick="window.cf.nav('/category/${escapeHTML((product._raw?.category?.slug || product.category || '').toLowerCase())}');return false;">${escapeHTML(product.category)}</a>
+            </nav>
+            <h1 class="product-detail-title" itemprop="name">${escapeHTML(product.name)}</h1>
+            <div class="product-detail-price">
+              <span class="price-from">Price</span>
+              <span id="product-current-price">${formatPrice(firstPrice)}</span>
             </div>
 
-            <!-- Info -->
-            <div class="product-info">
-              <nav class="product-breadcrumb" aria-label="Breadcrumb">
-                <a href="/" onclick="window.cf.nav('/');return false;">Home</a>
-                <span>/</span>
-                <a href="/shop" onclick="window.cf.nav('/shop');return false;">Shop</a>
-                <span>/</span>
-                <a href="/category/${escapeHTML((product._raw?.category?.slug || product.category || '').toLowerCase())}" onclick="window.cf.nav('/category/${escapeHTML((product._raw?.category?.slug || product.category || '').toLowerCase())}');return false;">${escapeHTML(product.category)}</a>
-              </nav>
-              <h1 class="product-detail-title" itemprop="name">${escapeHTML(product.name)}</h1>
-              <div class="product-detail-price">
-                <span class="price-from">from</span>
-                <span id="product-current-price">${formatPrice(firstPrice)}</span>
+            <!-- Size Selection (4 clean options) -->
+            <div class="size-section">
+              <div class="size-label-row">
+                <span class="size-label">Select Size</span>
+                <a href="/size-guide" onclick="window.cf.nav('/size-guide');return false;" class="size-guide-link">Size Guide</a>
               </div>
-
-              ${variants.length > 0 ? `
-              <div class="size-section">
-                <div class="size-label-row">
-                  <span class="size-label">Size</span>
-                  <a href="/size-guide" onclick="window.cf.nav('/size-guide');return false;" class="size-guide-link">Size Guide</a>
-                </div>
-                <div class="size-options" role="group" aria-label="Select size">
-                  ${variants.map((v, i) => `
-                    <button class="size-btn${i === 0 ? ' size-active' : ''}"
-                      data-size="${escapeHTML(v.size)}"
-                      data-price="${Number(v.price)}"
-                      data-variant-id="${escapeHTML(String(v.id))}"
-                      onclick="window.cf.selectSizeVariant(this)"
-                      aria-pressed="${i === 0 ? 'true' : 'false'}">
-                      ${escapeHTML(v.size)}
-                    </button>`).join('')}
-                </div>
-              </div>` : ''}
-
-              <!-- Trust Pills -->
-              <div class="product-trust">
-                <div class="product-trust-item">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l2 3h3l-2.5 2.5 1 3L7 8l-3.5 1.5 1-3L2 4h3L7 1z" fill="var(--gold)"/></svg>
-                  Freshly printed per order
-                </div>
-                <div class="product-trust-item">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5l2 6h8l2-6" stroke="var(--ink-500)" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 5V4a3 3 0 0 1 6 0v1" stroke="var(--ink-500)" stroke-width="1.2" stroke-linecap="round"/></svg>
-                  Ships in 3–5 days
-                </div>
-                <div class="product-trust-item">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l2 3h3l-2.5 2.5 1 3L7 8l-3.5 1.5 1-3L2 4h3L7 1z" stroke="var(--green)" stroke-width="1.2" stroke-linejoin="round"/></svg>
-                  Replacement guarantee
-                </div>
-              </div>
-
-              <!-- Add to Cart -->
-              <div class="pdp-cta-row">
-                <div class="pdp-qty-row">
-                  <button onclick="window.cf.pdpQty(-1)" class="qty-btn" aria-label="Decrease">−</button>
-                  <span id="pdp-qty">1</span>
-                  <button onclick="window.cf.pdpQty(1)" class="qty-btn" aria-label="Increase">+</button>
-                </div>
-                <button class="btn-primary pdp-atc-btn" onclick="window.cf.pdpAddToCart('${escapeHTML(slug)}','${escapeHTML(product.name)}',${firstPrice},'${escapeHTML(primaryImg)}')" aria-label="Add to cart">
-                  Add to Cart — <span id="pdp-btn-price">${formatPrice(firstPrice)}</span>
+              <div class="size-options" role="group" aria-label="Select size">
+                <button class="size-btn" data-size="Small" onclick="window.cf.selectPDPSize(this, 'Small')">
+                  Small (8×12")
+                </button>
+                <button class="size-btn size-active" data-size="Medium" onclick="window.cf.selectPDPSize(this, 'Medium')" aria-pressed="true">
+                  Medium (12×18")
+                </button>
+                <button class="size-btn" data-size="Large" onclick="window.cf.selectPDPSize(this, 'Large')">
+                  Large (16×20")
+                </button>
+                <button class="size-btn" data-size="XL" onclick="window.cf.selectPDPSize(this, 'XL')">
+                  XL (20×30")
                 </button>
               </div>
+            </div>
 
-
-
-              <!-- Description -->
-              <div class="product-desc">
-                <p>${escapeHTML(product.desc)}</p>
+            <!-- Frame Type Selection (2 distinct options with Live Preview) -->
+            <div class="frame-type-section">
+              <div class="size-label-row">
+                <span class="size-label">Frame Style</span>
               </div>
+              <div class="frame-type-grid" role="group" aria-label="Select Frame Style">
+                <button class="frame-type-btn frame-active" data-frame="standard" onclick="window.cf.selectPDPFrame(this, 'standard')">
+                  <div class="frame-type-header">
+                    <span class="frame-type-title">Standard Frame</span>
+                    <span class="frame-type-badge">Classic</span>
+                  </div>
+                  <span class="frame-type-desc">Photo with 1" sleek matte black frame</span>
+                </button>
+                <button class="frame-type-btn" data-frame="premium" onclick="window.cf.selectPDPFrame(this, 'premium')">
+                  <div class="frame-type-header">
+                    <span class="frame-type-title">Premium Frame</span>
+                    <span class="frame-type-badge">Mounted</span>
+                  </div>
+                  <span class="frame-type-desc">Photo + white gallery mat border inside frame</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Trust Pills -->
+            <div class="product-trust">
+              <div class="product-trust-item">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l2 3h3l-2.5 2.5 1 3L7 8l-3.5 1.5 1-3L2 4h3L7 1z" fill="var(--gold)"/></svg>
+                Freshly printed per order
+              </div>
+              <div class="product-trust-item">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5l2 6h8l2-6" stroke="var(--ink-500)" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 5V4a3 3 0 0 1 6 0v1" stroke="var(--ink-500)" stroke-width="1.2" stroke-linecap="round"/></svg>
+                Ships in 3–5 days
+              </div>
+              <div class="product-trust-item">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l2 3h3l-2.5 2.5 1 3L7 8l-3.5 1.5 1-3L2 4h3L7 1z" stroke="var(--green)" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                Replacement guarantee
+              </div>
+            </div>
+
+            <!-- Add to Cart -->
+            <div class="pdp-cta-row">
+              <div class="pdp-qty-row">
+                <button onclick="window.cf.pdpQty(-1)" class="qty-btn" aria-label="Decrease">−</button>
+                <span id="pdp-qty">1</span>
+                <button onclick="window.cf.pdpQty(1)" class="qty-btn" aria-label="Increase">+</button>
+              </div>
+              <button class="btn-primary pdp-atc-btn" onclick="window.cf.pdpAddToCart('${escapeHTML(slug)}','${escapeHTML(product.name)}',window._pdpState?.basePrice||${firstPrice},'${escapeHTML(primaryImg)}')" aria-label="Add to cart">
+                Add to Cart — <span id="pdp-btn-price">${formatPrice(firstPrice)}</span>
+              </button>
+            </div>
+
+            <!-- Description -->
+            <div class="product-desc">
+              <p>${escapeHTML(product.desc)}</p>
             </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Related Products placeholder -->
-      <section class="section section-alt">
-        <div class="container">
-          <div class="section-header">
-            <h2 class="section-title">You may also like</h2>
-          </div>
-          <div class="products-grid" id="related-products-grid">
-            ${[0,1,2,3].map(() => `<div class="pc pc-skeleton"></div>`).join('')}
-          </div>
+    <!-- Related Products placeholder -->
+    <section class="section section-alt">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">You may also like</h2>
         </div>
-      </section>
-    </main>
-    ${renderFooter()}`;
+        <div class="products-grid" id="related-products-grid">
+          ${[0,1,2,3].map(() => `<div class="pc pc-skeleton"></div>`).join('')}
+        </div>
+      </div>
+    </section>
+  </main>
+  ${renderFooter()}`;
 
-    window._pdpState = {
-      size: variants[0]?.size || 'Medium',
-      frame: variants[0]?.frame_type || 'Black',
-      qty: 1,
-      basePrice: firstPrice,
-      variantId: String(firstVariantId)
-    };
+  window._pdpPriceMap = priceMap;
+  window._pdpState = {
+    size: initialSize,
+    frame: 'Standard Frame',
+    frameStyle: 'standard',
+    qty: 1,
+    basePrice: firstPrice,
+    variantId: `${slug}-${initialSize.toLowerCase()}-standard`
+  };
 
     // Inject Product Schema for SEO
     injectProductSchema(product, variants, slug);
@@ -1734,24 +1807,59 @@
     if (main) main.src = src;
   }
 
-  function selectSize(btn, basePrice) {
+  function selectPDPSize(btn, sizeKey) {
     $$('.size-btn').forEach(b => { b.classList.remove('size-active'); b.setAttribute('aria-pressed', 'false'); });
     btn.classList.add('size-active');
     btn.setAttribute('aria-pressed', 'true');
-    const extra = parseInt(btn.dataset.extra || '0');
-    if (window._pdpState) {
-      window._pdpState.size = btn.dataset.size;
-      window._pdpState.basePrice = basePrice + extra;
-    }
-    const priceEl = $('#product-current-price');
-    if (priceEl) priceEl.textContent = formatPrice(basePrice + extra);
+    if (!window._pdpState) return;
+    window._pdpState.size = sizeKey;
+    updatePDPPriceAndPreview();
   }
 
-  function selectFrame(btn) {
-    $$('.frame-btn').forEach(b => { b.classList.remove('frame-active'); b.setAttribute('aria-pressed', 'false'); });
+  function selectPDPFrame(btn, frameStyle) {
+    $$('.frame-type-btn').forEach(b => { b.classList.remove('frame-active'); b.setAttribute('aria-pressed', 'false'); });
     btn.classList.add('frame-active');
     btn.setAttribute('aria-pressed', 'true');
-    if (window._pdpState) window._pdpState.frame = btn.dataset.frame;
+    if (!window._pdpState) return;
+    window._pdpState.frameStyle = frameStyle;
+    window._pdpState.frame = frameStyle === 'premium' ? 'Premium Frame (Mounted)' : 'Standard Frame';
+    updatePDPPriceAndPreview();
+  }
+
+  function updatePDPPriceAndPreview() {
+    const s = window._pdpState;
+    if (!s) return;
+    const priceMap = window._pdpPriceMap || {};
+    const defaultPrices = {
+      'Small':  { standard: 449, premium: 699 },
+      'Medium': { standard: 749, premium: 999 },
+      'Large':  { standard: 1099, premium: 1349 },
+      'XL':     { standard: 1699, premium: 1999 },
+    };
+    const sz = s.size || 'Medium';
+    const fr = s.frameStyle || 'standard';
+    const computedPrice = priceMap[`${sz}-${fr}`] || (defaultPrices[sz] ? defaultPrices[sz][fr] : (fr === 'premium' ? 999 : 749));
+
+    s.basePrice = computedPrice;
+    s.variantId = `${sz}-${fr}`.toLowerCase();
+
+    // Update displayed prices
+    const priceEl = document.getElementById('product-current-price');
+    if (priceEl) priceEl.textContent = formatPrice(computedPrice);
+    const btnPrice = document.getElementById('pdp-btn-price');
+    if (btnPrice) btnPrice.textContent = formatPrice(computedPrice);
+    const stickyPrice = document.getElementById('pdp-sticky-price');
+    if (stickyPrice) stickyPrice.textContent = formatPrice(computedPrice);
+
+    // Update live frame preview mockup
+    const mockup = document.getElementById('pdp-frame-mockup');
+    if (mockup) {
+      if (fr === 'premium') {
+        mockup.className = 'pdp-frame-mockup frame-premium';
+      } else {
+        mockup.className = 'pdp-frame-mockup frame-standard';
+      }
+    }
   }
 
   function pdpQty(delta) {
@@ -1983,6 +2091,7 @@
   }
 
   function renderCheckoutPage(app) {
+    document.title = 'Checkout \u2014 Complete Your Order | ChitraFrame';
     if (state.cart.length === 0) { navigate('/cart'); return; }
     // GA4 begin_checkout event
     const cartValue = state.cart.reduce((s, i) => s + (i.price * (i.quantity || 1)), 0);
@@ -3704,12 +3813,92 @@
         if (loading) loading.style.display = 'none';
 
       } catch (err) {
-        console.error('[cfwLoadPrices]', err);
+        console.warn('[cfwLoadPrices] Using fallback pricing:', err);
+        const fallbackSizes = [
+          { id: 'small', size: 'Small', label: '8×12"', standard: 449, premium: 699, context: 'Desk & shelf', popular: false },
+          { id: 'medium', size: 'Medium', label: '12×18"', standard: 749, premium: 999, context: 'Bedroom wall', popular: true },
+          { id: 'large', size: 'Large', label: '16×20"', standard: 1099, premium: 1349, context: 'Living room', popular: false },
+          { id: 'xl', size: 'XL', label: '20×30"', standard: 1699, premium: 1999, context: 'Statement wall', popular: false }
+        ];
+
+        const s = window._cfwState;
+        s.freeShippingThreshold = 899;
+        s.shippingCharge = 99;
+        s.prepaidDiscount = 50;
+        s.pricesLoaded = true;
+
+        s.priceMap = {};
+        for (const sz of fallbackSizes) {
+          s.priceMap[sz.size + '-standard'] = sz.standard;
+          s.priceMap[sz.size + '-premium']  = sz.premium;
+        }
+
+        s.basePrice = s.priceMap['Medium-standard'];
+
+        if (grid) {
+          grid.innerHTML = fallbackSizes.map(sz => {
+            const stdPrice = '₹' + sz.standard.toLocaleString('en-IN');
+            const premPrice = '₹' + sz.premium.toLocaleString('en-IN');
+            const isDefault = sz.size === 'Medium';
+            return `
+            <button class="cfp-size-tile${isDefault ? ' cfp-size-tile--active' : ''}"
+              id="cfp-sz-${sz.id}"
+              type="button"
+              onclick="window.cf.cfwSelectSize('${sz.size}','${sz.label}','cfp-sz-${sz.id}')"
+              aria-pressed="${isDefault ? 'true' : 'false'}">
+              ${sz.popular ? '<div class="cfp-size-popular">Most Popular</div>' : ''}
+              <div class="cfp-size-visual" aria-hidden="true">
+                <div class="cfp-size-frame cfp-size-frame--${sz.id}"></div>
+              </div>
+              <div class="cfp-size-info">
+                <strong class="cfp-size-name">${sz.size}</strong>
+                <span class="cfp-size-dim">${sz.label}</span>
+                <span class="cfp-size-room">${sz.context}</span>
+              </div>
+              <div class="cfp-size-prices">
+                <span class="cfp-size-std-price">${stdPrice}</span>
+                <span class="cfp-size-sep">·</span>
+                <span class="cfp-size-prm-price">${premPrice}</span>
+              </div>
+            </button>`;
+          }).join('');
+          grid.style.display = 'grid';
+        }
+
+        if (finGrid) {
+          finGrid.innerHTML = `
+          <button class="cfp-finish-tile cfp-finish-tile--active" id="cfp-fin-std" type="button"
+            onclick="window.cf.cfwSelectFinish('standard','cfp-fin-std','cfp-fin-prm')"
+            aria-pressed="true">
+            <div class="cfp-finish-swatch cfp-finish-swatch--standard" aria-hidden="true">
+              <div class="cfp-finish-swatch-inner"></div>
+            </div>
+            <div class="cfp-finish-info">
+              <strong>Standard Frame (Matte Black, 1")</strong>
+              <span>Clean, modern profile — complements all photos</span>
+            </div>
+            <span class="cfp-finish-price" id="cfp-fin-std-price">₹749</span>
+          </button>
+
+          <button class="cfp-finish-tile" id="cfp-fin-prm" type="button"
+            onclick="window.cf.cfwSelectFinish('premium','cfp-fin-prm','cfp-fin-std')"
+            aria-pressed="false">
+            <div class="cfp-finish-swatch cfp-finish-swatch--premium" aria-hidden="true">
+              <div class="cfp-finish-swatch-inner"></div>
+            </div>
+            <div class="cfp-finish-info">
+              <strong>Premium Frame (Mounted, 1.5")</strong>
+              <span>White mat border inside frame — gallery-grade look</span>
+            </div>
+            <span class="cfp-finish-price" id="cfp-fin-prm-price">₹999</span>
+          </button>`;
+        }
+
+        if (orderBtn) orderBtn.disabled = false;
         if (loading) loading.style.display = 'none';
-        if (error) error.style.display = 'flex';
-        if (grid) grid.style.display = 'none';
-        if (hint) hint.textContent = 'Prices unavailable, please try again';
-        // Keep checkout disabled
+        if (error) error.style.display = 'none';
+        if (hint) hint.textContent = 'Curated gallery framing options';
+        window.cf.cfwCalcPrice();
       }
     };
 
@@ -4416,6 +4605,8 @@
     pdpQty,
     selectSize,
     selectSizeVariant,
+    selectPDPSize,
+    selectPDPFrame,
     selectFrame,
     switchThumb,
     showSizeGuide,
