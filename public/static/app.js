@@ -1483,6 +1483,18 @@
 
     // Fetch from Supabase
     let product, galleryImages = [], variants = [];
+    let initialSize = 'Medium';
+    let initialFrame = 'standard';
+    let firstPrice = 749;
+    let priceMap = {};
+
+    const SIZES = [
+      { key: 'Small', label: 'Small (8×12")', basePrice: 449, premPrice: 699 },
+      { key: 'Medium', label: 'Medium (12×18")', basePrice: 749, premPrice: 999 },
+      { key: 'Large', label: 'Large (16×20")', basePrice: 1099, premPrice: 1349 },
+      { key: 'XL', label: 'XL (20×30")', basePrice: 1699, premPrice: 1999 }
+    ];
+
     try {
       const res = await fetch(`${API}/products/${encodeURIComponent(slug)}`, {
         headers: { 'Cache-Control': 'no-cache' }
@@ -1493,64 +1505,51 @@
       if (!p || !p.slug) throw new Error('empty');
       galleryImages = [...(p.images || [])].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
       const primaryImg = galleryImages[0]?.image_url || p.og_image_url || DESIGN_IMAGES[p.slug] || cldUrl(p.slug, 800);
-    // Filter out noframe variants
-    variants = (p.variants || []).filter(v => {
-      if (v.is_active === false) return false;
-      const sku = (v.sku || '').toLowerCase();
-      const frameType = (v.frame_type || '').toLowerCase();
-      const size = (v.size || '').toLowerCase();
-      if (sku.includes('noframe') || sku.includes('poster') || frameType.includes('no frame') || frameType.includes('unframed') || size === 'a4' || Number(v.price) < 300) return false;
-      return true;
-    }).sort((a, b) => Number(a.price) - Number(b.price));
 
-    // Define canonical sizes & frame types
-    const SIZES = [
-      { key: 'Small', label: 'Small (8×12")', basePrice: 449, premPrice: 699 },
-      { key: 'Medium', label: 'Medium (12×18")', basePrice: 749, premPrice: 999 },
-      { key: 'Large', label: 'Large (16×20")', basePrice: 1099, premPrice: 1349 },
-      { key: 'XL', label: 'XL (20×30")', basePrice: 1699, premPrice: 1999 }
-    ];
+      // Filter out noframe variants
+      variants = (p.variants || []).filter(v => {
+        if (v.is_active === false) return false;
+        const sku = (v.sku || '').toLowerCase();
+        const frameType = (v.frame_type || '').toLowerCase();
+        const size = (v.size || '').toLowerCase();
+        if (sku.includes('noframe') || sku.includes('poster') || frameType.includes('no frame') || frameType.includes('unframed') || size === 'a4' || Number(v.price) < 300) return false;
+        return true;
+      }).sort((a, b) => Number(a.price) - Number(b.price));
 
-    // Map existing variants to fill real pricing
-    const priceMap = {};
-    for (const v of variants) {
-      const s = v.size || 'Medium';
-      const ft = (v.frame_type || '').toLowerCase().includes('premium') || (v.sku || '').toLowerCase().includes('premium') ? 'premium' : 'standard';
-      priceMap[`${s}-${ft}`] = Number(v.price);
+      // Map existing variants to fill real pricing
+      for (const v of variants) {
+        const s = v.size || 'Medium';
+        const ft = (v.frame_type || '').toLowerCase().includes('premium') || (v.sku || '').toLowerCase().includes('premium') ? 'premium' : 'standard';
+        priceMap[`${s}-${ft}`] = Number(v.price);
+      }
+
+      const getPrice = (sz, fr) => priceMap[`${sz}-${fr}`] || (fr === 'premium' ? (SIZES.find(s=>s.key===sz)?.premPrice || 999) : (SIZES.find(s=>s.key===sz)?.basePrice || 749));
+      firstPrice = getPrice(initialSize, initialFrame);
+
+      const basePrice = Math.min(...SIZES.map(s => getPrice(s.key, 'standard')));
+      const catName = (typeof p.category === 'object' && p.category?.name) ? p.category.name : (p.category || 'Art Print');
+      product = {
+        slug: p.slug, name: p.name, category: catName,
+        basePrice, desc: p.description || 'Museum-quality art print, framed and delivered across India.',
+        seoTitle: p.seo_title || `${p.name} | ChitraFrame India`,
+        seoDesc: p.seo_description || `Buy ${p.name} premium framed art print. Ships across India from ₹${basePrice}.`,
+        image: primaryImg, _raw: p
+      };
+    } catch (e) {
+      const fallbackImg = DESIGN_IMAGES[slug] || cldUrl(slug, 800);
+      product = {
+        slug, name: slug.replace(/-/g, ' ').replace(/\b./g, c => c.toUpperCase()), category: 'Art Print',
+        basePrice: 449, desc: 'Museum-quality framed art print.', image: fallbackImg,
+        seoTitle: `${slug} | ChitraFrame India`, seoDesc: 'Buy premium framed art print.'
+      };
+      galleryImages = [{ image_url: fallbackImg, display_order: 0 }];
     }
 
-    const initialSize = 'Medium';
-    const initialFrame = 'standard'; // 'standard' or 'premium'
-    const getPrice = (sz, fr) => priceMap[`${sz}-${fr}`] || (fr === 'premium' ? (SIZES.find(s=>s.key===sz)?.premPrice || 999) : (SIZES.find(s=>s.key===sz)?.basePrice || 749));
-    const firstPrice = getPrice(initialSize, initialFrame);
+    document.title = product.seoTitle;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', product.seoDesc);
 
-    const basePrice = Math.min(
-      ...SIZES.map(s => getPrice(s.key, 'standard'))
-    );
-    const catName = (typeof p.category === 'object' && p.category?.name) ? p.category.name : (p.category || 'Art Print');
-    product = {
-      slug: p.slug, name: p.name, category: catName,
-      basePrice, desc: p.description || 'Museum-quality art print, framed and delivered across India.',
-      seoTitle: p.seo_title || `${p.name} | ChitraFrame India`,
-      seoDesc: p.seo_description || `Buy ${p.name} premium framed art print. Ships across India from ₹${basePrice}.`,
-      image: primaryImg, _raw: p
-    };
-  } catch (e) {
-    const fallbackImg = DESIGN_IMAGES[slug] || cldUrl(slug, 800);
-    product = { slug, name: slug.replace(/-/g, ' ').replace(/\b./g, c => c.toUpperCase()), category: 'Art Print',
-      basePrice: 449, desc: 'Museum-quality framed art print.', image: fallbackImg,
-      seoTitle: `${slug} | ChitraFrame India`, seoDesc: 'Buy premium framed art print.' };
-    galleryImages = [{ image_url: fallbackImg, display_order: 0 }];
-  }
-
-  document.title = product.seoTitle;
-  const metaDesc = document.querySelector('meta[name="description"]');
-  if (metaDesc) metaDesc.setAttribute('content', product.seoDesc);
-
-  const initialSize = 'Medium';
-  const initialFrame = 'standard';
-  const firstPrice = 749;
-  const primaryImg = galleryImages[0]?.image_url || product.image;
+    const primaryImg = galleryImages[0]?.image_url || product.image;
 
   app.innerHTML = renderHeader() + `
   <main id="main-content">
@@ -1860,6 +1859,17 @@
         mockup.className = 'pdp-frame-mockup frame-standard';
       }
     }
+  }
+
+  // Backward compatibility aliases
+  function selectSize(btn, basePrice) {
+    const size = btn.dataset?.size || 'Medium';
+    selectPDPSize(btn, size);
+  }
+
+  function selectFrame(btn) {
+    const frame = btn.dataset?.frame || 'standard';
+    selectPDPFrame(btn, frame);
   }
 
   function pdpQty(delta) {
