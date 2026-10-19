@@ -1242,7 +1242,7 @@
     wrap.innerHTML = `
       <button class="hero-product-card-inner" onclick="window.cf.nav('/product/${slug}')" aria-label="View ${name}">
         <div class="hero-pc-img-wrap">
-          <img src="${img}" alt="${name} framed art print" loading="eager" fetchpriority="high" width="400" height="500">
+          <img src="${img}" onerror="this.onerror=null;this.src='https://www.genspark.ai/api/files/s/6YSmJUF0';" alt="${name} framed art print" loading="eager" fetchpriority="high" width="400" height="500">
           <span class="hero-pc-badge">${badge}</span>
           <div class="hero-pc-overlay">
             <span class="hero-pc-overlay-cta">View Print →</span>
