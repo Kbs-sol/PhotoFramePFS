@@ -635,111 +635,75 @@
     app.innerHTML = renderHeader() + `
     <main id="main-content">
 
-      <!-- ══ HERO — Editorial Split ══ -->
-      <section class="hero-v2" aria-labelledby="hero-h1" itemscope itemtype="https://schema.org/WebPage">
+      <!-- ══ AWWWARDS LUXURY GALLERY HERO ══ -->
+      <section class="gallery-hero" aria-labelledby="hero-h1">
+        <div class="gallery-hero-canvas">
+          <!-- Ambient gallery lighting halo -->
+          <div class="gallery-light-spot"></div>
 
-        <!-- Hero cards panel: featured product + custom frame -->
-        <div class="hero-v2-visual" aria-hidden="false">
-          <div class="hero-cards-wrap">
-
-            <!-- Card 1: Top-converting product (loaded dynamically from API) -->
-            <div class="hero-product-card" id="hero-product-card">
-              <!-- skeleton while loading -->
-              <div class="hero-card-skeleton" id="hero-card-skeleton">
-                <div class="hero-card-skeleton-img"></div>
-                <div class="hero-card-skeleton-body">
-                  <div class="hero-card-skeleton-line" style="width:60%"></div>
-                  <div class="hero-card-skeleton-line" style="width:40%"></div>
-                  <div class="hero-card-skeleton-btn"></div>
+          <!-- Masterpiece Focal Frame -->
+          <div class="gallery-hero-masterpiece">
+            <div class="hero-frame-shadow">
+              <div class="hero-art-mat">
+                <div class="hero-art-img-wrap" id="hero-master-wrap">
+                  <img id="hero-master-img" src="https://www.genspark.ai/api/files/s/6YSmJUF0" alt="Mahadev Cosmic Trance Masterpiece Framed Art" loading="eager" fetchpriority="high">
+                  <div class="hero-art-plate">
+                    <span class="plate-title">Mahadev — Cosmic Trance</span>
+                    <span class="plate-spec">Archival Matte · 12×18" · Handcrafted Mat</span>
+                  </div>
                 </div>
               </div>
             </div>
-
-            <!-- Card 2: Custom Frame — fixed promo card -->
-            <button class="hero-custom-card" onclick="window.cf.nav('/customize')" aria-label="Order a custom photo frame">
-              <div class="hero-custom-card-inner">
-                <div class="hero-custom-frame-icon" aria-hidden="true">
-                  <div class="hcf-frame-outer">
-                    <div class="hcf-frame-mat">
-                      <svg viewBox="0 0 60 72" fill="none" width="60" height="72">
-                        <rect width="60" height="72" fill="#1a1a2e"/>
-                        <circle cx="30" cy="30" r="16" fill="none" stroke="rgba(201,151,58,0.5)" stroke-width="1"/>
-                        <circle cx="30" cy="24" r="7" fill="rgba(201,151,58,0.2)"/>
-                        <path d="M16 50 Q30 40 44 50" stroke="rgba(201,151,58,0.5)" stroke-width="1.2" fill="none"/>
-                        <text x="30" y="66" text-anchor="middle" fill="rgba(201,151,58,0.5)" font-size="5" font-family="serif">Your Photo</text>
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                <div class="hero-custom-card-body">
-                  <span class="hero-custom-eyebrow">Bespoke Framing</span>
-                  <strong class="hero-custom-title">Custom Photo Frame</strong>
-                  <span class="hero-custom-sub">Your memory, museum-quality</span>
-                  <div class="hero-custom-meta">
-                    <span class="hero-custom-price">From ₹449</span>
-                    <span class="hero-custom-ships">Ships in 3–5 days</span>
-                  </div>
-                </div>
-                <div class="hero-custom-cta" aria-hidden="true">
-                  <span>Frame It</span>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-              </div>
-            </button>
-
           </div>
-          <!-- floating price chip -->
-          <div class="hero-v2-price-chip">From ₹449</div>
+
+          <!-- Editorial Introduction -->
+          <div class="gallery-hero-editorial">
+            <span class="hero-atelier-tag">Atelier ChitraFrame · Fine Art &amp; Custom Framing</span>
+            <h1 class="gallery-hero-title" id="hero-h1">
+              Walls that speak<br><em>your story.</em>
+            </h1>
+            <p class="gallery-hero-lead">
+              Museum-quality giclée prints in handcrafted solid wood &amp; mounted gallery frames. Delivered across India with archival permanence.
+            </p>
+
+            <!-- Dual Atelier Navigation -->
+            <div class="gallery-hero-triggers">
+              <button class="atelier-btn atelier-btn-primary" onclick="window.cf.nav('/shop')" aria-label="Explore curated prints">
+                <span>Explore Curated Art</span>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <button class="atelier-btn atelier-btn-secondary" onclick="window.cf.nav('/customize')" aria-label="Frame your own photo">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.2"/></svg>
+                <span>Frame Your Own Photo</span>
+              </button>
+            </div>
+
+            <!-- Trust Meta Row -->
+            <div class="gallery-hero-meta">
+              <div class="meta-item">
+                <span class="meta-stars">★★★★★</span>
+                <span class="meta-text">4.9 / 5 · 2,000+ homes</span>
+              </div>
+              <div class="meta-dot">·</div>
+              <div class="meta-item">
+                <span class="meta-text">Ready to hang with hardware</span>
+              </div>
+              <div class="meta-dot">·</div>
+              <div class="meta-item">
+                <span class="meta-text">Free shipping from ₹899</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- Right panel: copy -->
-        <div class="hero-v2-copy" data-reveal>
-          <p class="hero-v2-eyebrow">Framed Art Prints · Delivered Across India</p>
-          <h1 class="hero-v2-h1" id="hero-h1" itemprop="name">
-            Walls that speak<br>
-            <em>your story</em>
-          </h1>
-          <div class="hero-v2-rating">
-            <span class="hero-v2-rating-stars">★★★★★</span>
-            <span class="hero-v2-rating-text">4.9 · 2,000+ orders across India</span>
-          </div>
-          <p class="hero-v2-sub" itemprop="description">
-            Archival-quality prints in handcrafted Black or Natural Wood frames.
-            Divine, Automotive, Sports &amp; Wildlife — 51 designs, 4 sizes.
-            Ships in 3–5 days, anywhere in India.
-          </p>
-
-          <div class="hero-v2-actions">
-            <button class="hero-v2-cta" id="hero-primary-cta" onclick="window.cf.nav('/shop');trackEvent('hero_cta',{variant:ABTest.get('hero_cta'),button:'primary'})" aria-label="Shop all premium framed art prints">
-              <span id="hero-cta-text">Shop All Prints</span>
-              <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M9 4l3.5 3.5L9 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-            <button class="hero-v2-ghost" onclick="window.cf.nav('/customize');trackEvent('hero_cta',{variant:ABTest.get('hero_cta'),button:'secondary'})">
-              Custom Frame →
-            </button>
-          </div>
-
-          <div class="hero-v2-pills">
-            <span class="hero-v2-pill">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 6l3 3 7-7" stroke="var(--green)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Free delivery above ₹899
-            </span>
-            <span class="hero-v2-pill">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.4 2.9L10.5 4.5l-2.3 2.2.5 3.1L6 8.4l-2.7 1.4.5-3.1L1.5 4.5l3.1-.6L6 1z" fill="var(--gold)"/></svg>
-              4.9 · 2,000+ orders
-            </span>
-            <span class="hero-v2-pill">
-              COD available
-            </span>
-          </div>
-
-          <!-- Category scroll on mobile -->
-          <div class="hero-v2-cats" role="navigation" aria-label="Product categories">
-            <button class="hero-v2-cat" onclick="window.cf.nav('/category/spiritual')">🙏 Divine</button>
-            <button class="hero-v2-cat" onclick="window.cf.nav('/category/automotive')">🚗 Cars</button>
-            <button class="hero-v2-cat" onclick="window.cf.nav('/category/sports')">🏏 Sports</button>
-            <button class="hero-v2-cat" onclick="window.cf.nav('/category/wildlife')">🦁 Wildlife</button>
-            <button class="hero-v2-cat" onclick="window.cf.nav('/customize')">✏️ Custom</button>
+        <!-- Curated Category Strip (Fluid Touch Rail) -->
+        <div class="gallery-cats-strip" role="navigation" aria-label="Explore by genre">
+          <div class="gallery-cats-inner">
+            <button class="cat-pill" onclick="window.cf.nav('/category/spiritual')"><span>🕉️ Divine &amp; Spiritual</span></button>
+            <button class="cat-pill" onclick="window.cf.nav('/category/automotive')"><span>🏎️ Automotive</span></button>
+            <button class="cat-pill" onclick="window.cf.nav('/category/sports')"><span>🏏 Sports Legends</span></button>
+            <button class="cat-pill" onclick="window.cf.nav('/category/wildlife')"><span>🦁 Wildlife &amp; Nature</span></button>
+            <button class="cat-pill" onclick="window.cf.nav('/customize')"><span>✨ Bespoke Custom</span></button>
           </div>
         </div>
       </section>
@@ -1098,13 +1062,8 @@
     // Hero canvas disabled — using editorial v2 hero
     // setTimeout(initHeroCanvas, 50);
     setTimeout(loadFeaturedProducts, 50);
-    setTimeout(loadHeroProductCard, 30);
-    // A/B test: update CTA text after render
-    setTimeout(() => {
-      const ctaEl = document.getElementById('hero-cta-text');
-      if (ctaEl) ctaEl.textContent = ABTest.heroCTA();
-      trackEvent('view_hero', { cta_variant: ABTest.get('hero_cta'), page: 'home' });
-    }, 50);
+    // Exit intent — initialise after 3 seconds (let user settle)
+    setTimeout(initExitIntent, 3000);
     // Inject FAQ Schema for home page
     injectHomeFAQSchema();
     // Exit intent — initialise after 3 seconds (let user settle)
